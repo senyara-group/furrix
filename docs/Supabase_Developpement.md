@@ -4,6 +4,8 @@ Cette préparation part de `main` fusionnée au commit `72a873c` et se trouve su
 
 Références : [audit du 23 octobre](audits/2026-10-23-audit-technique-furrix.md) et [périmètre du lot SQL](Furrix_Securisation.md). Le backend n'est toujours pas prêt à être ouvert aux utilisateurs ; quotas, points/récompenses, webhook et autres risques de l'audit restent ouverts.
 
+**Mise à jour d'historique DEV :** selon le compte rendu fourni, les trois migrations ont depuis été appliquées sur `jemikzqgbpaivlujnfgl` par le plugin. Les fichiers locaux sont renommés avec les mêmes versions et noms, sans modification du SQL. Voir [la correspondance et ses preuves SHA-256](Supabase_Alignement_Historique.md). La comparaison distante en direct n'a pas été exécutée dans cette session. Ne pas utiliser la procédure d'initialisation ci-dessous pour rejouer ces migrations sur ce projet ; aucun `db push` n'est autorisé dans le lot d'alignement.
+
 ## Outils et configuration locale
 
 - Git, Node.js >= 20 et npm. Machine actuelle : Node 24.16.0, npm 11.13.0.
@@ -84,15 +86,16 @@ Un premier `start` initialise la base et applique les migrations locales : c'est
 
 Sur un poste dédié et une stack expressément jetable, une répétition complète peut être effectuée ultérieurement avec `db reset --local --no-seed`, après confirmation de la perte des seules données locales. Cette commande n'a pas été exécutée ici. Aucun `--linked`/`--db-url` avec reset.
 
-## Application distante : procédure préparée, pas exécutée
+## Initialisation d'une autre cible neuve : procédure préparée
 
 Cette étape demande une nouvelle autorisation pour **la cible identifiée** et un préflight approuvé. Garder la Data API et les inscriptions de cette cible fermées aux utilisateurs pendant toute l'initialisation ; la configuration locale ne ferme pas le cloud. Ne pas connecter l'application.
+Elle ne s'applique pas au projet DEV déjà migré décrit ci-dessus.
 
 Vérifier d'abord le contenu et l'ordre des trois fichiers, sans les renommer :
 
-1. `0001_init.sql` : schéma, RLS initiale, RPC, trigger Auth et buckets ;
-2. `0002_rate_limiting.sql` : tables internes, `pg_cron`, deux jobs et RPC points initiale ;
-3. `0003_security_boundaries.sql` : correctif de privilèges et RPC.
+1. `20261023134035_furrix_0001_init.sql` : schéma, RLS initiale, RPC, trigger Auth et buckets ;
+2. `20261023134044_furrix_0002_rate_limiting.sql` : tables internes, `pg_cron`, deux jobs et RPC points initiale ;
+3. `20261023134053_furrix_0003_security_boundaries.sql` : correctif de privilèges et RPC.
 
 L'installation de `pg_cron` et la création des jobs de maintenance sont **des effets d'écriture** de 0002. Ils font partie de l'approbation requise. Chaque migration est appliquée dans son ordre par le CLI ; ne pas supposer que le lot entier est une transaction unique. 0003 est transactionnelle, mais un échec laisse potentiellement 0001/0002 déjà appliquées. Ne jamais ouvrir le backend entre ces étapes.
 
@@ -110,7 +113,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Historique non vérifié.' }
 npx.cmd --yes supabase@2.122.0 db push --linked --dry-run --skip-vault
 if ($LASTEXITCODE -ne 0) { throw 'Plan de migration non vérifié.' }
 # ARRÊT : comparer projet, historique et plan à l'approbation.
-# Sur cible neuve, le plan doit annoncer uniquement 0001, 0002 et 0003, dans cet ordre.
+# Sur cible neuve seulement : versions 20261023134035, 20261023134044, 20261023134053.
 # Après revue explicite du plan, commande d'application :
 npx.cmd --yes supabase@2.122.0 db push --linked --skip-vault
 if ($LASTEXITCODE -ne 0) { throw 'Application incomplète : maintenir la cible fermée et inspecter.' }

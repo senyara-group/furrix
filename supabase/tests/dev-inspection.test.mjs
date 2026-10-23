@@ -26,16 +26,19 @@ test('read-only development inspections (embedded database, no pg_cron)', async 
     assert.equal((await db.query("select to_regclass('supabase_migrations.schema_migrations') as t")).rows[0].t, null);
     assert.equal((await db.query("select count(*)::int as n from pg_class where relnamespace='public'::regnamespace and relkind='r'")).rows[0].n, 0);
   });
-  await db.exec(await read('../migrations/0001_init.sql'));
-  const second = await read('../migrations/0002_rate_limiting.sql');
+  await db.exec(await read('../migrations/20261023134035_furrix_0001_init.sql'));
+  const second = await read('../migrations/20261023134044_furrix_0002_rate_limiting.sql');
   const withoutCron = second.replace(/create extension if not exists pg_cron;[\s\S]*?(?=-- ═══ IDEMPOTENCE)/, '');
   assert.notEqual(second, withoutCron);
   await db.exec(withoutCron);
-  await db.exec(await read('../migrations/0003_security_boundaries.sql'));
+  await db.exec(await read('../migrations/20261023134053_furrix_0003_security_boundaries.sql'));
   // Fixture-only CLI history. No claim that migrations were run by the CLI.
   await db.exec(`create schema supabase_migrations;
-    create table supabase_migrations.schema_migrations(version text primary key);
-    insert into supabase_migrations.schema_migrations values('0001'),('0002'),('0003');`);
+    create table supabase_migrations.schema_migrations(version text primary key,name text);
+    insert into supabase_migrations.schema_migrations values
+      ('20261023134035','furrix_0001_init'),
+      ('20261023134044','furrix_0002_rate_limiting'),
+      ('20261023134053','furrix_0003_security_boundaries');`);
   const expectBlocked = async (pattern) => {
     try { await assert.rejects(db.exec(postflight), (e) => pattern.test(e.message)); }
     finally { await db.exec('rollback'); }
@@ -59,8 +62,13 @@ test('read-only development inspections (embedded database, no pg_cron)', async 
     await db.exec('grant insert on revenuecat_events to service_role');
   });
   await t.test('postflight detects incomplete migration history', async () => {
+    await db.exec("update supabase_migrations.schema_migrations set name='wrong_name' where version='20261023134053'");
+    await expectBlocked(/Expected migration version\/name pairs/);
+    await db.exec("update supabase_migrations.schema_migrations set name='furrix_0003_security_boundaries' where version='20261023134053'");
+    await db.exec("update supabase_migrations.schema_migrations set version='0003' where version='20261023134053'");
+    await expectBlocked(/Expected migration version\/name pairs/);
     await db.exec("delete from supabase_migrations.schema_migrations where version='0003'");
-    await expectBlocked(/Expected migration versions/);
+    await expectBlocked(/Expected migration version\/name pairs/);
   });
   await t.test('cron catalogue predicate accepts only the expected synthetic jobs and privileges', async () => {
     // Metadata fixture only: no extension, scheduler, job execution or preload.

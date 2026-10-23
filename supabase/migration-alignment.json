@@ -1,0 +1,40 @@
+{
+  "sourceCommit": "72a873c331b76d851a420a22b1766b1509081b1f",
+  "remoteProjectRef": "jemikzqgbpaivlujnfgl",
+  "remoteEvidence": "Version/name pairs supplied by the user; no live remote comparison executed in this session.",
+  "hashNote": "Working-tree hashes compare exact bytes before/after rename. Checkout line endings may differ from Git blobs. gitBlobSha256 hashes the original approved Git blob; staged blobs must match it.",
+  "migrations": [
+    {
+      "oldName": "0001_init.sql",
+      "newName": "20261023134035_furrix_0001_init.sql",
+      "version": "20261023134035",
+      "name": "furrix_0001_init",
+      "workingTreeSha256Before": "9ede2563a4ad32be7783795e766bbe8064e6703ffb744ce1440f0cd6da0c9038",
+      "workingTreeSha256After": "9ede2563a4ad32be7783795e766bbe8064e6703ffb744ce1440f0cd6da0c9038",
+      "gitBlobSha256": "9ede2563a4ad32be7783795e766bbe8064e6703ffb744ce1440f0cd6da0c9038"
+    },
+    {
+      "oldName": "0002_rate_limiting.sql",
+      "newName": "20261023134044_furrix_0002_rate_limiting.sql",
+      "version": "20261023134044",
+      "name": "furrix_0002_rate_limiting",
+      "workingTreeSha256Before": "fc00e1a3247734103a4c87958f18f731f79b6568a85c91c2dc5ef7bfe768eb13",
+      "workingTreeSha256After": "fc00e1a3247734103a4c87958f18f731f79b6568a85c91c2dc5ef7bfe768eb13",
+      "gitBlobSha256": "fc00e1a3247734103a4c87958f18f731f79b6568a85c91c2dc5ef7bfe768eb13"
+    },
+    {
+      "oldName": "0003_security_boundaries.sql",
+      "newName": "20261023134053_furrix_0003_security_boundaries.sql",
+      "version": "20261023134053",
+      "name": "furrix_0003_security_boundaries",
+      "workingTreeSha256Before": "25c88181e4e56b40cf229f5116f1f1eff924fba10bc84e6d6133ce50d961a0fe",
+      "workingTreeSha256After": "25c88181e4e56b40cf229f5116f1f1eff924fba10bc84e6d6133ce50d961a0fe",
+      "gitBlobSha256": "e0e950392288f61385b273bdbb0ea6621aa1bef6ffd10e8f057e7e48dbac0a08"
+    }
+  ],
+  "historicalAudit": {
+    "path": "docs/audits/2026-10-23-audit-technique-furrix.md",
+    "workingTreeSha256Before": "0b17c2c4849492515852945f4e0af87def5f212132537a5cdb5083d4bb9eb80a",
+    "workingTreeSha256After": "0b17c2c4849492515852945f4e0af87def5f212132537a5cdb5083d4bb9eb80a"
+  }
+}

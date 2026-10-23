@@ -32,11 +32,13 @@ Basculer dans `src/main.jsx` (une ligne à changer).
 
 Suivre [la préparation de l'environnement de développement](docs/Supabase_Developpement.md) :
 CLI figé, configuration locale, inspection en lecture seule, procédure approuvée pour
-les migrations **0001 → 0002 → 0003**, puis contrôles des permissions et de `pg_cron`.
+les migrations **20261023134035 → 20261023134044 → 20261023134053**, puis contrôles des permissions et de `pg_cron`.
 La configuration est déjà initialisée. Aucun déploiement distant ni Edge Function
 n'est autorisé par cette préparation ; ne pas ouvrir le backend aux utilisateurs.
 Voir aussi [l'audit de référence](docs/audits/2026-10-23-audit-technique-furrix.md)
 et [les limites du lot SQL](docs/Furrix_Securisation.md).
+Les anciens noms `0001`/`0002`/`0003` désignent les mêmes SQL, désormais renommés
+selon [la correspondance d'historique DEV](docs/Supabase_Alignement_Historique.md).
 
 5 Edge Functions incluses, toutes codées (pas des squelettes) :
 - `revenuecat-webhook` — synchronise le statut Premium (IAP)

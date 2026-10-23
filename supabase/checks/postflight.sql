@@ -120,9 +120,18 @@ begin
   if to_regclass('supabase_migrations.schema_migrations') is null then
     raise exception 'Migration history missing';
   end if;
-  execute 'select count(*) from supabase_migrations.schema_migrations
-    where version in (''0001'',''0002'',''0003'')' into n;
-  if n <> 3 then raise exception 'Expected migration versions 0001, 0002, 0003; found %', n; end if;
+  execute $migration_history$
+    select count(*) from supabase_migrations.schema_migrations as applied
+    join (values
+      ('20261023134035','furrix_0001_init'),
+      ('20261023134044','furrix_0002_rate_limiting'),
+      ('20261023134053','furrix_0003_security_boundaries')
+    ) as expected(version,name)
+      on applied.version=expected.version and applied.name=expected.name
+  $migration_history$ into n;
+  if n <> 3 then
+    raise exception 'Expected migration version/name pairs 20261023134035/furrix_0001_init, 20261023134044/furrix_0002_rate_limiting, 20261023134053/furrix_0003_security_boundaries; found %', n;
+  end if;
 
   if not exists (select 1 from pg_extension where extname='pg_cron')
     or to_regclass('cron.job') is null then

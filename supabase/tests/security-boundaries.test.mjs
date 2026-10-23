@@ -45,8 +45,8 @@ test('SQL security boundaries on a disposable PostgreSQL database', async (t) =>
     create table storage.buckets (id text primary key, name text, public boolean);
     grant usage on schema public, auth to anon, authenticated, service_role;
   `);
-  await db.exec(await migration('0001_init.sql'));
-  const original0002 = await migration('0002_rate_limiting.sql');
+  await db.exec(await migration('20261023134035_furrix_0001_init.sql'));
+  const original0002 = await migration('20261023134044_furrix_0002_rate_limiting.sql');
   // PGlite has no pg_cron. Only its extension and two schedules are omitted,
   // in memory; the versioned migration remains intact.
   const withoutCron = original0002.replace(
@@ -97,7 +97,7 @@ test('SQL security boundaries on a disposable PostgreSQL database', async (t) =>
       and not relrowsecurity`), 3);
   });
 
-  await db.exec(await migration('0003_security_boundaries.sql'));
+  await db.exec(await migration('20261023134053_furrix_0003_security_boundaries.sql'));
 
   for (const role of ['anon', 'authenticated']) {
     await t.test(`${role}: no effective sensitive column, inherited or function privileges`, async () => {
@@ -237,7 +237,7 @@ test('SQL security boundaries on a disposable PostgreSQL database', async (t) =>
   await t.test('migration fails closed if a client inherits BYPASSRLS', async () => {
     await db.exec('alter role legacy_api_grandparent bypassrls');
     try {
-      await assert.rejects(db.exec(await migration('0003_security_boundaries.sql')),
+      await assert.rejects(db.exec(await migration('20261023134053_furrix_0003_security_boundaries.sql')),
         (e) => e.code === 'P0001' && e.message.includes('legacy_api_grandparent'));
     } finally {
       await db.exec('rollback; alter role legacy_api_grandparent nobypassrls');
