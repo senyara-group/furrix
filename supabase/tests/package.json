@@ -1,0 +1,7 @@
+{
+  "name": "furrix-sql-security-tests",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test security-boundaries.test.mjs" },
+  "devDependencies": { "@electric-sql/pglite": "0.5.11" }
+}
