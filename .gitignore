@@ -5,3 +5,8 @@ dist
 .env.*.local
 .DS_Store
 supabase/.temp
+supabase/.branches
+supabase/.env
+supabase/.env.*
+supabase/.local/
+supabase/checks/results/
