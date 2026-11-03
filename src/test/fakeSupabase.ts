@@ -19,7 +19,7 @@ export function fakeSession(userId = '11111111-1111-4111-8111-111111111111'): Se
 
 export function createFakeSupabase() {
   const calls: Call[] = [];
-  const queue: Result[] = [];
+  const queue: (Result | (() => Result))[] = [];
   let authListener: ((event: string, session: Session | null) => void) | null = null;
 
   const builder = (table: string) => {
@@ -32,7 +32,8 @@ export function createFakeSupabase() {
     }
     const settle = (op: string) => () => {
       calls.push({ table, op, args: [] });
-      return Promise.resolve(queue.shift() ?? { data: null, error: null });
+      const next = queue.shift() ?? { data: null, error: null };
+      return Promise.resolve(typeof next === 'function' ? next() : next);
     };
     b.single = settle('single');
     b.maybeSingle = settle('maybeSingle');
@@ -69,9 +70,14 @@ export function createFakeSupabase() {
     auth,
     bucket,
     calls,
-    /** Programme la prochaine réponse PostgREST (single / maybeSingle). */
-    respond(result: Result) {
+    /** Programme la prochaine réponse PostgREST (single / maybeSingle) ; une fonction est évaluée à l'appel. */
+    respond(result: Result | (() => Result)) {
       queue.push(result);
+    },
+    /** Chemin du dernier objet téléversé. */
+    lastUploadedPath(): string | undefined {
+      const calls = bucket.upload.mock.calls;
+      return calls[calls.length - 1]?.[0];
     },
     emitAuth(event: string, session: Session | null) {
       authListener?.(event, session);

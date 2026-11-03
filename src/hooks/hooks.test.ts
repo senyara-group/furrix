@@ -109,14 +109,15 @@ describe('useMyPet', () => {
     expect(result.current.saving).toBe(false);
   });
 
-  it('photo refusée : profil conservé, avertissement et objet orphelin retiré', async () => {
+  it('photo refusée par le serveur : profil conservé, avertissement, objet retiré après relecture', async () => {
     const fake = createFakeSupabase();
     fake.respond({ data: row(), error: null }); // chargement : animal existant → édition
     const { result } = renderHook(() => useMyPet(fake.client, U));
     await waitFor(() => expect(result.current.status).toBe('ready'));
 
     fake.respond({ data: row({ city: 'Roubaix' }), error: null }); // update
-    fake.respond({ data: null, error: { code: '23514' } }); // enregistrement du chemin refusé
+    fake.respond({ data: null, error: { code: '23514' } }); // enregistrement du chemin refusé (réponse reçue)
+    fake.respond({ data: row({ city: 'Roubaix' }), error: null }); // relecture : chemin non référencé
     let out: Awaited<ReturnType<typeof result.current.save>> | undefined;
     await act(async () => { out = await result.current.save({ ...form, city: 'Roubaix' }, new File(['x'], 'a.jpg', { type: 'image/jpeg' })); });
 
@@ -147,5 +148,25 @@ describe('useMyPet', () => {
     await act(async () => { await result.current.save(form); });
     expect(result.current.error).toBe("Tu n'as pas le droit d'effectuer cette action.");
     expect(result.current.pet).toBeNull();
+  });
+});
+
+describe('useMyPet — réponse perdue', () => {
+  it('écriture du chemin réussie, réponse perdue : photo affichée, aucun avertissement', async () => {
+    const fake = createFakeSupabase();
+    fake.respond({ data: row(), error: null }); // chargement
+    const { result } = renderHook(() => useMyPet(fake.client, U));
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    fake.respond({ data: row(), error: null }); // update des champs
+    fake.respond({ data: null, error: { name: 'TypeError', message: 'Failed to fetch' } }); // réponse perdue
+    fake.respond(() => ({ data: row({ photos: [fake.lastUploadedPath()] }), error: null })); // relecture
+    let out: Awaited<ReturnType<typeof result.current.save>> | undefined;
+    await act(async () => { out = await result.current.save(form, new File(['x'], 'a.webp', { type: 'image/webp' })); });
+
+    expect(out).toMatchObject({ ok: true, warning: null });
+    expect(result.current.pet?.photos).toEqual([fake.lastUploadedPath()]);
+    expect(result.current.photoUrl).toBe(`https://cdn.test/pet-photos/${fake.lastUploadedPath()}`);
+    expect(fake.bucket.remove).not.toHaveBeenCalledWith([fake.lastUploadedPath()]);
   });
 });
