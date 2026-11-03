@@ -40,8 +40,9 @@ et [les limites du lot SQL](docs/Furrix_Securisation.md).
 Les anciens noms `0001`/`0002`/`0003` désignent les mêmes SQL, désormais renommés
 selon [la correspondance d'historique DEV](docs/Supabase_Alignement_Historique.md).
 
-**Authentification et profil animal** : branchés à Supabase dans le MVP (`VITE_FURRIX_APP=mvp`),
-le reste de l'interface reste en démonstration. Tests : `npm test`, `npm run typecheck`, `npm run test:sql`.
+**Authentification et profil animal** : services et hooks prêts, éprouvés sur le MVP utilisé comme banc
+d'essai (`VITE_FURRIX_APP=mvp`). L'interface cible `Furrix.jsx` n'est **pas encore connectée** (démonstration) ;
+raccordement restant détaillé dans la recette. Tests : `npm test`, `npm run typecheck`, `npm run test:sql`.
 Recette distante et opérations soumises à accord : [Recette_Auth_Profil.md](docs/Recette_Auth_Profil.md).
 
 5 Edge Functions incluses, toutes codées (pas des squelettes) :
