@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppError, toDataError, toStorageError } from '../services/errors';
+import { toDataError } from '../services/errors';
+import { replacePetPhoto } from '../services/petPhotoFlow';
 import * as petPhotos from '../services/petPhotos';
 import * as petsService from '../services/pets';
 import type { FurrixClient } from '../services/supabaseClient';
@@ -91,18 +92,9 @@ export function useMyPet(client: FurrixClient | null, userId: string | null): Us
           : await petsService.createPet(client, owner, checked.value);
         let warning: string | null = null;
         if (photo) {
-          let uploaded: string | null = null;
-          try {
-            const previous = saved.photos ?? [];
-            uploaded = await petPhotos.uploadPetPhoto(client, { userId: owner, petId: saved.id, file: photo });
-            saved = await petsService.setPetPhotos(client, saved.id, [uploaded]);
-            uploaded = null;
-            await petPhotos.removePetPhotos(client, previous.filter((p) => !saved.photos?.includes(p)));
-          } catch (e) {
-            if (uploaded) await petPhotos.removePetPhotos(client, [uploaded]);
-            const message = e instanceof AppError ? e.message : toStorageError(e).message;
-            warning = `Profil enregistré. ${message}`;
-          }
+          const outcome = await replacePetPhoto(client, { userId: owner, pet: saved, file: photo });
+          saved = outcome.pet;
+          if (outcome.status === 'failed') warning = `Profil enregistré. ${outcome.error.message}`;
         }
         if (current.current === owner) {
           setPet(saved);

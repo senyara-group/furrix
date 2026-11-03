@@ -1,5 +1,7 @@
 -- Furrix 0005 — validation serveur du profil animal.
 -- Reprend côté PostgreSQL les règles de src/validation/pet.ts : le client peut être contourné.
+-- Couvre aussi les champs texte de l'onboarding de Furrix.jsx (allerg, food, toy, weight), interface cible ;
+-- energy / social / clean sont déjà bornés 1-5 par 0001.
 -- Nouvelle migration : les migrations 0001 à 0003 déjà appliquées ne sont ni modifiées ni rejouées.
 -- Uniquement des fonctions natives (pg_catalog) : aucun droit EXECUTE supplémentaire à accorder.
 --
@@ -13,6 +15,10 @@
 --     drop constraint if exists pets_age_length,
 --     drop constraint if exists pets_city_length,
 --     drop constraint if exists pets_bio_length,
+--     drop constraint if exists pets_allerg_length,
+--     drop constraint if exists pets_food_length,
+--     drop constraint if exists pets_toy_length,
+--     drop constraint if exists pets_weight_length,
 --     drop constraint if exists pets_photos_owned;
 begin;
 
@@ -23,6 +29,10 @@ alter table public.pets
   add constraint pets_age_length check (age is null or char_length(age) <= 30),
   add constraint pets_city_length check (city is null or char_length(city) <= 80),
   add constraint pets_bio_length check (bio is null or char_length(bio) <= 500),
+  add constraint pets_allerg_length check (allerg is null or char_length(allerg) <= 120),
+  add constraint pets_food_length check (food is null or char_length(food) <= 80),
+  add constraint pets_toy_length check (toy is null or char_length(toy) <= 80),
+  add constraint pets_weight_length check (weight is null or char_length(weight) <= 20),
   add constraint pets_photos_owned check (
     photos is null
     or cardinality(photos) = 0

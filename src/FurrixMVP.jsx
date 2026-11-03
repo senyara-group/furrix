@@ -5,7 +5,7 @@ import { useMyPet } from "./hooks/useMyPet.ts";
 import { validatePhotoFile } from "./services/petPhotos.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════
-// FURRIX — MVP
+// FURRIX — MVP (banc d'essai temporaire : l'interface cible reste Furrix.jsx)
 // 8 fonctionnalités seulement : auth, profil animal, swipe, matching, liste
 // de matchs, chat texte, filtre espèce+rayon, géoloc approximative (ville).
 // Tout le reste (véto, assurance, marketplace, communauté, événements,

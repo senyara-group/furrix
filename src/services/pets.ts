@@ -64,3 +64,10 @@ export async function setPetPhotos(client: FurrixClient, petId: string, paths: s
   if (error) throw toDataError(error);
   return data as PetRow;
 }
+
+/** Relecture de l'état serveur d'un animal (réconciliation après une réponse perdue). */
+export async function fetchPetById(client: FurrixClient, petId: string): Promise<PetRow | null> {
+  const { data, error } = await client.from('pets').select(PET_COLUMNS).eq('id', petId).maybeSingle();
+  if (error) throw toDataError(error);
+  return data as PetRow | null;
+}
