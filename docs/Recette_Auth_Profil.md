@@ -1,6 +1,10 @@
 # Lot « authentification et profil animal » — recette Supabase
 
-> **Interface cible : `src/Furrix.jsx`.** Le MVP (`FurrixMVP.jsx`, `VITE_FURRIX_APP=mvp`) n'est qu'un banc d'essai
+> **Recadrage produit en cours (3 novembre 2026)** : le positionnement mobile-only et le design actuel ne sont
+> plus considérés comme définitivement validés (application web envisagée, avec iOS/Android cohérentes).
+> Ce lot est figé à son périmètre ; ses hypothèses produit sont listées en fin de document pour arbitrage.
+>
+> **Interface cible actuelle : `src/Furrix.jsx`** (sous réserve du recadrage). Le MVP (`FurrixMVP.jsx`, `VITE_FURRIX_APP=mvp`) n'est qu'un banc d'essai
 > temporaire des services et hooks. Son branchement **ne signifie pas** que l'application complète est connectée :
 > `Furrix.jsx` fonctionne toujours entièrement sur des données de démonstration. Voir « Raccordement restant ».
 
@@ -159,3 +163,26 @@ renommer les colonnes.
   de `Furrix.jsx`.
 - Les contraintes 0005 couvrent les champs du MVP ; les autres colonnes de `pets` (santé, caractère) n'ont pas
   encore de limites serveur.
+
+## Hypothèses produit à arbitrer
+
+Choix faits dans ce lot sans validation produit explicite. Aucun n'est irréversible ; ceux marqués « SQL » touchent
+les migrations 0004/0005, **non appliquées** (aucune refonte n'est engagée).
+
+| # | Hypothèse | Où | Impact si elle change |
+|---|---|---|---|
+| H1 | Plateforme : session persistée dans le stockage web (`localStorage`), redirection de confirmation vers `window.location.origin`, `detectSessionInUrl` | `supabaseClient.ts`, `auth.ts` | Web : adapté. Natif (Capacitor) : stockage à remplacer (Preferences/Keychain), confirmation par lien profond (`fr.furrix.app://…`) |
+| H2 | Authentification par e-mail + mot de passe uniquement, confirmation d'e-mail supposée active | `auth.ts`, `useAuth.ts` | Lien magique, Google/Apple : nouveaux parcours ; Sign in with Apple obligatoire sur iOS si un autre fournisseur social est proposé |
+| H3 | Mot de passe ≥ 8 caractères côté client | `validation/auth.ts` | À aligner sur la politique serveur Supabase (non vérifiée) |
+| H4 | **Pas de déclaration 18+ ni d'acceptation CGU/confidentialité à l'inscription** (exigée par la doc juridique) | écran d'inscription | Ajout requis avant toute ouverture ; parcours et stockage du consentement à définir |
+| H5 | Un seul animal par compte (premier animal lu) | `pets.ts`, `useMyPet.ts` | Multi-animaux : sélection d'animal actif, listes, écrans |
+| H6 | Champs obligatoires : nom, race, ville ; âge en texte libre ; sexe stocké « ♂/♀ » ; ville saisie à la main | `validation/pet.ts`, 0005 (SQL) | Race « croisé/inconnue », date de naissance, géolocalisation, valeurs neutres de sexe |
+| H7 | Liste d'espèces et d'objectifs du schéma 0001 ; « show » et « ferme » acceptés par la base mais absents de l'écran MVP | `types/pet.ts` | Liste à figer avec le produit |
+| H8 | Limites de texte (nom 50, race 60, ville 80, bio 500 ; allergies 120, alimentation/jouet 80, poids 20) | `validation/pet.ts`, 0005 (SQL) | Ajuster avant application de 0005 |
+| H9 | Champs `allerg/food/toy/weight` bornés **d'après l'onboarding de `Furrix.jsx`** | 0005 (SQL), ajouté dans #4 | Si le design change, ces limites peuvent être retirées de 0005 avant application |
+| H10 | Une photo principale par animal (la base en accepte 6) ; JPEG/PNG/WebP, 5 Mo ; **HEIC refusé** | `petPhotos.ts`, 0004 (SQL) | Photos iPhone : conversion client ou acceptation HEIC ; galerie multi-photos |
+| H11 | Photos **publiques par URL** ; sort en cas de blocage/suppression de compte non défini | 0004 (SQL) | Bucket privé + URL signées : changement de 0004 et de l'affichage |
+| H12 | Textes en français, tutoiement | messages d'erreur, écrans | Internationalisation, vouvoiement |
+| H13 | **Mode démonstration automatique si les variables Supabase manquent** | `supabaseClient.ts` | Sur un déploiement web mal configuré, l'app s'afficherait en démonstration sans erreur : à interdire en production |
+| H14 | Le MVP sert de banc d'essai, sélectionné par `VITE_FURRIX_APP=mvp` ; `Furrix.jsx` reste l'entrée par défaut | `main.jsx` | Selon le recadrage, le banc d'essai peut être retiré |
+
