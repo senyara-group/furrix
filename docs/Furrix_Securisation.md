@@ -4,6 +4,8 @@ Référence : [audit technique du 23 octobre 2026](audits/2026-10-23-audit-techn
 
 Branche : `codex/sql-security-boundaries`. Aucun déploiement distant. Les migrations `0001` et `0002`, les interfaces et les Edge Functions sont conservées intactes.
 
+Les numéros courts ci-dessus sont les libellés historiques du lot. Les fichiers SQL ont ensuite été renommés sans changement de contenu pour correspondre à l'historique DEV : voir [l'alignement local](Supabase_Alignement_Historique.md).
+
 ## Périmètre réalisé
 
 - F01 : seuls `name`, `city`, `bio` sont modifiables par le propriétaire du profil. Le client ne peut ni insérer un profil ni changer `role`, `premium`, l'identifiant ou les dates serveur.
@@ -15,7 +17,7 @@ Branche : `codex/sql-security-boundaries`. Aucun déploiement distant. Les migra
 
 ## Privilèges et héritage
 
-`0003_security_boundaries.sql` est transactionnelle. Elle retire tous les privilèges de table **et de chaque colonne**, y compris les grants explicites, à `PUBLIC`, `anon`, `authenticated` et à la fermeture transitive de leurs rôles parents. Elle retire aussi les privilèges de la séquence interne et les droits d'exécution des deux RPC à ces bénéficiaires. Une simple révocation d'UPDATE sur une colonne ne neutralise pas un UPDATE de table ; inversement, révoquer une table ne suffit pas à supprimer les grants de colonnes.
+`20261023134053_furrix_0003_security_boundaries.sql` est transactionnelle. Elle retire tous les privilèges de table **et de chaque colonne**, y compris les grants explicites, à `PUBLIC`, `anon`, `authenticated` et à la fermeture transitive de leurs rôles parents. Elle retire aussi les privilèges de la séquence interne et les droits d'exécution des deux RPC à ces bénéficiaires. Une simple révocation d'UPDATE sur une colonne ne neutralise pas un UPDATE de table ; inversement, révoquer une table ne suffit pas à supprimer les grants de colonnes.
 
 Les ACL sont ensuite reconstruites par liste de colonnes autorisées ; aucune future colonne ne sera implicitement éditable. Les rôles parents partagés peuvent perdre leurs droits sur ces objets, même pour d'autres membres. `CASCADE` peut supprimer des délégations issues des grants retirés : une revue du catalogue de la future instance sera nécessaire avant toute application distante. Les grants serveur nécessaires aux objets touchés sont explicites.
 

@@ -1,0 +1,83 @@
+# Local development only. This is NOT the configuration of a hosted project.
+# CLI version: cli-version.txt. Remote project identity is never stored here.
+project_id = "furrix-dev"
+
+[api]
+# SQL-only preparation: do not expose the unfinished backend locally yet.
+enabled = false
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+# Match legacy Supabase default grants relied upon by 0001/0002.
+# 0003 removes sensitive grants; actual ACLs MUST be checked after migration.
+auto_expose_new_tables = true
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.pooler]
+enabled = false
+
+[db.migrations]
+enabled = true
+schema_paths = []
+
+[db.seed]
+enabled = false
+sql_paths = []
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:5173"
+additional_redirect_urls = []
+enable_signup = false
+enable_anonymous_sign_ins = false
+enable_refresh_token_rotation = true
+
+[auth.email]
+enable_signup = false
+enable_confirmations = true
+
+[local_smtp]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+
+[studio]
+enabled = false
+
+[realtime]
+enabled = false
+
+[analytics]
+enabled = false
+
+[edge_runtime]
+enabled = false
+
+# No function is ready to serve/deploy. Authentication design is deferred.
+# In particular, do not disable JWT checks to make the webhook deployable.
+[functions.award-points]
+enabled = false
+verify_jwt = true
+
+[functions.redeem-reward]
+enabled = false
+verify_jwt = true
+
+[functions.rate-limit]
+enabled = false
+verify_jwt = true
+
+[functions.revenuecat-webhook]
+enabled = false
+verify_jwt = true
+
+[functions.send-email]
+enabled = false
+verify_jwt = true

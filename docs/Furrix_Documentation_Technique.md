@@ -226,7 +226,7 @@ supabase functions serve       # Edge Functions en local
 
 ### 4.2 Schéma SQL complet (migrations)
 
-> À placer dans `supabase/migrations/0001_init.sql`. Les noms de colonnes **reprennent exactement** les champs du front (`vc, ster, chip, energy, social, clean, food, toy, weight, purpose...`) pour brancher sans réécrire.
+> À placer dans `supabase/migrations/20261023134035_furrix_0001_init.sql`. Les noms de colonnes **reprennent exactement** les champs du front (`vc, ster, chip, energy, social, clean, food, toy, weight, purpose...`) pour brancher sans réécrire.
 
 ```sql
 -- ========== PROFILES (le maître) ==========
@@ -956,7 +956,7 @@ UI/UX complète 6 onglets · moteur swipe 60fps · matching scoré · rétention
 3. `git clone` → §2.2 étapes 1-6 → l'app de démo tourne en local. **Critère : swipe fonctionnel sur localhost.**
 
 **Jour 1 — après-midi (4 h)** :
-4. Créer le projet Supabase staging (§4.1), appliquer `0001_init.sql` (§4.2-4.3), lancer le seed.
+4. Créer le projet Supabase staging (§4.1), appliquer `20261023134035_furrix_0001_init.sql` (§4.2-4.3), lancer le seed.
 5. Créer 2 comptes de test, vérifier les RLS à la main (un compte ne lit pas les messages de l'autre).
 
 **Jour 2** : brancher auth + onboarding (§5, plan §20 T3-T4). À partir de là, suivre le plan §20 dans l'ordre.

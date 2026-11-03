@@ -3,7 +3,7 @@
 **Destinataire :** Guillaume Cools (développeur)
 **Éditeur :** Groupe Senyara — Yannis Sénéchal
 **Version :** 1.0 — document de référence
-**Base d'analyse :** code source réel du projet (`src/Furrix.jsx` 1 708 lignes, `supabase/migrations/0001_init.sql` 281 lignes, `0002_rate_limiting.sql`, 5 Edge Functions)
+**Base d'analyse :** code source réel du projet (`src/Furrix.jsx` 1 708 lignes, `supabase/migrations/20261023134035_furrix_0001_init.sql` 281 lignes, `20261023134044_furrix_0002_rate_limiting.sql`, 5 Edge Functions)
 
 **Convention :**
 - ✅ **EXISTANT** — présent et exploitable dans le code
@@ -66,7 +66,7 @@ Aucun concurrent identifié ne réunit ces briques : les acteurs du marché sont
 🔧 **Problème bloquant identifié dans le schéma SQL :**
 
 ```sql
--- 0001_init.sql, table pets — contrainte RIGIDE
+-- 20261023134035_furrix_0001_init.sql, table pets — contrainte RIGIDE
 species text not null check (species in
   ('chien','chat','lapin','oiseau','reptile','rongeur','cheval','ferme'))
 ```
@@ -1042,9 +1042,9 @@ Tous les points précédemment ouverts ont été tranchés :
 | 1 | `Furrix.jsx` | **Paiement simulé** : un clic sur une formule active Premium localement (`setPrem(true)`). À remplacer par le SDK RevenueCat ; le statut doit venir du webhook |
 | 2 | `Furrix.jsx` | **Points modifiables côté client** (`aP()`) : triche triviale une fois en ligne. Basculer sur `award-points` |
 | 3 | `Furrix.jsx` | **Limite de 5 swipes en `localStorage`** : contournable en vidant le cache. Basculer sur l'Edge Function `rate-limit` |
-| 4 | `0001_init.sql` | Contrainte `CHECK` sur `pets.species` → table de référence `species` |
-| 5 | `0001_init.sql` | `subscriptions.plan` ne supporte qu'une formule → ajout de `tier`, `period`, `max_pets` |
-| 6 | `0001_init.sql` | `profiles.role` n'accepte pas `'pro'` |
+| 4 | `20261023134035_furrix_0001_init.sql` | Contrainte `CHECK` sur `pets.species` → table de référence `species` |
+| 5 | `20261023134035_furrix_0001_init.sql` | `subscriptions.plan` ne supporte qu'une formule → ajout de `tier`, `period`, `max_pets` |
+| 6 | `20261023134035_furrix_0001_init.sql` | `profiles.role` n'accepte pas `'pro'` |
 | 7 | `Furrix.jsx` | `myPet` objet unique → tableau + animal actif |
 | 8 | — | Aucun écran de signalement, de blocage, ni de suppression de compte — **bloquant stores** |
 

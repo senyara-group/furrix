@@ -13,7 +13,7 @@ Ce document est ton point d'entrée unique. Tout le reste (schéma DB, sécurit�
 
 | Élément | Fichier | Action de ta part |
 |---|---|---|
-| Schéma DB complet (16 tables + RLS + RPC + index) | `supabase/migrations/0001_init.sql` + `0002_rate_limiting.sql` | `supabase db push`, c'est tout |
+| Schéma DB complet (16 tables + RLS + RPC + index) | `supabase/migrations/20261023134035_furrix_0001_init.sql` + `20261023134044_furrix_0002_rate_limiting.sql` | `supabase db push`, c'est tout |
 | Seed vétérinaires Hauts-de-France | `supabase/seed.sql` | L'exécuter dans l'éditeur SQL |
 | 5 Edge Functions codées (pas des squelettes) | `supabase/functions/*` | `supabase functions deploy`, configurer les secrets |
 | UI complète des 6 onglets + design + animations | `src/Furrix.jsx` (~1700 lignes) | Ne PAS redesigner — câbler (voir §3) |
