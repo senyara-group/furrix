@@ -1,4 +1,8 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { supabase, isSupabaseConfigured } from "./lib/supabase.mjs";
+import { useAuth } from "./hooks/useAuth.ts";
+import { useMyPet } from "./hooks/useMyPet.ts";
+import { validatePhotoFile } from "./services/petPhotos.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FURRIX — MVP
@@ -103,6 +107,19 @@ const CSS = `
   button:active{transform:scale(0.97);opacity:0.9}
 `;
 
+// ─── ÉCRANS D'ATTENTE / ERREUR (même habillage que l'écran d'auth) ───────────
+const Splash = ({ text, children }) => (
+  <div style={{ minHeight: "100vh", background: T.navy, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", padding: 28, textAlign: "center" }}>
+    <style>{CSS}</style>
+    <div style={{ width: 60, height: 60, borderRadius: 16, background: "linear-gradient(135deg,#1F7A5C,#2E9E72)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+      <svg width="34" height="34" viewBox="8 8 44 40" style={{ color: "white" }}>{PAWS.chien}</svg>
+    </div>
+    <p role="status" style={{ color: "rgba(255,255,255,0.75)", fontSize: 14, marginBottom: children ? 18 : 0 }}>{text}</p>
+    {children}
+  </div>
+);
+const FieldErr = ({ msg, dark = false }) => msg ? <div role="alert" style={{ color: dark ? "#F2A69C" : T.rose, fontSize: 12, fontWeight: 500, marginTop: 4 }}>{msg}</div> : null;
+
 // ─── MOTEUR DE MATCHING (simplifié : espèce + purpose + distance) ──────────
 function computeScore(myPet, candidate) {
   if (!myPet.species) return 50;
@@ -123,14 +140,27 @@ function buildPool(animals, myPet, filt) {
 
 // ─── APP ─────────────────────────────────────────────────────────────────
 export default function FurrixMVP() {
-  // Auth (mock — à remplacer par Supabase Auth)
-  const [user, setUser] = useState(null);
+  // Auth : Supabase si configuré (VITE_SUPABASE_*), sinon mode démonstration local.
+  const live = isSupabaseConfigured;
+  const auth = useAuth(supabase);
+  const [demoUser, setDemoUser] = useState(null);
+  const user = live ? auth.user : demoUser;
   const [authMode, setAuthMode] = useState("signup");
   const [authForm, setAuthForm] = useState({ email: "", password: "" });
 
-  // Profil animal (le seul écran de création)
-  const [myPet, setMyPet] = useState(null);
-  const [petForm, setPetForm] = useState({ name: "", species: "chien", breed: "", age: "", gender: "♂", city: "", bio: "", purpose: "balade" });
+  // Profil animal (création + édition, un animal par compte dans le MVP)
+  const petStore = useMyPet(supabase, live && auth.user ? auth.user.id : null);
+  const [demoPet, setDemoPet] = useState(null);
+  const myPet = live ? (petStore.pet ? { ...petStore.pet, ph: petStore.photoUrl } : null) : demoPet;
+  const EMPTY_PET = { name: "", species: "chien", breed: "", age: "", gender: "♂", city: "", bio: "", purpose: "balade" };
+  const [petForm, setPetForm] = useState(EMPTY_PET);
+  const [editingPet, setEditingPet] = useState(false);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const photoInput = useRef(null);
+  const [demoErrors, setDemoErrors] = useState({});
+  const petErrors = live ? petStore.fieldErrors : demoErrors;
+  const saving = live && petStore.saving;
 
   // Navigation (3 sections seulement)
   const [tab, setTab] = useState("discover");
@@ -157,16 +187,68 @@ export default function FurrixMVP() {
   const sT = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200); };
 
   // ── Auth handlers ──
-  const handleAuth = () => {
-    if (!authForm.email || !authForm.password) { sT("Remplis les deux champs"); return; }
-    setUser({ email: authForm.email });
+  const handleAuth = async () => {
+    if (!live) {
+      if (!authForm.email || !authForm.password) { sT("Remplis les deux champs"); return; }
+      setDemoUser({ email: authForm.email });
+      return;
+    }
+    if (auth.pending) return;
+    const ok = await auth.submit(authMode, authForm);
+    if (ok) setAuthForm(f => ({ ...f, password: "" }));
+  };
+  const switchAuthMode = (mode) => { setAuthMode(mode); auth.clearMessages(); };
+
+  const handleLogout = async () => {
+    if (live) {
+      const ok = await auth.signOut();
+      if (!ok) { sT(auth.error || "Déconnexion impossible, réessaie."); return; }
+    } else { setDemoUser(null); setDemoPet(null); }
+    setTab("discover"); setEditingPet(false); setPetForm(EMPTY_PET); setPhoto(null);
+    setAuthForm({ email: "", password: "" }); setMatches([]); setChatWith(null); setPassedIds([]);
   };
 
-  // ── Création profil animal ──
-  const handleCreatePet = () => {
-    if (!petForm.name || !petForm.breed || !petForm.city) { sT("Nom, race et ville sont requis"); return; }
-    setMyPet({ ...petForm });
-    sT("Profil créé !");
+  // ── Photo du profil animal ──
+  const setPhoto = (file) => {
+    setPhotoPreview(prev => { if (prev) URL.revokeObjectURL(prev); return file ? URL.createObjectURL(file) : null; });
+    setPhotoFile(file);
+  };
+  const onPickPhoto = (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    const problem = validatePhotoFile(file);
+    if (problem) { sT(problem); return; }
+    setPhoto(file);
+  };
+
+  // ── Création / édition du profil animal ──
+  const startEditPet = () => {
+    setPetForm({ name: myPet.name || "", species: myPet.species || "chien", breed: myPet.breed || "", age: myPet.age || "", gender: myPet.gender || "♂", city: myPet.city || "", bio: myPet.bio || "", purpose: myPet.purpose || "balade" });
+    setPhoto(null);
+    setEditingPet(true);
+  };
+  const cancelEditPet = () => { setEditingPet(false); setPhoto(null); setDemoErrors({}); };
+  const handleSavePet = async () => {
+    const wasEditing = editingPet;
+    if (!live) {
+      const errs = {};
+      if (!petForm.name.trim()) errs.name = "Le nom est requis";
+      if (!petForm.breed.trim()) errs.breed = "La race est requise";
+      if (!petForm.city.trim()) errs.city = "La ville est requise";
+      setDemoErrors(errs);
+      if (Object.keys(errs).length) return;
+      setDemoPet({ ...petForm, ph: photoPreview || (demoPet && demoPet.ph) || null });
+      setPhotoFile(null); setPhotoPreview(null); setEditingPet(false);
+      sT(wasEditing ? "Profil mis à jour" : "Profil créé !");
+      return;
+    }
+    if (saving) return;
+    const r = await petStore.save(petForm, photoFile);
+    if (!r.ok) return;
+    setPhoto(null);
+    setEditingPet(false);
+    sT(r.warning || (wasEditing ? "Profil mis à jour" : "Profil créé !"));
   };
 
   // ── Swipe engine ──
@@ -226,6 +308,9 @@ export default function FurrixMVP() {
 
   // ══════════════════════════ RENDER ══════════════════════════
 
+  // ── Restauration de session ──
+  if (live && auth.status === "loading") return <Splash text="Chargement…" />;
+
   // ── Écran 1 : Auth ──
   if (!user) {
     return (
@@ -240,35 +325,55 @@ export default function FurrixMVP() {
         </div>
         <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 12, padding: 22, border: "1px solid rgba(255,255,255,0.1)" }}>
           <div style={{ display: "flex", gap: 6, marginBottom: 18, background: "rgba(255,255,255,0.06)", borderRadius: 8, padding: 3 }}>
-            <button onClick={() => setAuthMode("signup")} style={{ flex: 1, padding: 9, borderRadius: 6, border: "none", background: authMode === "signup" ? T.coral : "transparent", color: "white", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Inscription</button>
-            <button onClick={() => setAuthMode("login")} style={{ flex: 1, padding: 9, borderRadius: 6, border: "none", background: authMode === "login" ? T.coral : "transparent", color: "white", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Connexion</button>
+            <button onClick={() => switchAuthMode("signup")} style={{ flex: 1, padding: 9, borderRadius: 6, border: "none", background: authMode === "signup" ? T.coral : "transparent", color: "white", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Inscription</button>
+            <button onClick={() => switchAuthMode("login")} style={{ flex: 1, padding: 9, borderRadius: 6, border: "none", background: authMode === "login" ? T.coral : "transparent", color: "white", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>Connexion</button>
           </div>
-          <input value={authForm.email} onChange={e => setAuthForm({ ...authForm, email: e.target.value })} placeholder="Email" type="email" style={{ width: "100%", background: "rgba(255,255,255,0.07)", border: "2px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "13px 16px", fontSize: 14, color: "white", marginBottom: 10 }} />
-          <input value={authForm.password} onChange={e => setAuthForm({ ...authForm, password: e.target.value })} placeholder="Mot de passe" type="password" style={{ width: "100%", background: "rgba(255,255,255,0.07)", border: "2px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "13px 16px", fontSize: 14, color: "white", marginBottom: 16 }} />
-          <button onClick={handleAuth} style={btn(T.coral, true)}>{authMode === "signup" ? "Créer mon compte" : "Se connecter"}</button>
+          <input value={authForm.email} onChange={e => setAuthForm({ ...authForm, email: e.target.value })} placeholder="Email" type="email" autoComplete="email" aria-invalid={!!auth.fieldErrors.email} style={{ width: "100%", background: "rgba(255,255,255,0.07)", border: "2px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "13px 16px", fontSize: 14, color: "white", marginBottom: auth.fieldErrors.email ? 0 : 10 }} />
+          <div style={{ marginBottom: auth.fieldErrors.email ? 10 : 0 }}><FieldErr msg={auth.fieldErrors.email} dark /></div>
+          <input value={authForm.password} onChange={e => setAuthForm({ ...authForm, password: e.target.value })} placeholder="Mot de passe" type="password" autoComplete={authMode === "signup" ? "new-password" : "current-password"} onKeyDown={e => e.key === "Enter" && handleAuth()} aria-invalid={!!auth.fieldErrors.password} style={{ width: "100%", background: "rgba(255,255,255,0.07)", border: "2px solid rgba(255,255,255,0.12)", borderRadius: 8, padding: "13px 16px", fontSize: 14, color: "white", marginBottom: auth.fieldErrors.password ? 0 : 16 }} />
+          <div style={{ marginBottom: auth.fieldErrors.password ? 16 : 0 }}><FieldErr msg={auth.fieldErrors.password} dark /></div>
+          {auth.error && <div role="alert" style={{ color: "#F2A69C", fontSize: 13, marginBottom: 12 }}>{auth.error}</div>}
+          {auth.notice && <div role="status" style={{ color: "#9FD8BF", fontSize: 13, marginBottom: 12 }}>{auth.notice}</div>}
+          <button onClick={handleAuth} disabled={auth.pending} style={{ ...btn(T.coral, true), opacity: auth.pending ? 0.6 : 1, cursor: auth.pending ? "wait" : "pointer" }}>{auth.pending ? "Patiente…" : authMode === "signup" ? "Créer mon compte" : "Se connecter"}</button>
+          {!live && <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 11.5, textAlign: "center", marginTop: 12 }}>Mode démonstration : aucune donnée n'est envoyée.</div>}
         </div>
         {toast && <div style={{ position: "fixed", bottom: 30, left: "50%", transform: "translateX(-50%)", background: T.navy, color: "white", padding: "11px 20px", borderRadius: 50, fontSize: 13, fontWeight: 600, boxShadow: "0 6px 20px rgba(0,0,0,0.25)" }}>{toast}</div>}
       </div>
     );
   }
 
-  // ── Écran 2 : Création du profil animal (un seul écran, pas d'étapes) ──
-  if (!myPet) {
+  // ── Chargement / erreur du profil animal ──
+  if (live && (petStore.status === "idle" || petStore.status === "loading")) return <Splash text="Chargement du profil…" />;
+  if (live && petStore.status === "error") {
+    return (
+      <Splash text={petStore.error || "Impossible de charger le profil."}>
+        <button onClick={petStore.reload} style={{ ...btn(T.coral), marginBottom: 10 }}>Réessayer</button>
+        <button onClick={handleLogout} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.6)", fontSize: 13, cursor: "pointer" }}>Se déconnecter</button>
+      </Splash>
+    );
+  }
+
+  // ── Écran 2 : Création / édition du profil animal (un seul écran, pas d'étapes) ──
+  if (!myPet || editingPet) {
+    const shownPhoto = photoPreview || (myPet && myPet.ph);
     return (
       <div style={{ minHeight: "100vh", background: T.cream, padding: "40px 22px" }}>
         <style>{CSS}</style>
-        <div style={{ fontSize: 26, fontWeight: 700, color: T.navy, marginBottom: 4 }}>Le profil de ton animal</div>
+        <div style={{ fontSize: 26, fontWeight: 700, color: T.navy, marginBottom: 4 }}>{editingPet ? "Modifier le profil" : "Le profil de ton animal"}</div>
         <p style={{ color: T.g3, fontSize: 14, marginBottom: 22 }}>Juste l'essentiel pour commencer à matcher.</p>
 
-        <div style={{ ...cd(14), display: "flex", justifyContent: "center" }}>
-          <div style={{ width: 84, height: 84, borderRadius: "50%", background: T.g1, display: "flex", alignItems: "center", justifyContent: "center", border: `2px dashed ${T.g2}`, cursor: "pointer" }}>
-            <Ic d={ICON.camera} s={26} c={T.g3} />
+        <div style={{ ...cd(14), display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <input ref={photoInput} type="file" accept="image/jpeg,image/png,image/webp" onChange={onPickPhoto} style={{ display: "none" }} />
+          <div role="button" tabIndex={0} aria-label="Choisir une photo" onClick={() => photoInput.current && photoInput.current.click()} onKeyDown={e => (e.key === "Enter" || e.key === " ") && photoInput.current && photoInput.current.click()} style={{ width: 84, height: 84, borderRadius: "50%", background: T.g1, display: "flex", alignItems: "center", justifyContent: "center", border: `2px dashed ${T.g2}`, cursor: "pointer", overflow: "hidden" }}>
+            {shownPhoto ? <img src={shownPhoto} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Ic d={ICON.camera} s={26} c={T.g3} />}
           </div>
+          <div style={{ fontSize: 11, color: T.g3, marginTop: 6 }}>JPEG, PNG ou WebP · 5 Mo max</div>
         </div>
 
         <div style={cd(10)}>
           <label style={{ fontSize: 11, fontWeight: 600, color: T.g3, letterSpacing: "0.05em" }}>NOM</label>
-          <input value={petForm.name} onChange={e => setPetForm({ ...petForm, name: e.target.value })} placeholder="Luna, Max, Rio..." style={{ width: "100%", border: "none", fontSize: 15, fontWeight: 600, color: T.navy, marginTop: 4 }} />
+          <input value={petForm.name} onChange={e => setPetForm({ ...petForm, name: e.target.value })} placeholder="Luna, Max, Rio..." maxLength={50} style={{ width: "100%", border: "none", fontSize: 15, fontWeight: 600, color: T.navy, marginTop: 4 }} />
+          <FieldErr msg={petErrors.name} />
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
@@ -289,17 +394,20 @@ export default function FurrixMVP() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
           <div style={cd(0)}>
             <label style={{ fontSize: 11, fontWeight: 600, color: T.g3, letterSpacing: "0.05em" }}>RACE</label>
-            <input value={petForm.breed} onChange={e => setPetForm({ ...petForm, breed: e.target.value })} placeholder="Labrador..." style={{ width: "100%", border: "none", fontSize: 14, fontWeight: 600, color: T.navy, marginTop: 4 }} />
+            <input value={petForm.breed} onChange={e => setPetForm({ ...petForm, breed: e.target.value })} placeholder="Labrador..." maxLength={60} style={{ width: "100%", border: "none", fontSize: 14, fontWeight: 600, color: T.navy, marginTop: 4 }} />
+          <FieldErr msg={petErrors.breed} />
           </div>
           <div style={cd(0)}>
             <label style={{ fontSize: 11, fontWeight: 600, color: T.g3, letterSpacing: "0.05em" }}>ÂGE</label>
-            <input value={petForm.age} onChange={e => setPetForm({ ...petForm, age: e.target.value })} placeholder="2 ans" style={{ width: "100%", border: "none", fontSize: 14, fontWeight: 600, color: T.navy, marginTop: 4 }} />
+            <input value={petForm.age} onChange={e => setPetForm({ ...petForm, age: e.target.value })} placeholder="2 ans" maxLength={30} style={{ width: "100%", border: "none", fontSize: 14, fontWeight: 600, color: T.navy, marginTop: 4 }} />
+          <FieldErr msg={petErrors.age} />
           </div>
         </div>
 
         <div style={cd(10)}>
           <label style={{ fontSize: 11, fontWeight: 600, color: T.g3, letterSpacing: "0.05em" }}>VILLE</label>
-          <input value={petForm.city} onChange={e => setPetForm({ ...petForm, city: e.target.value })} placeholder="Lille..." style={{ width: "100%", border: "none", fontSize: 14, fontWeight: 600, color: T.navy, marginTop: 4 }} />
+          <input value={petForm.city} onChange={e => setPetForm({ ...petForm, city: e.target.value })} placeholder="Lille..." maxLength={80} style={{ width: "100%", border: "none", fontSize: 14, fontWeight: 600, color: T.navy, marginTop: 4 }} />
+          <FieldErr msg={petErrors.city} />
         </div>
 
         <div style={cd(10)}>
@@ -311,10 +419,13 @@ export default function FurrixMVP() {
 
         <div style={cd(18)}>
           <label style={{ fontSize: 11, fontWeight: 600, color: T.g3, letterSpacing: "0.05em" }}>BIO (courte)</label>
-          <textarea value={petForm.bio} onChange={e => setPetForm({ ...petForm, bio: e.target.value })} placeholder="Décris ton compagnon en une phrase..." rows={2} style={{ width: "100%", border: "none", fontSize: 13, color: T.navy, marginTop: 4, resize: "none" }} />
+          <textarea value={petForm.bio} onChange={e => setPetForm({ ...petForm, bio: e.target.value })} placeholder="Décris ton compagnon en une phrase..." rows={2} maxLength={500} style={{ width: "100%", border: "none", fontSize: 13, color: T.navy, marginTop: 4, resize: "none" }} />
+          <FieldErr msg={petErrors.bio} />
         </div>
 
-        <button onClick={handleCreatePet} style={btn(T.coral, true)}>Commencer à matcher</button>
+        {live && petStore.error && <div role="alert" style={{ color: T.rose, fontSize: 13, marginBottom: 12 }}>{petStore.error}</div>}
+        <button onClick={handleSavePet} disabled={saving} style={{ ...btn(T.coral, true), opacity: saving ? 0.6 : 1, cursor: saving ? "wait" : "pointer" }}>{saving ? "Enregistrement…" : editingPet ? "Enregistrer" : "Commencer à matcher"}</button>
+        {editingPet && <button onClick={cancelEditPet} disabled={saving} style={{ ...gh(), width: "100%", marginTop: 10 }}>Annuler</button>}
         {toast && <div style={{ position: "fixed", bottom: 30, left: "50%", transform: "translateX(-50%)", background: T.navy, color: "white", padding: "11px 20px", borderRadius: 50, fontSize: 13, fontWeight: 600 }}>{toast}</div>}
       </div>
     );
@@ -333,7 +444,7 @@ export default function FurrixMVP() {
           </div>
           <div style={{ fontWeight: 700, fontSize: 18, color: T.navy, letterSpacing: "-0.02em" }}>Furrix</div>
         </div>
-        <div style={{ fontSize: 12, color: T.g3, display: "flex", alignItems: "center", gap: 4 }}><Ic d={ICON.pin} s={13} />{petForm.city}</div>
+        <div style={{ fontSize: 12, color: T.g3, display: "flex", alignItems: "center", gap: 4 }}><Ic d={ICON.pin} s={13} />{myPet.city}</div>
       </div>
 
       {/* ── Découvrir ── */}
@@ -454,7 +565,8 @@ export default function FurrixMVP() {
             <div style={{ fontSize: 11, fontWeight: 600, color: T.g3, letterSpacing: "0.05em", marginBottom: 4 }}>RECHERCHE</div>
             <div style={{ fontSize: 14, color: T.navy }}>{PURPOSE.find(p => p.id === myPet.purpose)?.l}</div>
           </div>
-          <button onClick={() => { setUser(null); setMyPet(null); }} style={{ ...gh(T.rose), width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}><Ic d={ICON.logout} s={16} />Se déconnecter</button>
+          <button onClick={startEditPet} style={{ ...gh(), width: "100%", marginBottom: 10 }}>Modifier le profil</button>
+          <button onClick={handleLogout} disabled={live && auth.pending} style={{ ...gh(T.rose), width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}><Ic d={ICON.logout} s={16} />Se déconnecter</button>
         </div>
       )}
 

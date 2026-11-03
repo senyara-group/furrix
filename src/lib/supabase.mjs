@@ -1,7 +1,5 @@
 // Client Supabase unique — importer partout depuis ce fichier.
-import { createClient } from '@supabase/supabase-js';
-
-export const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+// Implémentation typée dans src/services/supabaseClient.ts :
+// - `supabase` vaut null en mode démonstration (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY absentes) ;
+// - toute clé serveur (service_role / sb_secret_) est refusée au démarrage.
+export { supabase, isSupabaseConfigured } from '../services/supabaseClient.ts';
