@@ -1,6 +1,8 @@
 # Furrix 🐾
 
-Application mobile native (iOS + Android via Capacitor) de mise en relation entre animaux de compagnie.
+Plateforme dédiée aux propriétaires d'animaux : rencontres, garde et services professionnels.
+**Cible validée le 16 novembre 2026** : web adapté à l'ordinateur et applications iOS/Android adaptées au téléphone.
+**Direction visuelle validée : « Plein air »**, à intégrer. Les écrans existants restent des prototypes.
 **Stack** : React 18 + Vite + Capacitor · Supabase · RevenueCat (IAP) · Brevo · Mapbox.
 
 > **Note sur les extensions** : `vite.config.mjs` et `src/lib/supabase.mjs` utilisent l'extension `.mjs` au lieu de `.js`, uniquement parce que Gmail bloque les fichiers `.js` même à l'intérieur d'une archive. Vite résout `.mjs` nativement, rien à changer. Renomme-les en `.js` si tu préfères.
@@ -20,11 +22,11 @@ Le branchement Supabase se fait progressivement (voir plan §20 de la doc techni
 
 | Fichier | Contenu | Usage |
 |---|---|---|
-| `src/Furrix.jsx` | **Produit complet** — 6 onglets, paywall, récompenses, tout le design | Cible finale |
-| `src/FurrixMVP.jsx` | **MVP 8 fonctionnalités** — auth, profil, swipe, match, chat | Lancement rapide |
+| `src/Furrix.jsx` | Prototype initial avec données de démonstration | Entrée actuelle ; pas la référence finale du design |
+| `src/FurrixMVP.jsx` | Auth et profil connectés, autres parcours simulés | Banc d'essai des services et hooks réutilisables |
 
-Basculer dans `src/main.jsx` (une ligne à changer).
-**Recommandation produit** : brancher le MVP d'abord (voir `docs/Furrix_Scoping_MVP.md`).
+Sélectionner le banc d'essai avec `VITE_FURRIX_APP=mvp`. Les services et hooks auth/profil
+sont à réutiliser pour « Plein air ». L'architecture mobile reste à confirmer ; Capacitor est présent dans le code initial.
 
 ## Backend Supabase
 
@@ -38,8 +40,9 @@ et [les limites du lot SQL](docs/Furrix_Securisation.md).
 Les anciens noms `0001`/`0002`/`0003` désignent les mêmes SQL, désormais renommés
 selon [la correspondance d'historique DEV](docs/Supabase_Alignement_Historique.md).
 
-**Authentification et profil animal** : branchés à Supabase dans le MVP (`VITE_FURRIX_APP=mvp`),
-le reste de l'interface reste en démonstration. Tests : `npm test`, `npm run typecheck`, `npm run test:sql`.
+**Authentification et profil animal** : services et hooks prêts, éprouvés sur le MVP utilisé comme banc
+d'essai (`VITE_FURRIX_APP=mvp`). Le prototype initial `Furrix.jsx` n'est **pas encore connecté** (démonstration) ;
+raccordement restant détaillé dans la recette. Tests : `npm test`, `npm run typecheck`, `npm run test:sql`.
 Recette distante et opérations soumises à accord : [Recette_Auth_Profil.md](docs/Recette_Auth_Profil.md).
 
 5 Edge Functions incluses, toutes codées (pas des squelettes) :
@@ -70,11 +73,25 @@ permissions, RevenueCat, soumission stores) : `docs/Furrix_Documentation_Techniq
 soumission. Apple et Google exigent tous deux un lien public vers la politique de confidentialité.
 Voir `legal-pages/README.md` pour la marche à suivre complète.
 
-## Paiement — RevenueCat / IAP uniquement
+## Paiements — conception à finaliser
 
-Pas de Stripe dans ce projet. Configurer les produits d'abonnement dans App Store Connect et
-Google Play Console (`furrix_premium_monthly` à 9,99€, `furrix_premium_annual` à 74,99€), les
-relier dans RevenueCat, puis pointer le webhook RevenueCat vers `revenuecat-webhook`. Détail §8.
+RevenueCat et un webhook IAP sont présents dans le code initial. Abonnements numériques,
+garde et prestations professionnelles doivent être distingués : circuits, prestataires et commissions
+restent à valider avant intégration. L'ancien principe « 100 % IAP » n'est plus la référence.
+
+## Référence produit — décisions du 16 novembre 2026
+
+- Trois usages : rencontres, garde et services professionnels, avec le design « Plein air ».
+- Rencontres : **j'aime → match réciproque → conversation gratuite → proposition → acceptation**.
+  Likes et matchs sont rattachés à l'animal sélectionné. Sans match, aucune conversation ni proposition,
+  dans les vues Cartes, Liste et Carte géographique. Garde et demandes de RDV restent directes.
+- Quotas, visibilité payante des likes et réapparition des profils passés restent ouverts.
+- Le dossier de conception et l'export HTML sont transmis séparément par Guillaume ; ils ne sont pas inclus ici.
+  Les guides initiaux et leurs calendriers ne remplacent pas ces décisions actualisées.
+- Alexis commence par l'état des lieux et les composants visuels réutilisables. Accueil, navigation et
+  raccordement métier seront traités dans des lots distincts.
+- Les migrations 0004/0005 restent soumises à revue et autorisation d'application distante.
+  La fusion du code ne les exécute pas. Les observations DEV documentées datent du 3 novembre.
 
 ## 👉 Développeur : commencer ici
 
@@ -99,6 +116,6 @@ relier dans RevenueCat, puis pointer le webhook RevenueCat vers `revenuecat-webh
 2. Le statut Premium n'est écrit QUE par le webhook RevenueCat — jamais par le client.
 3. Les PawPoints ne sont modifiables QUE via `award-points`/`redeem-reward` — jamais côté client.
 4. Toute table a sa RLS testée avec 2 comptes avant la prod.
-5. Ne pas réécrire le moteur de swipe (`doSw/flyOut/commitSwipe`) — il est optimisé 60fps.
-6. Pas de Stripe : 100% des paiements passent par l'In-App Purchase (Apple/Google).
+5. Le moteur de swipe initial est à évaluer ; le parcours validé ci-dessus reste la référence produit.
+6. Ne pas intégrer de paiement avant validation du circuit concerné ; aucun prestataire unique n'est imposé.
 7. Âge minimum 18 ans (voir doc juridique, Art. 3 des CGU) — à faire respecter dans l'onboarding.

@@ -13,6 +13,8 @@ import {
 
 /** Limites identiques aux contraintes serveur (migration 0005). */
 export const PET_LIMITS = { name: 50, breed: 60, age: 30, city: 80, bio: 500 } as const;
+/** Champs de l'onboarding de Furrix.jsx, pas encore branchés : mêmes limites que 0005. */
+export const PET_EXTRA_LIMITS = { allerg: 120, food: 80, toy: 80, weight: 20 } as const;
 
 const includes = <T extends string>(list: readonly T[], v: string): v is T => (list as readonly string[]).includes(v);
 

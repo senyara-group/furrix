@@ -152,6 +152,8 @@ test('0005 : contraintes serveur du profil animal', async () => {
     const ok = `${A}/${PA}/abc-1.jpg`;
     await as(db, 'authenticated', A, `update pets set photos = array['${ok}', '${A}/${PA}/abc_2.png'] where id = '${PA}'`);
     await as(db, 'authenticated', A, `update pets set photos = '{}' where id = '${PA}'`);
+    await as(db, 'authenticated', A,
+      `update pets set allerg = '${'x'.repeat(120)}', food = '${'x'.repeat(80)}', toy = '${'x'.repeat(80)}', weight = '${'x'.repeat(20)}' where id = '${PA}'`);
     const bad = [
       `photos = array['${B}/${PA}/x.jpg']`,
       `photos = array['${A}/40000000-0000-0000-0000-0000000000ff/x.jpg']`,
@@ -166,6 +168,10 @@ test('0005 : contraintes serveur du profil animal', async () => {
       `age = '${'a'.repeat(31)}'`,
       `city = '${'c'.repeat(81)}'`,
       `bio = '${'b'.repeat(501)}'`,
+      `allerg = '${'x'.repeat(121)}'`,
+      `food = '${'x'.repeat(81)}'`,
+      `toy = '${'x'.repeat(81)}'`,
+      `weight = '${'x'.repeat(21)}'`,
     ];
     for (const set of bad) {
       await assert.rejects(as(db, 'authenticated', A, `update pets set ${set} where id = '${PA}'`),
