@@ -1,12 +1,21 @@
 # Lot « authentification et profil animal » — recette Supabase
 
-> **Recadrage produit en cours (3 novembre 2026)** : le positionnement mobile-only et le design actuel ne sont
-> plus considérés comme définitivement validés (application web envisagée, avec iOS/Android cohérentes).
-> Ce lot est figé à son périmètre ; ses hypothèses produit sont listées en fin de document pour arbitrage.
+> **Décisions actualisées le 16 novembre 2026** : web adapté à l'ordinateur et applications iOS/Android
+> adaptées au téléphone. Direction visuelle **« Plein air » validée**, encore à intégrer.
+> Le lot auth/profil reste limité aux services, hooks, correction photo et contraintes existantes.
 >
-> **Interface cible actuelle : `src/Furrix.jsx`** (sous réserve du recadrage). Le MVP (`FurrixMVP.jsx`, `VITE_FURRIX_APP=mvp`) n'est qu'un banc d'essai
+> **`src/Furrix.jsx` est le prototype initial, pas la référence finale du design.** Le MVP (`FurrixMVP.jsx`, `VITE_FURRIX_APP=mvp`) n'est qu'un banc d'essai
 > temporaire des services et hooks. Son branchement **ne signifie pas** que l'application complète est connectée :
 > `Furrix.jsx` fonctionne toujours entièrement sur des données de démonstration. Voir « Raccordement restant ».
+>
+> **Rencontres** : j'aime → match réciproque → conversation gratuite → proposition → acceptation.
+> Likes et matchs sont rattachés à l'animal sélectionné. Match obligatoire pour écrire ou proposer,
+> dans les vues Cartes, Liste et Carte géographique. Garde et demandes de RDV restent directes.
+> Quotas, visibilité payante des likes et réapparition des profils passés restent ouverts.
+>
+> Les migrations 0004/0005 ne sont pas exécutées par cette mise à jour ou par la fusion du code.
+> Le journal DEV ci-dessous décrit les observations du 3 novembre, sans nouvelle vérification distante.
+> Les commentaires historiques du code ne remplacent pas les décisions actualisées de ce document.
 
 Branche : `feat/auth-profil-animal`, depuis `main` (`a92db2d`). Projet cible : **DEV `jemikzqgbpaivlujnfgl` uniquement**.
 
@@ -132,9 +141,11 @@ script de nettoyage les retrouve.
 8. Nettoyage : supprimer les photos des dossiers `<uid>/` dans Storage, puis `99_nettoyage_comptes_fictifs.sql`
    (aperçu, puis suppression, après accord).
 
-## Raccordement restant de `Furrix.jsx` (interface cible)
+## Raccordement restant — inventaire du prototype initial
 
-Rien de ce qui suit n'est branché. Les services et hooks de ce lot sont prévus pour être réutilisés tels quels.
+Rien de ce qui suit n'est branché dans le prototype initial. Cet inventaire historique ne prescrit pas
+de reproduire son onboarding ou ses écrans. Les services et hooks sont à réutiliser et à adapter aux
+parcours « Plein air », notamment pour la sélection de plusieurs animaux.
 
 | Élément de `Furrix.jsx` | État actuel | Raccordement à faire |
 |---|---|---|
@@ -160,11 +171,15 @@ renommer les colonnes.
 - Le MVP gère un seul animal par compte (`fetchMyPet` lit le premier).
 - Une création d'animal dont la réponse est perdue peut aboutir côté serveur ; une nouvelle tentative créerait
   un second animal (le premier reste celui affiché). À traiter avec une clé d'idempotence lors du raccordement
-  de `Furrix.jsx`.
+  de la nouvelle interface.
 - Les contraintes 0005 couvrent les champs du MVP ; les autres colonnes de `pets` (santé, caractère) n'ont pas
   encore de limites serveur.
 
 ## Hypothèses produit à arbitrer
+
+Ce tableau conserve l'état d'implémentation initial pour traçabilité. Les décisions du 16 novembre
+ci-dessus priment sur les anciennes hypothèses de plateforme et de design. Les limites de champs de
+0005 restent à examiner avant application ; le changement de design ne les supprime pas automatiquement.
 
 Choix faits dans ce lot sans validation produit explicite. Aucun n'est irréversible ; ceux marqués « SQL » touchent
 les migrations 0004/0005, **non appliquées** (aucune refonte n'est engagée).
