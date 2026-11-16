@@ -2,8 +2,6 @@
 
 Application mobile native (iOS + Android via Capacitor) de mise en relation entre animaux de compagnie.
 **Stack** : React 18 + Vite + Capacitor · Supabase · RevenueCat (IAP) · Brevo · Mapbox.
-**Mobile-only** : pas de version web publique, pas de Stripe — 100% des paiements passent par l'In-App Purchase Apple/Google.
-**Éditeur** : Groupe Senyara (Yannis Sénéchal, entrepreneur individuel).
 
 > **Note sur les extensions** : `vite.config.mjs` et `src/lib/supabase.mjs` utilisent l'extension `.mjs` au lieu de `.js`, uniquement parce que Gmail bloque les fichiers `.js` même à l'intérieur d'une archive. Vite résout `.mjs` nativement, rien à changer. Renomme-les en `.js` si tu préfères.
 
