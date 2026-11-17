@@ -147,3 +147,19 @@ describe('contrôles de formulaire', () => {
     expect(screen.getByRole('checkbox', { name: 'Je déclare avoir au moins 18 ans.' })).toBeTruthy();
   });
 });
+
+import { AppShell } from './index';
+
+describe('structure de l’application', () => {
+  it('garde un seul titre principal et des navigations aux noms distincts', () => {
+    const nav = [{ id: 'accueil', label: 'Accueil', href: '#/accueil' }, { id: 'compte', label: 'Mon compte', href: '#/compte' }];
+    render(<AppShell nav={nav} tabs={nav.slice(0, 1)} tabsLabel="Navigation téléphone" current="accueil" title="Accueil" phoneTitleAs="p"
+      mainProps={{ id: 'contenu', tabIndex: -1 }}><h1>Bienvenue</h1></AppShell>);
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('navigation', { name: 'Navigation principale' })).toBeTruthy();
+    const phone = screen.getByRole('navigation', { name: 'Navigation téléphone' });
+    expect(phone.querySelectorAll('a')).toHaveLength(1);
+    expect(screen.getByRole('main').id).toBe('contenu');
+    expect(screen.getAllByRole('link', { name: 'Accueil' }).every((a) => a.getAttribute('aria-current') === 'page')).toBe(true);
+  });
+});
