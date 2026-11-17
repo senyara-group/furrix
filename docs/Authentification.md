@@ -6,7 +6,7 @@ Branche `feat/authentication`, issue de `main` après fusion de la PR #5.
 `npm run dev:auth` lance le parcours séparé, `npm run build:auth` le compile.
 `npm run auth:sync` compile ce parcours puis le copie dans Android/iOS ; `platform:sync` reste réservé
 au banc technique du lot précédent. La synchronisation ne compile pas les binaires natifs.
-Le point d'entrée par défaut du dépôt reste le prototype initial jusqu'à validation de la nouvelle interface.
+Le point d'entrée par défaut ouvre désormais le nouveau parcours, sans sélecteur nécessaire sur Vercel.
 Le code des composants d'Alexis n'est pas modifié ; l'habillage auth est isolé dans `src/auth/auth.css`.
 Les formulaires HTML pourront utiliser ses composants sans réécrire la logique.
 

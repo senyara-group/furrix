@@ -29,7 +29,7 @@ client Supabase, pas de requête, pas de données personnelles. Il sert à valid
 les documents et la recette Auth sont préparés. Il n'est pas accessible par un paramètre d'URL du produit.
 Le mode `home-preview` est bloqué dans un build de production ; cela a été vérifié sur le bundle généré.
 
-Le build public par défaut reste l'ancien prototype tant que l'entrée `auth` n'est pas explicitement choisie.
+Le build public par défaut ouvre désormais le nouveau parcours. Aucun sélecteur `auth` n'est nécessaire.
 `npm run auth:sync` prépare le nouveau parcours dans Android/iOS ; ce n'est pas une compilation APK/IPA.
 
 ## Travail avec Alexis
