@@ -316,7 +316,8 @@
 }
 /* Décision en attente du serveur : la carte reste en place, légèrement estompée. */
 .fx-swipe__card[data-pending] {
-  opacity: .85;
+  /* Pas d'opacité : la carte suivante transparaîtrait. */
+  filter: saturate(.6);
 }
 .fx-swipe-btn[aria-disabled=true] {
   opacity: .45;

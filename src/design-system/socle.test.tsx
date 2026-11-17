@@ -117,6 +117,23 @@ describe('pile de profils contrôlée par le serveur', () => {
     expect(decide).toHaveBeenCalledTimes(3);
   });
 
+  it('avec un index contrôlé, signale la sortie de la carte pour retirer l’élément ensuite', async () => {
+    reduceMotion();
+    const left: string[] = [];
+    const deck = { current: null as SwipeDeckHandle | null };
+    function Controlled() {
+      const [items, setItems] = useState(pets);
+      return <SwipeDeck ref={(h) => { deck.current = h; }} index={0} items={items} getKey={(p) => p.id} getLabel={(p) => p.name} onDecide={() => Promise.resolve()}
+        onLeave={(p, d) => { left.push(`${p.name}:${d}`); setItems((v) => v.filter((x) => x.id !== p.id)); }}
+        renderCard={(p) => <p>{p.name}</p>} empty={<p>Pile vide</p>} />;
+    }
+    render(<Controlled />);
+    expect(screen.getByRole('group', { name: 'Luna' })).toBeTruthy();
+    await act(async () => { deck.current?.like(); });
+    expect(left).toEqual(['Luna:like']);
+    expect(screen.getByRole('group', { name: 'Pistache' })).toBeTruthy();
+  });
+
   it('ne lance pas de glissement depuis un bouton de la carte', () => {
     const decide = vi.fn();
     render(<SwipeDeck items={pets} getKey={(p) => p.id} onDecide={decide} renderCard={(p) => <button type="button">Fiche de {p.name}</button>} />);
