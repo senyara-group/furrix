@@ -1,0 +1,27 @@
+{
+  "project": "jemikzqgbpaivlujnfgl",
+  "date": "2026-11-17",
+  "sourceCommit": "568de90bc74e9617527dd283ca7f475770180d25",
+  "remoteEvidence": "Versions lues dans supabase_migrations.schema_migrations après application ; MD5 du SQL enregistré identique à celui des fichiers locaux.",
+  "note": "Renommage seul. Le SQL, y compris ses commentaires qui citent les noms d'avant application, n'est pas modifié.",
+  "migrations": [
+    {
+      "previous": "20261117120000_private_beta_access_duration.sql",
+      "current": "20261117151857_private_beta_access_duration.sql",
+      "sha256": "fe61f32ba35b046c8bc9beafeb6f1451b7e67aad29d32f1f8be486f1f7c516c3",
+      "remoteMd5": "8a69ed76ca5cb9420c65adcb5cac4a2f"
+    },
+    {
+      "previous": "20261117131807_animal_meetings.sql",
+      "current": "20261117152002_animal_meetings.sql",
+      "sha256": "e9d26ebb3641bdade508f542cb6ef56a22e3ed3c95f624037af7208725e40e23",
+      "remoteMd5": "abf1756198590eb010109f5be2062b49"
+    },
+    {
+      "previous": "20261117132000_meetings_privacy.sql",
+      "current": "20261117152050_meetings_privacy.sql",
+      "sha256": "35c6a78fb87fec8224e98bd61d179e48ccfb1a6ece0928c039c9242d12a74dfa",
+      "remoteMd5": "437d1a555b51ec2deb08782e2020ca7e"
+    }
+  ]
+}

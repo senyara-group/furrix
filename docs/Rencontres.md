@@ -11,14 +11,14 @@ Code client dans `src/meetings`.
 
 ## Ordre des migrations
 
-Aucune n'est déployée. Elles s'appliquent dans cet ordre, après `20261117110807_private_beta`, déjà présente sur DEV et inchangée :
+Appliquées sur DEV le 17 novembre 2026, dans cet ordre, après `20261117110807_private_beta` (inchangée). Supabase leur a attribué de nouvelles versions : les fichiers ont été renommés sans modification (voir `supabase/meetings-migration-alignment.json`). Leurs commentaires citent encore les noms d'avant application.
 
-1. `20261117120000_private_beta_access_duration.sql` :
+1. `20261117151857_private_beta_access_duration.sql` :
    - accès sans échéance (`expires_at` NULL) ou à durée comptée depuis l'activation, toujours révocable par `active=false` ;
    - condition unique `private_beta_member_active` ;
    - activation par `grant_private_beta_access`.
-2. `20261117131807_animal_meetings.sql` : tables, RPC et règles des rencontres. Toutes ses vérifications du statut d'un autre testeur passent par la condition de la migration 1.
-3. `20261117132000_meetings_privacy.sql` : lecture directe de `pets` et `profiles` réservée au propriétaire. Elle s'appuie sur les RPC de la précédente et ne doit pas être appliquée seule.
+2. `20261117152002_animal_meetings.sql` : tables, RPC et règles des rencontres. Toutes ses vérifications du statut d'un autre testeur passent par la condition de la migration 1.
+3. `20261117152050_meetings_privacy.sql` : lecture directe de `pets` et `profiles` réservée au propriétaire. Elle s'appuie sur les RPC de la précédente et ne doit pas être appliquée seule.
 
 Chaque fichier contient en tête son retour arrière. Pour revenir en arrière, défaire dans l'ordre inverse (3, puis 2, puis 1). Avant le retour arrière de la migration 1, chaque accès sans échéance doit recevoir une date explicite ou être retiré.
 
@@ -66,7 +66,7 @@ Corrections apportées à la migration, qui n'était encore appliquée nulle par
 
 Points relevés, non traités dans ce lot :
 
-1. **Table `pets` lisible en entier par tout testeur** (règle « pets visibles » de 0001, venue de `main`) : corrigé par `20261117132000_meetings_privacy.sql`, voir ci-dessus.
+1. **Table `pets` lisible en entier par tout testeur** (règle « pets visibles » de 0001, venue de `main`) : corrigé par `20261117152050_meetings_privacy.sql`, voir ci-dessus.
 2. **Ni blocage, ni signalement, ni annulation de match.** À planifier avant d'inviter des personnes extérieures à l'équipe.
 3. **Pas de limite de fréquence** sur les décisions et les messages. Même échéance.
 4. **Version de la notice bêta répétée en dur** (`2026-11-17`) dans plusieurs fonctions. Changer de notice demandera une migration qui les met toutes à jour.
@@ -100,12 +100,14 @@ Points relevés, non traités dans ce lot :
   6. Supprimer la localisation de A : la distance disparaît, le filtre de rayon est désactivé.
 - **Android et iOS**, sur appareils réels : permission de localisation approximative (refus, puis acceptation), retour d'arrière-plan, geste de balayage, clavier ouvert dans la conversation, actualisation après mise en veille. La compilation APK/IPA n'a pas été faite dans cet environnement (ni SDK Android, ni macOS).
 
-## Application sur Supabase DEV
+## Application sur Supabase DEV (17 novembre 2026)
 
-Elle n'est pas faite et demande un accord explicite :
-
-- cible `jemikzqgbpaivlujnfgl` ;
-- uniquement les trois migrations ci-dessus, dans l'ordre ;
-- retour arrière : script en tête de chaque fichier, dans l'ordre inverse.
-
-Ne rejouer aucune migration antérieure.
+- **État préalable vérifié :** historique arrêté à `private_beta`, aucun objet des nouvelles migrations, tables des rencontres vides.
+- **Application :** les trois migrations dans l'ordre, chacune réussie. Le SQL enregistré par Supabase a la même empreinte MD5 que les fichiers locaux.
+- **Permissions effectives contrôlées :**
+  - `authenticated` n'a que SELECT sur `swipes`, `matches`, `messages` et `pet_meeting_locations` ;
+  - `anon` n'a aucun droit sur `pets` et `profiles` ;
+  - `grant_private_beta_access`, `private_beta_member_active` et `meeting_member_active` ne sont exécutables que par `service_role` (et le propriétaire) ;
+  - bucket `pet-photos` privé.
+- **Accès accordés :** deux comptes de l'équipe, sans échéance, via `grant_private_beta_access`. Aucune notice n'a été acceptée à leur place. Aucun autre accès n'a été accordé.
+- **Conseillers de sécurité :** les avertissements sur les RPC privilégiées sont attendus (points d'entrée voulus, avec contrôle interne). Points antérieurs restants : `handle_new_user` exécutable par `anon`, `touch_updated_at` sans `search_path` fixe, protection contre les mots de passe compromis désactivée dans Auth.
