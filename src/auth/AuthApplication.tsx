@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import type { User } from '@supabase/supabase-js';
 import { useAuth } from '../hooks/useAuth';
 import type { FurrixClient } from '../services/supabaseClient';
 import { supabase } from '../services/supabaseClient';
@@ -31,8 +32,9 @@ function Declarations({ form, set, documents }: { form: RegistrationForm; set: (
 }
 
 /** Première intégration auth ; les contrôles HTML seront remplaçables par les composants d'Alexis. */
-export default function AuthApplication({ client = supabase, documents = legalDocuments(import.meta.env) }: {
+export default function AuthApplication({ client = supabase, documents = legalDocuments(import.meta.env), renderAuthenticated }: {
   client?: FurrixClient | null; documents?: LegalDocuments | null;
+  renderAuthenticated?: (user: User, signOut: () => Promise<boolean>) => ReactNode;
 }) {
   const auth = useAuth(client);
   const [view, setView] = useState<View>(initialView);
@@ -147,6 +149,15 @@ export default function AuthApplication({ client = supabase, documents = legalDo
   }); };
   const notices = <>{(error || auth.error) && <p className="fa-error" role="alert">{error || auth.error}</p>}
     {(message || auth.notice) && <p className="fa-notice" role="status">{message || auth.notice}</p>}</>;
+
+  if (renderAuthenticated && client && auth.user && auth.status === 'signedIn'
+      && !auth.recovery && view !== 'reset' && !callbackFailed && documents && consent === 'accepted') {
+    return <>{renderAuthenticated(auth.user, async () => {
+      const ok = await auth.signOut();
+      if (ok) { auth.finishRecovery(); setForm(blank); changeView('login'); }
+      return ok;
+    })}</>;
+  }
 
   let content;
   if (!client) content = <><h1>Furrix arrive bientôt.</h1><p role="alert">Le service de connexion n’est pas disponible sur cet environnement. Réessaie plus tard.</p></>;

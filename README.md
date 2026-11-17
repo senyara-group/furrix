@@ -8,7 +8,12 @@ Plateforme dédiée aux propriétaires d'animaux : rencontres, garde et services
 **Essai web / Android / iOS (17 novembre)** : [architecture, compilation et recette](docs/Architecture_Web_Mobile.md).
 Branche d'essai avec Capacitor 8 et projets natifs ; `npm run dev:platform` ouvre un banc technique séparé.
 La génération/synchronisation des projets ne vaut pas validation d'une compilation native ou d'un appareil.
-Le prochain lot reste l'authentification complète puis l'accueil « Plein air » avec les composants d'Alexis.
+Les lots authentification et accueil « Plein air » sont préparés séparément, puis à recetter sur appareils
+et à rapprocher des composants d'Alexis avant ouverture publique.
+
+**Accueil et navigation préparés** : [périmètre et recette](docs/Accueil_Navigation.md).
+`npm run dev:home` ouvre l'aperçu local identifié ; `dev:auth` utilise la structure derrière la session
+et les déclarations vérifiées. Les services métier restent signalés « en préparation ».
 
 **Parcours auth préparé** : `npm run dev:auth` / `npm run build:auth`, voir
 [l'activation, les limites et la recette](docs/Authentification.md). L'inscription reste fermée tant que les
