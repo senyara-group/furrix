@@ -10,13 +10,16 @@ import { validateEmail, validateNewPassword } from '../validation/auth';
 import { legalDocuments, validateRegistration, type LegalDocuments, type RegistrationForm } from './registration';
 import { acceptDocuments, hasAcceptedDocuments } from './consentService';
 import './auth.css';
+import BetaGate from '../beta/BetaGate';
+import BetaInvitation from '../beta/BetaInvitation';
 
-type View = 'login' | 'signup' | 'confirmation' | 'forgot' | 'reset' | 'callback';
+type View = 'login' | 'signup' | 'confirmation' | 'forgot' | 'reset' | 'callback' | 'invite';
 const blank: RegistrationForm = { email: '', password: '', confirmPassword: '', adult: false, terms: false, privacy: false };
 const titles: Record<View, string> = { login: 'Heureux de te retrouver.', signup: 'Bienvenue chez Furrix.',
-  confirmation: 'Consulte tes e-mails.', forgot: 'Retrouvons ton compte.', reset: 'Un nouveau départ.', callback: 'Vérification du lien…' };
+  confirmation: 'Consulte tes e-mails.', forgot: 'Retrouvons ton compte.', reset: 'Un nouveau départ.', callback: 'Vérification du lien…', invite: 'Ton invitation' };
 
 function initialView(): View {
+  if (window.location.hash.startsWith('#/auth/invite')) return 'invite';
   if (window.location.hash.startsWith('#/auth/reset')) return 'reset';
   return window.location.hash.startsWith('#/auth/callback') ? 'callback' : 'login';
 }
@@ -32,9 +35,11 @@ function Declarations({ form, set, documents }: { form: RegistrationForm; set: (
 }
 
 /** Première intégration auth ; les contrôles HTML seront remplaçables par les composants d'Alexis. */
-export default function AuthApplication({ client = supabase, documents = legalDocuments(import.meta.env), renderAuthenticated }: {
+export default function AuthApplication({ client = supabase, documents = legalDocuments(import.meta.env), renderAuthenticated,
+  privateBeta = import.meta.env.VITE_PRIVATE_BETA === 'true' }: {
   client?: FurrixClient | null; documents?: LegalDocuments | null;
   renderAuthenticated?: (user: User, signOut: () => Promise<boolean>) => ReactNode;
+  privateBeta?: boolean;
 }) {
   const auth = useAuth(client);
   const [view, setView] = useState<View>(initialView);
@@ -82,7 +87,7 @@ export default function AuthApplication({ client = supabase, documents = legalDo
   }, [view, auth.status, auth.recovery]);
   useEffect(() => {
     let active = true;
-    if (!client || !auth.user || !documents) { setConsent('required'); return; }
+    if (privateBeta || !client || !auth.user || !documents) { setConsent('required'); return; }
     setConsent('loading');
     void hasAcceptedDocuments(client, auth.user.id, documents).then((accepted) => {
       if (active) setConsent(accepted ? 'accepted' : 'required');
@@ -90,7 +95,7 @@ export default function AuthApplication({ client = supabase, documents = legalDo
       if (active) { setConsent('error'); setError('Impossible de vérifier les conditions du compte. Réessaie dans un instant.'); }
     });
     return () => { active = false; };
-  }, [client, auth.user?.id, documents?.termsVersion, documents?.privacyVersion, reloadConsent]);
+  }, [client, auth.user?.id, documents?.termsVersion, documents?.privacyVersion, reloadConsent, privateBeta]);
 
   async function run(action: () => Promise<void>) {
     if (lock.current) return;
@@ -150,6 +155,21 @@ export default function AuthApplication({ client = supabase, documents = legalDo
   const notices = <>{(error || auth.error) && <p className="fa-error" role="alert">{error || auth.error}</p>}
     {(message || auth.notice) && <p className="fa-notice" role="status">{message || auth.notice}</p>}</>;
 
+  if (view === 'invite') return <BetaInvitation client={client} enabled={privateBeta}
+    verified={() => { auth.startPasswordSetup(); setView('reset'); }} cancel={() => changeView('login')} />;
+
+  if (privateBeta && client && auth.user && auth.status === 'signedIn'
+      && !auth.recovery && view !== 'reset' && !callbackFailed) {
+    const signOut = async () => {
+      const ok = await auth.signOut();
+      if (ok) { auth.finishRecovery(); setForm(blank); changeView('login'); }
+      return ok;
+    };
+    return <BetaGate key={auth.user.id} client={client} signOut={signOut}>
+      {renderAuthenticated ? renderAuthenticated(auth.user, signOut) : <p>Accès à la bêta confirmé.</p>}
+    </BetaGate>;
+  }
+
   if (renderAuthenticated && client && auth.user && auth.status === 'signedIn'
       && !auth.recovery && view !== 'reset' && !callbackFailed && documents && consent === 'accepted') {
     return <>{renderAuthenticated(auth.user, async () => {
@@ -178,10 +198,11 @@ export default function AuthApplication({ client = supabase, documents = legalDo
       <button className="fa-secondary" disabled={busy || auth.pending} onClick={logout}>Déconnecter cet appareil</button></>;
   } else content = <>
     <p className="fa-eyebrow">Rencontres · Garde · Services</p>
+    {privateBeta && <p className="fa-hint">Bêta privée · Accès sur invitation</p>}
     <h1 ref={heading} tabIndex={-1}>{titles[view]}</h1>
     {notices}
     {view === 'reset' && auth.status !== 'signedIn' && <p role="alert">La session de récupération a expiré. <button className="fa-link" onClick={() => changeView('forgot')}>Demander un nouveau lien</button></p>}
-    {view === 'signup' && !documents ? <><p>Les inscriptions ne sont pas encore ouvertes.</p><button onClick={() => changeView('login')}>J’ai déjà un compte</button></>
+    {view === 'signup' && (privateBeta || !documents) ? <><p>{privateBeta ? 'La bêta privée est accessible sur invitation uniquement.' : 'Les inscriptions ne sont pas encore ouvertes.'}</p><button onClick={() => changeView('login')}>J’ai déjà un compte</button></>
       : view === 'confirmation' ? <><p>Le lien confirme ton adresse. Ensuite, tu pourras retrouver ton espace.</p><button disabled={busy} onClick={resend}>Renvoyer le lien</button><button className="fa-secondary" onClick={() => changeView('login')}>Revenir à la connexion</button></>
       : view === 'callback' ? <><p role="status">Nous vérifions ton lien…</p><button className="fa-secondary" onClick={() => changeView('login')}>Revenir à la connexion</button></>
       : <form onSubmit={submit}>

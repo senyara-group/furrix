@@ -49,8 +49,8 @@ async function setup({ with0004 = true, with0005 = true } = {}) {
     grant usage, select on all sequences in schema public to anon, authenticated;
     grant all on all tables in schema public to service_role;`);
   await db.exec(await migration('20261023134053_furrix_0003_security_boundaries.sql'));
-  if (with0004) await db.exec(await migration('20261103120000_furrix_0004_pet_photos_storage.sql'));
-  if (with0005) await db.exec(await migration('20261103120100_furrix_0005_pet_profile_constraints.sql'));
+  if (with0004) await db.exec(await migration('20261117110755_furrix_0004_pet_photos_storage.sql'));
+  if (with0005) await db.exec(await migration('20261117110759_furrix_0005_pet_profile_constraints.sql'));
   return db;
 }
 
