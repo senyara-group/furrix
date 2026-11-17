@@ -10,6 +10,7 @@ import '@fontsource/figtree/latin-600.css';
 import './shell.css';
 import PetsWorkspace from '../pets/PetsWorkspace';
 import type { ReactNode } from 'react';
+import MeetingsArea from '../meetings/MeetingsArea';
 
 const pillars = [
   { route: 'rencontres', label: 'Faire des rencontres', tag: 'Un peu de compagnie', text: 'Des compagnons de balade et de nouveaux amis, pour eux comme pour toi.', icon: Heart, color: 'sky' },
@@ -39,8 +40,8 @@ function Home({ overview }: { overview: OverviewState }) {
   </>;
 }
 
-export function AppShellView({ overview, retry, email, onSignOut, preview = false, petsContent }: {
-  overview: OverviewState; retry: () => void; email?: string; onSignOut?: () => Promise<boolean>; preview?: boolean; petsContent?: ReactNode;
+export function AppShellView({ overview, retry, email, onSignOut, preview = false, petsContent, meetingsContent, messagesContent }: {
+  overview: OverviewState; retry: () => void; email?: string; onSignOut?: () => Promise<boolean>; preview?: boolean; petsContent?: ReactNode; meetingsContent?: ReactNode; messagesContent?: ReactNode;
 }) {
   const [route, setRoute] = useState(() => routeFromHash(window.location.hash));
   const [mobileMenu, setMobileMenu] = useState(false);
@@ -77,6 +78,8 @@ export function AppShellView({ overview, retry, email, onSignOut, preview = fals
     <main id="fx-content" tabIndex={-1} ref={title}>
       {overview.status === 'error' && <div className="fx-load-error" role="alert">Ton espace n’a pas pu être chargé. <button onClick={retry}>Réessayer</button></div>}
       {route === 'accueil' ? <Home overview={overview} />
+        : route === 'rencontres' && meetingsContent ? meetingsContent
+        : route === 'messages' && messagesContent ? messagesContent
         : route === 'compte' ? <section className="fx-page"><p className="fx-eyebrow">Ton espace personnel</p><h1>Mon compte</h1><p>Un seul compte pour le web et les applications mobiles.</p><dl><dt>E-mail</dt><dd>{email || (preview ? 'Non affiché dans cet aperçu' : 'Non renseigné')}</dd><dt>Prénom</dt><dd>{overview.data?.profile.name || 'Non renseigné'}</dd><dt>Ville</dt><dd>{overview.data?.profile.city || 'Non renseignée'}</dd></dl>
           <p className="fx-small">L’édition du profil et la gestion des appareils seront ajoutées dans un prochain lot.</p><button className="fx-outline" disabled={!onSignOut || leaving} onClick={() => { void signOut(); }}><LogOut size={18} aria-hidden />{leaving ? 'Déconnexion…' : 'Déconnecter cet appareil'}</button>{error && <p role="alert">{error}</p>}</section>
         : route === 'animaux' && petsContent ? petsContent : route === 'animaux' ? <section className="fx-page"><p className="fx-eyebrow">Ceux qui partagent ta vie</p><h1>Mes animaux</h1>{overview.status === 'loading' ? <p role="status">Chargement des profils…</p>
@@ -94,7 +97,9 @@ export default function AppShell({ client, user, onSignOut }: { client: FurrixCl
   const overview = useAccountOverview(client, user.id);
   const petsContent = overview.status === 'ready' && overview.data
     ? <PetsWorkspace key={user.id} client={client} ownerId={user.id} pets={overview.data.pets} onSaved={overview.savePet} reload={overview.retry} /> : undefined;
-  return <AppShellView overview={overview} retry={overview.retry} email={user.email} onSignOut={onSignOut} petsContent={petsContent} />;
+  const meetingsContent = overview.status === 'ready' && overview.data ? <MeetingsArea key={`${user.id}:discover`} client={client} ownerId={user.id} pets={overview.data.pets} /> : undefined;
+  const messagesContent = overview.status === 'ready' && overview.data ? <MeetingsArea key={`${user.id}:matches`} client={client} ownerId={user.id} pets={overview.data.pets} initialTab="matches" /> : undefined;
+  return <AppShellView overview={overview} retry={overview.retry} email={user.email} onSignOut={onSignOut} petsContent={petsContent} meetingsContent={meetingsContent} messagesContent={messagesContent} />;
 }
 
 export function AppPreview() {

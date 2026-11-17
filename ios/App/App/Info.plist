@@ -11,6 +11,10 @@
             <array><string>fr.furrix.app</string></array>
         </dict>
     </array>
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>À votre demande, utiliser une zone approximative pour trouver des compagnons proches de votre animal.</string>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+    <string>À votre demande, utiliser une zone approximative pour trouver des compagnons proches de votre animal.</string>
     <key>NSCameraUsageDescription</key>
     <string>Prendre une photo pour le profil de votre animal.</string>
     <key>NSPhotoLibraryUsageDescription</key>
