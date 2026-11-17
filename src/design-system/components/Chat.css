@@ -1,0 +1,107 @@
+.fx-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.fx-bubble {
+  max-width: 86%;
+  margin: 0;
+  padding: var(--fx-space-3) var(--fx-space-4);
+  border-radius: var(--fx-radius-2xl);
+  font-size: 15px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.fx-bubble--them {
+  align-self: flex-start;
+  background: var(--fx-color-surface-white);
+  box-shadow: var(--fx-shadow-ring-strong);
+  border-bottom-left-radius: var(--fx-radius-xs);
+}
+.fx-bubble--me {
+  align-self: flex-end;
+  background: var(--fx-color-ink);
+  color: #fff;
+  border-bottom-right-radius: var(--fx-radius-xs);
+}
+.fx-bubble__time {
+  display: block;
+  margin-top: var(--fx-space-1);
+  font-size: 12.5px;
+  color: var(--fx-color-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+.fx-bubble--me .fx-bubble__time {
+  color: var(--fx-color-ink-on-dark-muted);
+}
+.fx-sysmsg {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fx-space-2);
+  padding: 6px var(--fx-space-3);
+  border-radius: var(--fx-radius-pill);
+  background: var(--fx-color-status-stop-bg);
+  font: 600 13px/1.4 var(--fx-font-body);
+  color: var(--fx-color-ink-soft);
+  text-align: center;
+}
+.fx-chatlay {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.fx-chatlay__main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.fx-chatlay__main .fx-chat {
+  margin-bottom: var(--fx-space-4);
+}
+.fx-chatlay__main .fx-composer {
+  margin-top: auto;
+}
+.fx-chatlay__side {
+  display: none;
+}
+.fx-chatctx {
+  display: flex;
+  align-items: center;
+  gap: var(--fx-space-3);
+  padding: var(--fx-space-3) 14px;
+  margin-bottom: var(--fx-space-4);
+  border-radius: var(--fx-radius-xl);
+  background: var(--fx-color-surface-white);
+  box-shadow: var(--fx-shadow-ring-strong);
+}
+.fx-chatctx__body {
+  flex: 1;
+  min-width: 0;
+}
+@media (min-width: 900px) {
+  .fx-bubble {
+    max-width: 72%;
+  }
+  .fx-chatlay {
+    display: grid;
+    flex: none;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: var(--fx-space-10);
+    align-items: start;
+  }
+  .fx-chatlay__main {
+    display: block;
+  }
+  .fx-chatlay__main .fx-chat {
+    margin-bottom: 0;
+  }
+  .fx-chatlay__side {
+    display: block;
+  }
+  .fx-chatctx {
+    display: none;
+  }
+}

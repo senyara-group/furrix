@@ -1,0 +1,84 @@
+/* Variables du code (rôles typographiques, mouvement, z-index). Les jetons éditables (couleurs, espacements, rayons, ombres, tailles, mise en page) viennent de tokens.json. */
+:root {
+  --fx-font-display: var(--font-display);
+  --fx-font-body: var(--font-body);
+  --fx-font-mono: var(--font-mono);
+  --fx-motion-press: .08s;
+  --fx-motion-base: .15s;
+  --fx-motion-deck: .22s;
+  --fx-z-sticky: 2;
+  --fx-z-deck-top: 3;
+  --fx-z-toast: 5;
+  --fx-type-display: 800 36px/.98 var(--fx-font-display);
+  --fx-type-display-size: 36px;
+  --fx-type-display-ls: -.032em;
+  --fx-type-h1: 800 40px/1.05 var(--fx-font-display);
+  --fx-type-h1-size: 40px;
+  --fx-type-h1-ls: -.03em;
+  --fx-type-bar-title: 800 22px/1.15 var(--fx-font-display);
+  --fx-type-bar-title-size: 22px;
+  --fx-type-bar-title-ls: -.025em;
+  --fx-type-h2: 700 19px/1.2 var(--fx-font-display);
+  --fx-type-h2-size: 19px;
+  --fx-type-h2-ls: -.02em;
+  --fx-type-h3: 700 17px/1.3 var(--fx-font-body);
+  --fx-type-h3-size: 17px;
+  --fx-type-h3-ls: 0;
+  --fx-type-use-title: 700 19px/1.15 var(--fx-font-display);
+  --fx-type-use-title-size: 19px;
+  --fx-type-use-title-ls: -.02em;
+  --fx-type-name: 700 18px/1.2 var(--fx-font-display);
+  --fx-type-name-size: 18px;
+  --fx-type-name-ls: -.015em;
+  --fx-type-row-name: 700 19px/1.2 var(--fx-font-display);
+  --fx-type-row-name-size: 19px;
+  --fx-type-row-name-ls: -.01em;
+  --fx-type-card-name: 800 25px/1.05 var(--fx-font-display);
+  --fx-type-card-name-size: 25px;
+  --fx-type-card-name-ls: -.025em;
+  --fx-type-match-title: 800 32px/1.05 var(--fx-font-display);
+  --fx-type-match-title-size: 32px;
+  --fx-type-match-title-ls: -.03em;
+  --fx-type-body: 400 15px/1.55 var(--fx-font-body);
+  --fx-type-body-size: 15px;
+  --fx-type-body-ls: 0;
+  --fx-type-body-sm: 400 13.5px/1.45 var(--fx-font-body);
+  --fx-type-body-sm-size: 13.5px;
+  --fx-type-body-sm-ls: 0;
+  --fx-type-label: 600 14.5px/1.2 var(--fx-font-body);
+  --fx-type-label-size: 14.5px;
+  --fx-type-label-ls: 0;
+  --fx-type-kicker: 600 12.5px/1.2 var(--fx-font-body);
+  --fx-type-kicker-size: 12.5px;
+  --fx-type-kicker-ls: .07em;
+  --fx-type-eyebrow: 600 13px/1.2 var(--fx-font-body);
+  --fx-type-eyebrow-size: 13px;
+  --fx-type-eyebrow-ls: .09em;
+  --fx-type-caption: 500 12px/1.45 var(--fx-font-body);
+  --fx-type-caption-size: 12px;
+  --fx-type-caption-ls: 0;
+  --fx-type-button: 600 16px/1.2 var(--fx-font-body);
+  --fx-type-button-size: 16px;
+  --fx-type-button-ls: 0;
+}
+
+/* Ordinateur (≥ 900px) : seules les valeurs qui changent. Mobile d'abord. */
+@media (min-width: 900px) {
+  :root {
+    --fx-layout-page-x: 40px;
+    --fx-type-display: 800 58px/.98 var(--fx-font-display);
+    --fx-type-display-size: 58px;
+    --fx-type-h2: 700 22px/1.2 var(--fx-font-display);
+    --fx-type-h2-size: 22px;
+    --fx-type-use-title: 700 25px/1.15 var(--fx-font-display);
+    --fx-type-use-title-size: 25px;
+    --fx-type-name: 700 21px/1.2 var(--fx-font-display);
+    --fx-type-name-size: 21px;
+    --fx-type-card-name: 800 30px/1.05 var(--fx-font-display);
+    --fx-type-card-name-size: 30px;
+    --fx-type-match-title: 800 44px/1.05 var(--fx-font-display);
+    --fx-type-match-title-size: 44px;
+    --fx-type-body: 400 15.5px/1.55 var(--fx-font-body);
+    --fx-type-body-size: 15.5px;
+  }
+}

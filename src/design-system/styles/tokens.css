@@ -1,0 +1,124 @@
+/*
+ * Jetons « Plein air » — copie fidèle de tokens.json (design system Furrix).
+ * Ne pas modifier une valeur ici sans la modifier dans le design system.
+ */
+:root {
+  /* familles de polices */
+  --font-display: "Bricolage Grotesque", Figtree, system-ui, sans-serif;
+  --font-body: Figtree, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* color */
+  --fx-color-ink: #16213a;
+  --fx-color-ink-soft: #2e3850;
+  --fx-color-ink-muted: #4a5468;
+  --fx-color-ink-hover: #2a3757;
+  --fx-color-ink-press: #0d1426;
+  --fx-color-ink-on-dark-muted: #c9d0dd;
+  --fx-color-ink-placeholder: #5e6678;
+  --fx-color-surface-page: #fbfaf6;
+  --fx-color-surface-sand: #f1efe8;
+  --fx-color-surface-stone: #efede6;
+  --fx-color-surface-stone-hover: #e2dfd5;
+  --fx-color-surface-stone-press: #d6d2c6;
+  --fx-color-surface-row-hover: #f3f1eb;
+  --fx-color-surface-white: #ffffff;
+  --fx-color-line-subtle: #eceae3;
+  --fx-color-line-strong: #e4e2da;
+  --fx-color-line-option: #c9c4b6;
+  --fx-color-line-field: #8c8676;
+  --fx-color-line-step-stop: #9a9588;
+  --fx-color-poppy: #c8432a;
+  --fx-color-poppy-hover: #a93622;
+  --fx-color-poppy-press: #8f2d1c;
+  --fx-color-poppy-pale: #f6ddd7;
+  --fx-color-illustration-sky: #d6e6f2;
+  --fx-color-illustration-park: #bfd8b8;
+  --fx-color-illustration-water: #afcbe0;
+  --fx-color-illustration-sun: #f3c14b;
+  --fx-color-status-wait-bg: #dceaf5;
+  --fx-color-status-wait-fg: #1d3f66;
+  --fx-color-status-todo-bg: #fbebc0;
+  --fx-color-status-todo-fg: #5e4100;
+  --fx-color-status-ok-bg: #d9ebd3;
+  --fx-color-status-ok-fg: #1f4d24;
+  --fx-color-status-stop-bg: #ecebe6;
+  --fx-color-status-stop-fg: #3e4759;
+  --fx-color-status-alert-bg: #f6ddd7;
+  --fx-color-status-alert-fg: #8f2d1c;
+  --fx-color-status-draft-bg: #ffffff;
+  --fx-color-status-draft-fg: #2e3850;
+  --fx-color-status-draft-ring: #c9c4b6;
+  --fx-color-alert-err-bg: #fbe9e4;
+  --fx-color-alert-err-fg: #5c1c10;
+  --fx-color-alert-err-icon-bg: #f2c9be;
+  --fx-color-alert-err-icon-fg: #8f2d1c;
+  --fx-color-alert-ok-bg: #e3f0de;
+  --fx-color-alert-ok-fg: #183d1c;
+  --fx-color-alert-ok-icon-bg: #bfd8b8;
+  --fx-color-alert-ok-icon-fg: #1f4d24;
+  --fx-color-alert-info-bg: #e6f0f8;
+  --fx-color-alert-info-fg: #152f4d;
+  --fx-color-alert-info-icon-bg: #c6daea;
+  --fx-color-alert-info-icon-fg: #1d3f66;
+  --fx-color-alert-warn-bg: #fcf1d2;
+  --fx-color-alert-warn-fg: #4a3300;
+  --fx-color-alert-warn-icon-bg: #f3dd9a;
+  --fx-color-alert-warn-icon-fg: #5e4100;
+  --fx-color-dev-provisional-border: #6b5a2e;
+  --fx-color-dev-provisional-bg: #fff8e6;
+  --fx-color-dev-provisional-fg: #4f3f14;
+  --fx-color-dev-provisional-box-border: #b9ae8c;
+  --fx-color-dev-provisional-box-bg: #fffbf0;
+  /* spacing */
+  --fx-space-1: 4px;
+  --fx-space-2: 8px;
+  --fx-space-3: 12px;
+  --fx-space-4: 16px;
+  --fx-space-5: 20px;
+  --fx-space-6: 24px;
+  --fx-space-8: 32px;
+  --fx-space-10: 40px;
+  --fx-space-12: 48px;
+  --fx-space-14: 56px;
+  --fx-space-18: 72px;
+  /* radius */
+  --fx-radius-xs: 6px;
+  --fx-radius-sm: 12px;
+  --fx-radius-md: 14px;
+  --fx-radius-lg: 16px;
+  --fx-radius-xl: 18px;
+  --fx-radius-2xl: 20px;
+  --fx-radius-3xl: 24px;
+  --fx-radius-4xl: 28px;
+  --fx-radius-5xl: 32px;
+  --fx-radius-pill: 999px;
+  /* shadow */
+  --fx-shadow-ring: 0 0 0 1px #ECEAE3;
+  --fx-shadow-ring-strong: 0 0 0 1px #E4E2DA;
+  --fx-shadow-ring-hover: 0 0 0 2px #16213A;
+  --fx-shadow-marker: 0 1px 2px rgba(22, 33, 58, .18);
+  --fx-shadow-deck: 0 0 0 1px #ECEAE3, 0 18px 36px -22px rgba(22, 33, 58, .45);
+  --fx-shadow-toast: 0 10px 30px -12px rgba(22, 33, 58, .4);
+  --fx-shadow-map-card: 0 6px 20px -10px rgba(22, 33, 58, .4);
+  /* size */
+  --fx-size-touch: 44px;
+  --fx-size-button: 52px;
+  --fx-size-button-sm: 44px;
+  --fx-size-button-hero: 64px;
+  --fx-size-button-hero-sm: 56px;
+  --fx-size-option: 48px;
+  --fx-size-input: 52px;
+  --fx-size-avatar: 44px;
+  --fx-size-monogram: 56px;
+  --fx-size-swipe-action: 64px;
+  --fx-size-swipe-info: 52px;
+  /* layout */
+  --fx-layout-header-height: 72px;
+  --fx-layout-content-max: 1120px;
+  --fx-layout-page-x: 16px;
+  --fx-layout-side-width: 380px;
+  --fx-layout-side-gap: 48px;
+  --fx-layout-tabbar-height: 80px;
+  --fx-layout-bar-min-height: 68px;
+  --fx-layout-breakpoint-desktop: 900px;
+}

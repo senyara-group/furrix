@@ -11,6 +11,9 @@ La génération/synchronisation des projets ne vaut pas validation d'une compila
 Les lots authentification et accueil « Plein air » sont préparés séparément, puis à recetter sur appareils
 et à rapprocher des composants d'Alexis avant ouverture publique.
 
+**Design system « Plein air » en code** : `src/design-system/` (jetons, polices embarquées, composants React).
+Règles de travail : [AGENT.md](AGENT.md).
+
 **Accueil et navigation préparés** : [périmètre et recette](docs/Accueil_Navigation.md).
 `npm run dev:home` ouvre l'aperçu local identifié ; `dev:auth` utilise la structure derrière la session
 et les déclarations vérifiées. Les services métier restent signalés « en préparation ».

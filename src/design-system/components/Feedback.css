@@ -1,0 +1,211 @@
+.fx-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fx-space-2);
+  padding: 5px 12px 5px 10px;
+  border-radius: var(--fx-radius-pill);
+  font: 600 13.5px/1.3 var(--fx-font-body);
+  white-space: nowrap;
+  background: var(--_bg);
+  color: var(--_fg);
+}
+.fx-status i {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.fx-status--wait {
+  --_bg: var(--fx-color-status-wait-bg);
+  --_fg: var(--fx-color-status-wait-fg);
+}
+.fx-status--todo {
+  --_bg: var(--fx-color-status-todo-bg);
+  --_fg: var(--fx-color-status-todo-fg);
+}
+.fx-status--ok {
+  --_bg: var(--fx-color-status-ok-bg);
+  --_fg: var(--fx-color-status-ok-fg);
+}
+.fx-status--stop {
+  --_bg: var(--fx-color-status-stop-bg);
+  --_fg: var(--fx-color-status-stop-fg);
+}
+.fx-status--alert {
+  --_bg: var(--fx-color-status-alert-bg);
+  --_fg: var(--fx-color-status-alert-fg);
+}
+.fx-status--draft {
+  --_bg: var(--fx-color-status-draft-bg);
+  --_fg: var(--fx-color-status-draft-fg);
+  box-shadow: inset 0 0 0 1.5px var(--fx-color-status-draft-ring);
+}
+.fx-status--wait i {
+  background: none;
+  box-shadow: inset 0 0 0 2px currentColor;
+}
+.fx-status--ok i {
+  width: 10px;
+  height: 6px;
+  border-radius: 0;
+  background: none;
+  border-left: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(-45deg);
+}
+.fx-status--stop i {
+  width: 10px;
+  height: 2px;
+  border-radius: 1px;
+}
+.fx-status--alert i {
+  width: 0;
+  height: 0;
+  border-radius: 0;
+  background: none;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-bottom: 9px solid currentColor;
+}
+.fx-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: var(--fx-radius-pill);
+  background: var(--fx-color-status-stop-bg);
+  color: var(--fx-color-status-stop-fg);
+  font: 600 12.5px/1.5 var(--fx-font-body);
+  white-space: nowrap;
+}
+.fx-tag--pro {
+  background: var(--fx-color-status-wait-bg);
+  color: var(--fx-color-status-wait-fg);
+}
+.fx-tag--goal {
+  background: var(--fx-color-status-todo-bg);
+  color: var(--fx-color-status-todo-fg);
+}
+.fx-alert {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 18px 20px;
+  border-radius: var(--fx-radius-xl);
+  background: var(--_bg);
+  color: var(--_fg);
+}
+.fx-alert__icon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--_ibg);
+  color: var(--_ifg);
+}
+.fx-alert__body {
+  min-width: 0;
+}
+.fx-alert__title {
+  font: 700 17px/1.3 var(--fx-font-body);
+}
+.fx-alert__text {
+  margin-top: var(--fx-space-1);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.fx-alert__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+.fx-alert--err {
+  --_bg: var(--fx-color-alert-err-bg);
+  --_fg: var(--fx-color-alert-err-fg);
+  --_ibg: var(--fx-color-alert-err-icon-bg);
+  --_ifg: var(--fx-color-alert-err-icon-fg);
+}
+.fx-alert--ok {
+  --_bg: var(--fx-color-alert-ok-bg);
+  --_fg: var(--fx-color-alert-ok-fg);
+  --_ibg: var(--fx-color-alert-ok-icon-bg);
+  --_ifg: var(--fx-color-alert-ok-icon-fg);
+}
+.fx-alert--info {
+  --_bg: var(--fx-color-alert-info-bg);
+  --_fg: var(--fx-color-alert-info-fg);
+  --_ibg: var(--fx-color-alert-info-icon-bg);
+  --_ifg: var(--fx-color-alert-info-icon-fg);
+}
+.fx-alert--warn {
+  --_bg: var(--fx-color-alert-warn-bg);
+  --_fg: var(--fx-color-alert-warn-fg);
+  --_ibg: var(--fx-color-alert-warn-icon-bg);
+  --_ifg: var(--fx-color-alert-warn-icon-fg);
+}
+.fx-toast {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  top: calc(var(--fx-safe-top, 0px) + 12px);
+  z-index: var(--fx-z-toast);
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 12px 14px;
+  box-shadow: var(--fx-shadow-toast);
+}
+.fx-toast .fx-alert__icon {
+  width: 34px;
+  height: 34px;
+}
+.fx-toast .fx-alert__title {
+  font-size: 15px;
+}
+.fx-toast .fx-alert__text {
+  font-size: 13.5px;
+  margin-top: 2px;
+}
+.fx-note {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 14px var(--fx-space-4);
+  border-radius: var(--fx-radius-lg);
+  background: var(--fx-color-surface-sand);
+  font: 500 14px/1.5 var(--fx-font-body);
+  color: var(--fx-color-ink-soft);
+}
+.fx-note svg {
+  flex: none;
+  margin-top: 1px;
+}
+.fx-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--fx-space-3);
+  padding: var(--fx-space-8) 18px;
+  border-radius: var(--fx-radius-4xl);
+  background: var(--fx-color-surface-white);
+  box-shadow: var(--fx-shadow-ring);
+}
+.fx-empty__icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--fx-color-illustration-sky);
+  color: var(--fx-color-status-wait-fg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+@media (min-width: 900px) {
+  .fx-empty {
+    padding: var(--fx-space-12) var(--fx-space-6);
+  }
+}

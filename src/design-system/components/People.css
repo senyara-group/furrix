@@ -1,0 +1,105 @@
+.fx-photo {
+  display: block;
+  width: 100%;
+  object-fit: cover;
+  background-color: var(--fx-color-illustration-sky);
+}
+.fx-photo--4-5 {
+  aspect-ratio: 4 / 5;
+}
+.fx-photo--4-3 {
+  aspect-ratio: 4 / 3;
+}
+.fx-photo--1-1 {
+  aspect-ratio: 1 / 1;
+}
+.fx-photo--r-xl {
+  border-radius: var(--fx-radius-xl);
+}
+.fx-photo--r-3xl {
+  border-radius: var(--fx-radius-3xl);
+}
+.fx-photo--r-4xl {
+  border-radius: var(--fx-radius-4xl);
+}
+.fx-photo--r-5xl {
+  border-radius: var(--fx-radius-5xl);
+}
+.fx-mono {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--_s, 56px);
+  height: var(--_s, 56px);
+  border-radius: var(--_r, var(--fx-radius-xl));
+  background: var(--fx-color-status-wait-bg);
+  color: var(--fx-color-status-wait-fg);
+  font: 800 var(--_fs, 20px) / 1 var(--fx-font-display);
+  object-fit: cover;
+}
+.fx-mono--circle {
+  --_r: 50%;
+}
+.fx-avatar {
+  flex: none;
+  width: var(--fx-size-avatar);
+  height: var(--fx-size-avatar);
+  border-radius: 50%;
+  border: 0;
+  padding: 0;
+  background: var(--fx-color-ink);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font: 700 17px var(--fx-font-display);
+}
+button.fx-avatar {
+  cursor: pointer;
+}
+.fx-who {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.fx-who__img {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--fx-radius-xl);
+  object-fit: cover;
+  background-color: var(--fx-color-illustration-sky);
+}
+.fx-who__name {
+  font: 700 17px/1.25 var(--fx-font-display);
+}
+.fx-who__sub {
+  margin-top: 2px;
+  font: var(--fx-type-body-sm);
+  line-height: 1.4;
+  color: var(--fx-color-ink-muted);
+}
+.fx-petsel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--fx-size-touch);
+  padding: 0 12px 0 6px;
+  border-radius: var(--fx-radius-pill);
+  border: 0;
+  background: var(--fx-color-surface-white);
+  box-shadow: inset 0 0 0 1.5px var(--fx-color-ink);
+  color: var(--fx-color-ink);
+  font: 500 14.5px var(--fx-font-body);
+  cursor: pointer;
+}
+.fx-petsel b {
+  font-weight: 700;
+}
+@media (min-width: 900px) {
+  .fx-petsel {
+    gap: var(--fx-space-2);
+    padding: 0 14px 0 6px;
+  }
+}

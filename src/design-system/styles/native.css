@@ -1,0 +1,33 @@
+:root {
+  --fx-safe-top: env(safe-area-inset-top, 0px);
+  --fx-safe-right: env(safe-area-inset-right, 0px);
+  --fx-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --fx-safe-left: env(safe-area-inset-left, 0px);
+}
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+html[data-native=true] {
+  -webkit-touch-callout: none;
+  overscroll-behavior: none;
+}
+html[data-native=true] .fx-btn,
+html[data-native=true] .fx-ib,
+html[data-native=true] .fx-send,
+html[data-native=true] .fx-chip,
+html[data-native=true] .fx-opt,
+html[data-native=true] .fx-seg__btn,
+html[data-native=true] .fx-tab,
+html[data-native=true] .fx-swipe__card {
+  -webkit-user-select: none;
+  user-select: none;
+}
+@media (max-width: 899.98px) {
+  .fx-input {
+    font-size: 16px;
+  }
+}
+.fx-root {
+  min-height: 100vh;
+  min-height: 100dvh;
+}

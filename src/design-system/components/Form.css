@@ -1,0 +1,87 @@
+.fx-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.fx-label {
+  font: var(--fx-type-label);
+  color: var(--fx-color-ink);
+}
+.fx-label__opt {
+  font-weight: 500;
+  color: var(--fx-color-ink-muted);
+}
+.fx-input {
+  width: 100%;
+  min-height: var(--fx-size-input);
+  padding: 12px var(--fx-space-4);
+  border-radius: var(--fx-radius-md);
+  border: 1.5px solid var(--fx-color-line-field);
+  background: var(--fx-color-surface-white);
+  color: var(--fx-color-ink);
+  font: 500 15.5px/1.4 var(--fx-font-body);
+  -webkit-appearance: none;
+  appearance: none;
+}
+.fx-input::placeholder {
+  color: var(--fx-color-ink-placeholder);
+}
+.fx-input:focus {
+  outline: 3px solid var(--fx-color-ink);
+  outline-offset: 1px;
+  border-color: var(--fx-color-ink);
+}
+textarea.fx-input {
+  min-height: 110px;
+  resize: vertical;
+}
+.fx-input[disabled] {
+  background: var(--fx-color-surface-sand);
+  color: var(--fx-color-ink-muted);
+  border-color: var(--fx-color-line-strong);
+  cursor: not-allowed;
+}
+.fx-hint {
+  font: var(--fx-type-body-sm);
+  color: var(--fx-color-ink-muted);
+}
+.fx-input[aria-invalid=true] {
+  border-color: var(--fx-color-poppy-press);
+  border-width: 2px;
+}
+.fx-field__error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font: 600 13.5px/1.45 var(--fx-font-body);
+  color: var(--fx-color-poppy-press);
+}
+.fx-field__error svg {
+  flex: none;
+  margin-top: 2px;
+}
+.fx-composer {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: var(--fx-space-4);
+}
+.fx-composer .fx-input {
+  flex: 1;
+  min-width: 0;
+}
+@media (max-width: 899.98px) {
+  .fx-composer {
+    position: sticky;
+    bottom: 0;
+    z-index: var(--fx-z-sticky);
+    padding: 10px 0 14px;
+    background: var(--fx-color-surface-page);
+    box-shadow:
+      calc(var(--fx-layout-page-x) * -1) 0 0 var(--fx-color-surface-page),
+      var(--fx-layout-page-x) 0 0 var(--fx-color-surface-page),
+      0 -1px 0 var(--fx-color-line-strong),
+      calc(var(--fx-layout-page-x) * -1) -1px 0 var(--fx-color-line-strong),
+      var(--fx-layout-page-x) -1px 0 var(--fx-color-line-strong);
+  }
+}
