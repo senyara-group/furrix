@@ -91,7 +91,10 @@ Points relevés, non traités dans ce lot :
 ## Recette
 
 - **Faite** : parcours d'interface avec le support de revue et un faux client, sur ordinateur (1280 px) et téléphone (390 px). Découvrir, fiche, j'aime, match, liste des matchs, conversation, envoi. Aucune erreur JS, aucun débordement horizontal, cibles tactiles d'au moins 44 px.
-- **À faire après application sur DEV**, avec trois comptes bêta et des animaux fictifs :
+- **Confirmé par Guillaume sur DEV** : l'invitation Auth a fonctionné et le mot de passe a été défini. Aucun autre scénario réel n'a encore été confirmé.
+- **Prêts côté serveur, non testés** : accès bêta actif sans échéance pour Guillaume et Yannis. Yannis n'a pas encore ouvert son invitation, et aucune notice n'a encore été acceptée.
+- **Avec un seul compte, à tester** : acceptation de la notice, création d'un animal et de sa photo, localisation approximative puis suppression, découverte vide.
+- **Avec plusieurs comptes bêta et des animaux fictifs, à tester** :
   1. A et B localisent leur animal ; C ne le fait pas. Vérifier la distance, le rayon et l'exclusion de C du rayon.
   2. A passe le profil de C, aime celui de B ; B aime celui de A. Le match apparaît des deux côtés. Rejouer le j'aime : même match.
   3. Conversation dans les deux sens, double clic sur Envoyer, coupure réseau puis nouvel essai : pas de doublon.
