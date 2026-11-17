@@ -8,6 +8,8 @@ import '@fontsource/bricolage-grotesque/latin-700.css';
 import '@fontsource/figtree/latin-400.css';
 import '@fontsource/figtree/latin-600.css';
 import './shell.css';
+import PetsWorkspace from '../pets/PetsWorkspace';
+import type { ReactNode } from 'react';
 
 const pillars = [
   { route: 'rencontres', label: 'Faire des rencontres', tag: 'Un peu de compagnie', text: 'Des compagnons de balade et de nouveaux amis, pour eux comme pour toi.', icon: Heart, color: 'sky' },
@@ -32,13 +34,13 @@ function Home({ overview }: { overview: OverviewState }) {
       </a>)}</div>
     </section>
     <section className="fx-lower"><div className="fx-follow"><p className="fx-eyebrow">Le fil de tes aventures</p><h2>À suivre</h2><div className="fx-empty-inline"><CalendarDays size={30} strokeWidth={1.5} aria-hidden /><div><h3>Une page toute neuve.</h3><p>Les rencontres et réservations apparaîtront ici lorsque ces services seront disponibles.</p></div></div></div>
-      <div className="fx-animal-note"><PawPrint size={25} aria-hidden /><h2>Et tes compagnons ?</h2><p>{overview.status === 'loading' ? 'Nous retrouvons leurs profils…' : overview.status === 'error' ? 'Leurs profils n’ont pas pu être chargés.' : overview.data?.pets.length ? 'Retrouve les profils de tes animaux dans ton espace.' : 'Leur petite place est déjà réservée. Tu pourras bientôt compléter leurs profils.'}</p><a href="#/animaux">Mes animaux <ArrowRight size={17} aria-hidden /></a></div>
+      <div className="fx-animal-note"><PawPrint size={25} aria-hidden /><h2>Et tes compagnons ?</h2><p>{overview.status === 'loading' ? 'Nous retrouvons leurs profils…' : overview.status === 'error' ? 'Leurs profils n’ont pas pu être chargés.' : overview.data?.pets.length ? 'Retrouve les profils de tes animaux dans ton espace.' : 'Leur petite place est déjà réservée. Ajoute leur profil pour faire les présentations.'}</p><a href="#/animaux">Mes animaux <ArrowRight size={17} aria-hidden /></a></div>
     </section>
   </>;
 }
 
-export function AppShellView({ overview, retry, email, onSignOut, preview = false }: {
-  overview: OverviewState; retry: () => void; email?: string; onSignOut?: () => Promise<boolean>; preview?: boolean;
+export function AppShellView({ overview, retry, email, onSignOut, preview = false, petsContent }: {
+  overview: OverviewState; retry: () => void; email?: string; onSignOut?: () => Promise<boolean>; preview?: boolean; petsContent?: ReactNode;
 }) {
   const [route, setRoute] = useState(() => routeFromHash(window.location.hash));
   const [mobileMenu, setMobileMenu] = useState(false);
@@ -77,7 +79,7 @@ export function AppShellView({ overview, retry, email, onSignOut, preview = fals
       {route === 'accueil' ? <Home overview={overview} />
         : route === 'compte' ? <section className="fx-page"><p className="fx-eyebrow">Ton espace personnel</p><h1>Mon compte</h1><p>Un seul compte pour le web et les applications mobiles.</p><dl><dt>E-mail</dt><dd>{email || (preview ? 'Non affiché dans cet aperçu' : 'Non renseigné')}</dd><dt>Prénom</dt><dd>{overview.data?.profile.name || 'Non renseigné'}</dd><dt>Ville</dt><dd>{overview.data?.profile.city || 'Non renseignée'}</dd></dl>
           <p className="fx-small">L’édition du profil et la gestion des appareils seront ajoutées dans un prochain lot.</p><button className="fx-outline" disabled={!onSignOut || leaving} onClick={() => { void signOut(); }}><LogOut size={18} aria-hidden />{leaving ? 'Déconnexion…' : 'Déconnecter cet appareil'}</button>{error && <p role="alert">{error}</p>}</section>
-        : route === 'animaux' ? <section className="fx-page"><p className="fx-eyebrow">Ceux qui partagent ta vie</p><h1>Mes animaux</h1>{overview.status === 'loading' ? <p role="status">Chargement des profils…</p>
+        : route === 'animaux' && petsContent ? petsContent : route === 'animaux' ? <section className="fx-page"><p className="fx-eyebrow">Ceux qui partagent ta vie</p><h1>Mes animaux</h1>{overview.status === 'loading' ? <p role="status">Chargement des profils…</p>
           : overview.status === 'error' ? <p>Réessaie le chargement de ton espace pour retrouver leurs profils.</p>
           : overview.data?.pets.length ? <div className="fx-pet-list">{overview.data.pets.map((pet) => <article key={pet.id}><PawPrint size={26} aria-hidden /><h2>{pet.name}</h2><p>{pet.species}{pet.breed ? ` · ${pet.breed}` : ''}</p><p>{pet.city || 'Ville non renseignée'}</p></article>)}</div>
           : <div className="fx-empty"><PawPrint size={42} strokeWidth={1.3} aria-hidden /><h2>Chaque aventure commence avec eux.</h2><p>Aucun animal n’est encore associé à cet espace. La création et l’édition des profils arrivent au prochain lot.</p></div>}</section>
@@ -90,7 +92,9 @@ export function AppShellView({ overview, retry, email, onSignOut, preview = fals
 
 export default function AppShell({ client, user, onSignOut }: { client: FurrixClient; user: User; onSignOut: () => Promise<boolean> }) {
   const overview = useAccountOverview(client, user.id);
-  return <AppShellView overview={overview} retry={overview.retry} email={user.email} onSignOut={onSignOut} />;
+  const petsContent = overview.status === 'ready' && overview.data
+    ? <PetsWorkspace key={user.id} client={client} ownerId={user.id} pets={overview.data.pets} onSaved={overview.savePet} reload={overview.retry} /> : undefined;
+  return <AppShellView overview={overview} retry={overview.retry} email={user.email} onSignOut={onSignOut} petsContent={petsContent} />;
 }
 
 export function AppPreview() {
