@@ -62,9 +62,16 @@ textarea.fx-input {
 }
 .fx-composer {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: center;
   margin-top: var(--fx-space-4);
+}
+.fx-composer__count {
+  flex-basis: 100%;
+  margin: 0;
+  font: var(--fx-type-caption);
+  color: var(--fx-color-ink-muted);
 }
 .fx-composer .fx-input {
   flex: 1;
