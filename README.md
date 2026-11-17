@@ -5,6 +5,11 @@ Plateforme dédiée aux propriétaires d'animaux : rencontres, garde et services
 **Direction visuelle validée : « Plein air »**, à intégrer. Les écrans existants restent des prototypes.
 **Stack** : React 18 + Vite + Capacitor · Supabase · RevenueCat (IAP) · Brevo · Mapbox.
 
+**Essai web / Android / iOS (17 novembre)** : [architecture, compilation et recette](docs/Architecture_Web_Mobile.md).
+Branche d'essai avec Capacitor 8 et projets natifs ; `npm run dev:platform` ouvre un banc technique séparé.
+La génération/synchronisation des projets ne vaut pas validation d'une compilation native ou d'un appareil.
+Le prochain lot reste l'authentification complète puis l'accueil « Plein air » avec les composants d'Alexis.
+
 > **Note sur les extensions** : `vite.config.mjs` et `src/lib/supabase.mjs` utilisent l'extension `.mjs` au lieu de `.js`, uniquement parce que Gmail bloque les fichiers `.js` même à l'intérieur d'une archive. Vite résout `.mjs` nativement, rien à changer. Renomme-les en `.js` si tu préfères.
 
 ## Démarrage rapide (5 minutes)
@@ -55,13 +60,11 @@ Recette distante et opérations soumises à accord : [Recette_Auth_Profil.md](do
 ## Passage en app native (Capacitor)
 
 ```bash
-npm install @capacitor/core @capacitor/cli @capacitor/ios @capacitor/android
-npx cap add ios && npx cap add android
-# Déposer icon.png et splash.png dans assets/ (voir assets/README.md) puis :
-npm install @capacitor/assets --save-dev && npx capacitor-assets generate
-npm run build && npx cap sync
-npx cap open ios       # Xcode (Mac requis)
-npx cap open android   # Android Studio
+npm ci
+npm run platform:doctor
+npm run platform:sync     # compile le banc technique et synchronise les projets déjà présents
+npm run ios:open          # Xcode, sur Mac
+npm run android:open      # Android Studio
 ```
 `capacitor.config.ts` déjà configuré (appId `fr.furrix.app`). Détail complet (plugins natifs,
 permissions, RevenueCat, soumission stores) : `docs/Furrix_Documentation_Technique.md` §21.

@@ -42,21 +42,29 @@ export function useAuth(client: FurrixClient | null): UseAuth {
 
   useEffect(() => {
     mounted.current = true;
+    let active = true;
+    let sessionEventReceived = false;
     if (!client) {
+      setSession(null);
       setStatus('signedOut');
-      return () => { mounted.current = false; };
+      return () => { active = false; mounted.current = false; };
     }
     // L'abonnement est posé avant la lecture : aucun événement n'est perdu entre les deux.
-    const unsubscribe = authService.subscribeToAuthChanges(client, (next) => apply(next));
+    const unsubscribe = authService.subscribeToAuthChanges(client, (next) => {
+      if (!active) return;
+      sessionEventReceived = true;
+      apply(next);
+    });
     authService
       .getCurrentSession(client)
-      .then(apply)
+      .then((next) => { if (active && !sessionEventReceived) apply(next); })
       .catch((e: unknown) => {
-        if (!mounted.current) return;
+        if (!active || sessionEventReceived) return;
         setError(toAuthError(e).message);
         setStatus('signedOut');
       });
     return () => {
+      active = false;
       mounted.current = false;
       unsubscribe();
     };
