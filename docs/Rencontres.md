@@ -13,10 +13,14 @@ Code client dans `src/meetings`.
 
 Aucune n'est déployée. Elles s'appliquent dans cet ordre, après `20261117110807_private_beta`, déjà présente sur DEV et inchangée :
 
-1. `20261117131807_animal_meetings.sql` : tables, RPC et règles des rencontres.
-2. `20261117132000_meetings_privacy.sql` : lecture directe de `pets` et `profiles` réservée au propriétaire. Elle s'appuie sur les RPC de la précédente et ne doit pas être appliquée seule.
+1. `20261117120000_private_beta_access_duration.sql` :
+   - accès sans échéance (`expires_at` NULL) ou à durée comptée depuis l'activation, toujours révocable par `active=false` ;
+   - condition unique `private_beta_member_active` ;
+   - activation par `grant_private_beta_access`.
+2. `20261117131807_animal_meetings.sql` : tables, RPC et règles des rencontres. Toutes ses vérifications du statut d'un autre testeur passent par la condition de la migration 1.
+3. `20261117132000_meetings_privacy.sql` : lecture directe de `pets` et `profiles` réservée au propriétaire. Elle s'appuie sur les RPC de la précédente et ne doit pas être appliquée seule.
 
-Chaque fichier contient en tête son retour arrière. Pour revenir en arrière, défaire la seconde avant la première.
+Chaque fichier contient en tête son retour arrière. Pour revenir en arrière, défaire dans l'ordre inverse (3, puis 2, puis 1). Avant le retour arrière de la migration 1, chaque accès sans échéance doit recevoir une date explicite ou être retiré.
 
 ## Fonctionnement
 
@@ -70,7 +74,7 @@ Points relevés, non traités dans ce lot :
 ## Tests
 
 - **Applicatifs** : `npm test` (Vitest), 93/93.
-- **SQL sur PGlite** : `npm run test:sql`, 44/44. Ils couvrent les autorisations, le rejeu, la découverte, la localisation, les photos, les messages et la révocation.
+- **SQL sur PGlite** : `npm run test:sql`, 52/52 (dont `beta-access-duration.test.mjs` : accès sans échéance, à durée, expirés et révoqués, activation et conservation de la notice). Ils couvrent les autorisations, le rejeu, la découverte, la localisation, les photos, les messages et la révocation.
   - `meetings-privacy.test.mjs` y ajoute la lecture directe par un autre compte, les colonnes exactes de la découverte, la conversation entre participants et le refus d'un tiers, ainsi que la révocation de l'autre testeur puis celle de l'appelant.
   - Contrôle : sans la migration de confidentialité, deux de ces scénarios échouent.
 - **Concurrence sur un vrai PostgreSQL** : `FURRIX_TEST_PG_URL=postgres://… npm run test:pg --prefix supabase/tests`.
@@ -101,7 +105,7 @@ Points relevés, non traités dans ce lot :
 Elle n'est pas faite et demande un accord explicite :
 
 - cible `jemikzqgbpaivlujnfgl` ;
-- uniquement les deux migrations ci-dessus, dans l'ordre ;
-- retour arrière : script en tête de chaque fichier, la seconde d'abord.
+- uniquement les trois migrations ci-dessus, dans l'ordre ;
+- retour arrière : script en tête de chaque fichier, dans l'ordre inverse.
 
 Ne rejouer aucune migration antérieure.

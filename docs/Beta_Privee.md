@@ -28,11 +28,17 @@ Les migrations photos 0004, contraintes 0005, consentement d'inscription et bêt
 2. Dans Supabase Auth, désactiver les nouvelles inscriptions publiques. Cette configuration distante n'a pas été vérifiée ici. Conserver l'ouverture publique désactivée même si le formulaire client est fermé.
 3. Définir la Site URL sur `https://furrix.vercel.app` et contrôler les redirections web et natives documentées dans `Architecture_Web_Mobile.md`. Le projet est celui de DEV, même si Vercel appelle son déploiement « Production ».
 4. Configurer le modèle d'invitation avec `supabase/templates/private-beta-invite.html`. Son lien utilise `TokenHash` et la route `/#/auth/invite`, indispensable au parcours préparé. Le modèle par défaut avec jetons dans le fragment n'est pas pris en charge. Vérifier l'envoi SMTP et les redirections sur une première invitation autorisée.
-5. Inviter individuellement les trois personnes depuis Supabase Auth, sans créer directement des lignes dans `auth.users`. Récupérer leurs identifiants Auth et ajouter côté administrateur une ligne `private_beta_members` pour chacune, avec une date d'expiration explicitement choisie. Une invitation Auth seule n'autorise pas l'application. Aucun envoi n'a été effectué par ce lot.
+5. Inviter individuellement les trois personnes depuis Supabase Auth, sans créer directement des lignes dans `auth.users`. Une invitation Auth seule n'autorise pas l'application. L'accès est ensuite accordé par un administrateur, compte par compte, avec `grant_private_beta_access(<identifiant Auth>, <durée>)` (migration `20261117120000_private_beta_access_duration`) :
+   - la fonction exige un compte Auth existant ;
+   - une durée nulle (`null`) signifie « sans échéance » (`expires_at` NULL), sans date lointaine artificielle ;
+   - une durée, par exemple `interval '5 weeks'`, court à partir du moment de l'activation (`activated_at`) ;
+   - une nouvelle activation repart de maintenant et conserve la notice déjà acceptée.
+
+   Elle n'est exécutable que par `service_role` et l'administrateur de la base. Les adresses e-mail ne figurent pas dans le dépôt.
 6. Définir `VITE_PRIVATE_BETA=true` et `VITE_REGISTRATION_ENABLED=false` dans les environnements Vercel concernés, puis reconstruire. Conserver uniquement l'URL et la clé publique Supabase dans les variables du navigateur.
 7. Chaque testeur ouvre son invitation sur le web, confirme le lien, définit son mot de passe puis se reconnecte. Il accepte ensuite la notice. Ce même compte peut ensuite servir sur mobile. Vérifier aussi un compte non autorisé, une expiration et une révocation avant de commencer les tests.
 
-L'expiration est obligatoire et n'a pas été choisie automatiquement. Pour retirer un accès, l'administrateur positionne `active=false` sur la ligne concernée. Désactiver la variable client ne retire pas les protections SQL. L'ouverture publique nécessitera une revue distincte, notamment des documents d'utilisation et de la transition des politiques.
+Chaque accès a soit une échéance, soit explicitement aucune ; aucune durée n'est choisie automatiquement. Pour retirer un accès, avec ou sans échéance, l'administrateur positionne `active=false` sur la ligne concernée. Une échéance passée refuse l'accès sans autre action. Désactiver la variable client ne retire pas les protections SQL. L'ouverture publique nécessitera une revue distincte, notamment des documents d'utilisation et de la transition des politiques.
 
 ## Périmètre des essais
 

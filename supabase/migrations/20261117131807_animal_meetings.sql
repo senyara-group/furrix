@@ -20,10 +20,10 @@ begin;
 
 -- Statut d'un autre testeur, réservé aux fonctions privilégiées : non exécutable par les clients,
 -- pour ne pas permettre de sonder l'appartenance à la bêta d'un identifiant quelconque.
+-- Condition unique définie par 20261117120000_private_beta_access_duration (sans échéance, expiré, révoqué).
 create function public.meeting_member_active(p_user uuid) returns boolean
 language sql stable security definer set search_path='' as $$
-  select exists(select 1 from public.private_beta_members b where b.user_id=p_user and b.active and b.expires_at>now()
-    and b.declared_adult and b.notice_version='2026-11-17' and b.accepted_at is not null);
+  select public.private_beta_member_active(p_user);
 $$;
 revoke all on function public.meeting_member_active(uuid) from public,anon,authenticated;
 
@@ -116,9 +116,8 @@ begin
           cos(radians(origin.latitude::float8))*cos(radians(loc.latitude::float8))*power(sin(radians((loc.longitude-origin.longitude)::float8)/2),2)))))
       end km
     from public.pets p join public.profiles pr on pr.id=p.owner_id
-    join public.private_beta_members b on b.user_id=p.owner_id and b.active and b.expires_at>now() and b.declared_adult and b.notice_version='2026-11-17' and b.accepted_at is not null
     left join public.pet_meeting_locations loc on loc.pet_id=p.id
-    where p.owner_id<>auth.uid() and (p_species is null or p.species=p_species) and (p_purpose is null or p.purpose=p_purpose)
+    where p.owner_id<>auth.uid() and public.meeting_member_active(p.owner_id) and (p_species is null or p.species=p_species) and (p_purpose is null or p.purpose=p_purpose)
       and (p_after is null or p.id>p_after)
       and not exists(select 1 from public.swipes s where s.pet_id=p_pet and s.target_pet_id=p.id)
   ) q where p_radius is null or q.km<=p_radius order by q.id limit p_limit;
@@ -130,9 +129,9 @@ grant execute on function public.discover_pets(uuid,text,text,integer,uuid,integ
 create function public.meeting_photo_visible(p_path text) returns boolean
 language sql stable security definer set search_path='' as $$
   select public.can_use_private_beta() and exists(
-    select 1 from public.pets p join public.private_beta_members b on b.user_id=p.owner_id
+    select 1 from public.pets p
     where p.photos[1]=p_path and split_part(p_path,'/',1)=p.owner_id::text and split_part(p_path,'/',2)=p.id::text
-      and b.active and b.expires_at>now() and b.declared_adult and b.notice_version='2026-11-17' and b.accepted_at is not null
+      and public.meeting_member_active(p.owner_id)
   );
 $$;
 revoke all on function public.meeting_photo_visible(text) from public,anon,authenticated;
