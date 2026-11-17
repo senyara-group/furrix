@@ -4,10 +4,16 @@
 // Les colonnes protégées (role, premium, verified, owner_id, dates) sont lisibles mais le client
 // n'a pas le droit de les écrire (migration 0003) : les types Insert/Update ci-dessous l'expriment.
 
+import type { DiscoveryPet, PetMatch, MatchMessage } from '../meetings/types';
 export type Database = {
   __InternalSupabase: { PostgrestVersion: '14.18' };
   public: {
     Tables: {
+      pet_meeting_locations: {
+        Row: { pet_id: string; latitude: number; longitude: number };
+        Insert: never; Update: never; Relationships: [];
+      };
+      messages: { Row: MatchMessage; Insert: never; Update: never; Relationships: [] };
       registration_consents: {
         Row: { user_id: string; terms_version: string; privacy_version: string; declared_adult: boolean; recorded_at: string; source: string };
         Insert: never;
@@ -74,6 +80,11 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      discover_pets: { Args: { p_pet: string; p_species?: string; p_purpose?: string; p_radius?: number; p_after?: string; p_limit?: number }; Returns: DiscoveryPet[] };
+      swipe_and_match: { Args: { p_pet: string; p_target: string; p_dir: string }; Returns: string | null };
+      set_pet_meeting_location: { Args: { p_pet: string; p_lat?: number; p_lng?: number }; Returns: undefined };
+      list_pet_matches: { Args: { p_pet: string }; Returns: PetMatch[] };
+      send_match_message: { Args: { p_match: string; p_text: string; p_request: string }; Returns: MatchMessage };
       private_beta_status: { Args: Record<string, never>; Returns: string };
       can_use_private_beta: { Args: Record<string, never>; Returns: boolean };
       accept_private_beta_notice: { Args: { p_adult: boolean; p_read_notice: boolean }; Returns: undefined };
