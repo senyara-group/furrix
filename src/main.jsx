@@ -5,14 +5,19 @@ import FurrixMVP from './FurrixMVP.jsx';
 import PlatformCheck from './platform/PlatformCheck';
 import ProductApp from './app/ProductApp';
 import { AppPreview } from './app/AppShell';
+import { resolveAppEntry } from './app/entry';
 
-// Le prototype initial reste l'entrée par défaut ; le design cible « Plein air » est à intégrer.
-// VITE_FURRIX_APP=mvp lance le MVP, banc d'essai temporaire des services auth / profil animal branchés à Supabase.
-const PreviewUnavailable = () => <p>L’aperçu de l’accueil est disponible uniquement en développement.</p>;
-const App = import.meta.env.VITE_FURRIX_APP === 'home-preview' ? (import.meta.env.DEV ? AppPreview : PreviewUnavailable)
-  : import.meta.env.VITE_FURRIX_APP === 'auth' ? ProductApp
-  : import.meta.env.VITE_FURRIX_APP === 'platform-check' ? PlatformCheck
-  : import.meta.env.VITE_FURRIX_APP === 'mvp' ? FurrixMVP : Furrix;
+// Connexion puis accueil Plein air par défaut, y compris sur Vercel sans sélecteur explicite.
+const Unavailable = () => <p>Le service n’est pas disponible sur cet environnement. Réessaie plus tard.</p>;
+const entry = resolveAppEntry(import.meta.env.VITE_FURRIX_APP, import.meta.env.DEV);
+const App = {
+  product: ProductApp,
+  legacy: import.meta.env.DEV ? Furrix : ProductApp,
+  mvp: import.meta.env.DEV ? FurrixMVP : ProductApp,
+  'platform-check': PlatformCheck,
+  'home-preview': import.meta.env.DEV ? AppPreview : Unavailable,
+  unavailable: Unavailable,
+}[entry];
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

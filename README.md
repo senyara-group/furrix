@@ -2,7 +2,7 @@
 
 Plateforme dédiée aux propriétaires d'animaux : rencontres, garde et services professionnels.
 **Cible validée le 16 novembre 2026** : web adapté à l'ordinateur et applications iOS/Android adaptées au téléphone.
-**Direction visuelle validée : « Plein air »**, à intégrer. Les écrans existants restent des prototypes.
+**Direction visuelle validée : « Plein air »**. Authentification et accueil intégrés ; services métier à développer.
 **Stack** : React 18 + Vite + Capacitor · Supabase · RevenueCat (IAP) · Brevo · Mapbox.
 
 **Essai web / Android / iOS (17 novembre)** : [architecture, compilation et recette](docs/Architecture_Web_Mobile.md).
@@ -29,17 +29,21 @@ cp .env.example .env.local     # remplir les 2 clés Supabase minimum
 npm run dev                    # → http://localhost:5173 (aperçu web du dev, avant packaging Capacitor)
 ```
 
-L'app démarre avec des **données de démonstration intégrées** — elle fonctionne sans backend.
-Le branchement Supabase se fait progressivement (voir plan §20 de la doc technique — calibré pour un dev solo, Guillaume).
+L'app démarre sur la connexion « Plein air », puis ouvre l'accueil après session et déclarations vérifiées.
+Sans configuration Supabase, elle affiche une indisponibilité explicite, jamais une démonstration silencieuse.
+Sur Vercel, aucun `VITE_FURRIX_APP` n'est nécessaire pour ce nouveau parcours. Les variables publiques Supabase
+restent nécessaires ; les inscriptions restent désactivées jusqu'à configuration des documents validés.
 
-## Deux points d'entrée
+## Application et anciens prototypes
 
 | Fichier | Contenu | Usage |
 |---|---|---|
-| `src/Furrix.jsx` | Prototype initial avec données de démonstration | Entrée actuelle ; pas la référence finale du design |
+| `src/app/ProductApp.tsx` | Authentification puis accueil Plein air | Entrée par défaut, web et mobile |
+| `src/Furrix.jsx` | Prototype initial avec données de démonstration | Développement uniquement : `VITE_FURRIX_APP=legacy` |
 | `src/FurrixMVP.jsx` | Auth et profil connectés, autres parcours simulés | Banc d'essai des services et hooks réutilisables |
 
-Sélectionner le banc d'essai avec `VITE_FURRIX_APP=mvp`. Les services et hooks auth/profil
+Sélectionner le banc d'essai en développement avec `VITE_FURRIX_APP=mvp`. En production, les anciens
+sélecteurs `mvp`/`legacy` ouvrent le nouveau parcours. Les services et hooks auth/profil
 sont à réutiliser pour « Plein air ». L'architecture mobile reste à confirmer ; Capacitor est présent dans le code initial.
 
 ## Backend Supabase
