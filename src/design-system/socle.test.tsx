@@ -127,3 +127,23 @@ describe('pile de profils contrôlée par le serveur', () => {
     expect(decide).not.toHaveBeenCalled();
   });
 });
+
+import { Checkbox, Field, Select } from './index';
+
+describe('contrôles de formulaire', () => {
+  it('relie une liste de choix à son étiquette et à son erreur', () => {
+    render(<Field label="Espèce *" error="Choisis une espèce"><Select defaultValue=""><option value="">Choisir</option><option value="chien">Chien</option></Select></Field>);
+    const select = screen.getByLabelText('Espèce *');
+    expect(select.tagName).toBe('SELECT');
+    expect(select.getAttribute('aria-invalid')).toBe('true');
+    expect(document.getElementById(select.getAttribute('aria-describedby')!)?.textContent).toContain('Choisis une espèce');
+  });
+
+  it('coche une case en cliquant sur sa phrase', () => {
+    const onChange = vi.fn();
+    render(<Checkbox onChange={onChange}>Je déclare avoir au moins 18 ans.</Checkbox>);
+    fireEvent.click(screen.getByText('Je déclare avoir au moins 18 ans.'));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('checkbox', { name: 'Je déclare avoir au moins 18 ans.' })).toBeTruthy();
+  });
+});

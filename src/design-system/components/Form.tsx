@@ -1,6 +1,6 @@
 import {
   cloneElement, forwardRef, isValidElement, useId,
-  type InputHTMLAttributes, type ReactElement, type ReactNode, type TextareaHTMLAttributes,
+  type InputHTMLAttributes, type ReactElement, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes,
 } from 'react';
 import { Icon } from '../icons/Icon';
 import { cx } from '../utils';
@@ -13,6 +13,11 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(function Textarea({ className, ...rest }, ref) {
   return <textarea ref={ref} className={cx('fx-input', className)} {...rest} />;
+});
+
+/** Liste de choix native (52 px), même habillage que `Input`. À placer dans un `Field`. */
+export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(function Select({ className, ...rest }, ref) {
+  return <select ref={ref} className={cx('fx-input', 'fx-select', className)} {...rest} />;
 });
 
 type ControlProps = { id?: string; 'aria-describedby'?: string };
@@ -104,3 +109,18 @@ export function Composer({
     </form>
   );
 }
+
+export interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
+  /** La phrase cochée (« Je déclare avoir au moins 18 ans. »), liens compris. */
+  children: ReactNode;
+}
+
+/** Case à cocher avec sa phrase, cliquable sur toute la ligne. */
+export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Checkbox({ children, className, ...rest }, ref) {
+  return (
+    <label className={cx('fx-check', className)}>
+      <input ref={ref} type="checkbox" {...rest} />
+      <span>{children}</span>
+    </label>
+  );
+});

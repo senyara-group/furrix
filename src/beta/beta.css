@@ -1,6 +1,13 @@
-body:has(.furrix-beta){margin:0;background:#fbfaf7}
-.beta-ribbon{background:#16213a;color:white;padding:8px 20px;text-align:center;font:13px/1.5 system-ui,sans-serif}
-.furrix-beta{max-width:660px;margin:0 auto;padding:44px 24px;color:#16213a;font:16px/1.6 system-ui,sans-serif}
-.beta-brand{font-size:32px;font-weight:800;color:inherit;text-decoration:none}.beta-brand span{color:#c8432a;font-size:18px}.beta-label{margin-top:48px;text-transform:uppercase;letter-spacing:1px;font-size:12px}
-.furrix-beta h1{font-size:36px;line-height:1.15}.furrix-beta ul{padding:24px 24px 24px 40px;background:#e1ebe2;border-radius:16px}.furrix-beta li{margin:12px 0}.furrix-beta label{display:flex;gap:12px;align-items:flex-start;min-height:44px;margin:12px 0}.furrix-beta input{width:22px;height:22px;flex-shrink:0;accent-color:#c8432a}
-.furrix-beta button{font:inherit;font-weight:600;padding:12px 18px;min-height:48px;border:0;border-radius:12px;background:#c8432a;color:white;cursor:pointer;margin:12px 12px 12px 0}.furrix-beta button:disabled{opacity:.6;cursor:default}.furrix-beta .beta-secondary{background:transparent;border:1px solid #526079;color:#16213a}.furrix-beta :focus-visible{outline:3px solid #2346d6;outline-offset:4px}
+/* Mise en page des écrans de bêta ; les contrôles viennent du design system (FurrixScope). */
+body:has(.furrix-beta){margin:0;background:#fbfaf6}
+.beta-ribbon{background:#16213a;color:white;padding:8px 20px;text-align:center;font:13px/1.5 Figtree,system-ui,sans-serif}
+.furrix-beta{min-height:100dvh}
+.furrix-beta main{max-width:660px;margin:0 auto;padding:44px 24px}
+.beta-brand{font:800 32px/1 var(--fx-font-display);letter-spacing:-1.5px;color:inherit;text-decoration:none}.beta-brand span{color:var(--fx-color-poppy);font-size:18px;margin-left:3px}
+.beta-label{margin-top:48px;font:var(--fx-type-eyebrow);letter-spacing:var(--fx-type-eyebrow-ls);text-transform:uppercase;color:var(--fx-color-ink-muted)}
+.furrix-beta h1{font:800 36px/1.15 var(--fx-font-display);letter-spacing:-1px;margin:12px 0 20px}
+.furrix-beta main > p{margin:0 0 16px;color:var(--fx-color-ink-soft)}
+.furrix-beta ul{padding:20px 20px 20px 40px;margin:0 0 16px;background:var(--fx-color-surface-sand);border-radius:var(--fx-radius-xl)}.furrix-beta li{margin:10px 0}
+.furrix-beta .fx-alert{margin:16px 0}
+.beta-checks{display:grid;gap:8px;margin:8px 0 20px}
+.beta-leave{margin-top:20px}
