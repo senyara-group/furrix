@@ -10,3 +10,11 @@ supabase/.env
 supabase/.env.*
 supabase/.local/
 supabase/checks/results/
+
+# Signatures mobiles et configuration propre à chaque machine
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+*.ipa
+*.xcarchive/

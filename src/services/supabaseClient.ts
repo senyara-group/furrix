@@ -1,5 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../types/database';
+import { Capacitor } from '@capacitor/core';
+import { sessionStorage } from '../platform/sessionStorage';
 
 export type FurrixClient = SupabaseClient<Database>;
 
@@ -34,7 +36,13 @@ export function createFurrixClient(url: string | undefined, key: string | undefi
   if (isPlaceholder(url, key)) return null;
   assertPublicKey(key as string);
   return createClient<Database>(url as string, key as string, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      flowType: 'pkce',
+      detectSessionInUrl: !Capacitor.isNativePlatform(),
+      storage: sessionStorage,
+    },
   });
 }
 
