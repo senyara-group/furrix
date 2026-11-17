@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test security-boundaries.test.mjs auth-profile-storage.test.mjs registration-consent.test.mjs private-beta.test.mjs animal-meetings.test.mjs",
+    "test": "node --test security-boundaries.test.mjs auth-profile-storage.test.mjs registration-consent.test.mjs private-beta.test.mjs animal-meetings.test.mjs meetings-privacy.test.mjs",
     "test:pg": "node --test concurrency.pg.test.mjs"
   },
   "devDependencies": {

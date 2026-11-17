@@ -7,7 +7,16 @@ Lot récupéré après interruption (commit `c0c4681`), revu puis complété san
 - les j'aime et les matchs réciproques ;
 - une conversation gratuite après match.
 
-Code client dans `src/meetings`, serveur dans `supabase/migrations/20261117131807_animal_meetings.sql`.
+Code client dans `src/meetings`.
+
+## Ordre des migrations
+
+Aucune n'est déployée. Elles s'appliquent dans cet ordre, après `20261117110807_private_beta`, déjà présente sur DEV et inchangée :
+
+1. `20261117131807_animal_meetings.sql` : tables, RPC et règles des rencontres.
+2. `20261117132000_meetings_privacy.sql` : lecture directe de `pets` et `profiles` réservée au propriétaire. Elle s'appuie sur les RPC de la précédente et ne doit pas être appliquée seule.
+
+Chaque fichier contient en tête son retour arrière. Pour revenir en arrière, défaire la seconde avant la première.
 
 ## Fonctionnement
 
@@ -33,6 +42,16 @@ Code client dans `src/meetings`, serveur dans `supabase/migrations/2026111713180
 - **Photos.** Les testeurs actifs peuvent lire la photo principale des autres testeurs actifs, et elle seule. Aucune écriture partagée.
 - **Écritures directes.** Les écritures sur `swipes`, `matches` et `messages` sont retirées aux rôles clients, y compris les droits par colonne et ceux hérités.
 
+## Confidentialité des profils
+
+- **Lecture directe.** Un compte ne lit directement que ses propres animaux et son propre profil. La lecture anonyme de ces tables est retirée.
+- **Seuls chemins vers les données des autres testeurs**, des RPC qui choisissent explicitement leurs colonnes :
+  - `discover_pets` : nom, espèce, race, âge, sexe, objectif, ville, présentation, photo principale, prénom du propriétaire et distance arrondie. L'identifiant du propriétaire est renvoyé aussi, car il figure déjà dans le chemin de la photo principale et sert à le contrôler côté client.
+  - `list_pet_matches` : pour ses seuls matchs.
+- **Jamais exposé aux autres :** santé (vaccins, stérilisation, puce), allergies, alimentation, poids, coordonnées de `pets`, rôle, abonnement ni présentation du profil.
+- **Messages.** La lecture passe par `is_match_participant`, qui ne renseigne que sur l'appelant. L'ancienne règle joignait les deux animaux du match et aurait cessé de fonctionner avec des animaux privés. La règle d'insertion directe, devenue inutile, est supprimée.
+- **Inchangés :** les matchs (lus via son propre animal), les photos (règles de dossier du propriétaire, et photo principale partagée via `meeting_photo_visible`) et la localisation de rencontre.
+
 ## Revue du 17 novembre 2026
 
 Corrections apportées à la migration, qui n'était encore appliquée nulle part :
@@ -43,17 +62,17 @@ Corrections apportées à la migration, qui n'était encore appliquée nulle par
 
 Points relevés, non traités dans ce lot :
 
-1. **Table `pets` lisible en entier par tout testeur.** Cela vient de `main` (règle « pets visibles » de 0001). Un testeur peut lire directement les autres animaux avec toutes leurs colonnes : santé, allergies, coordonnées `lat`/`lng` si elles ont été renseignées par l'API, et tous les chemins de photos (les fichiers eux-mêmes restent protégés, sauf la photo principale). Même situation pour `profiles`.
-   - Correction proposée : limiter la lecture à son propriétaire, puisque la découverte passe par la RPC.
-   - Ce changement oblige à réécrire la règle de lecture de `messages`, qui joint les deux animaux du match. Il est donc à décider et à tester séparément.
-2. **Ni blocage, ni signalement, ni annulation de match.** À traiter avant d'ouvrir la conversation à des testeurs extérieurs à l'équipe.
-3. **Pas de limite de fréquence** sur les décisions et les messages.
+1. **Table `pets` lisible en entier par tout testeur** (règle « pets visibles » de 0001, venue de `main`) : corrigé par `20261117132000_meetings_privacy.sql`, voir ci-dessus.
+2. **Ni blocage, ni signalement, ni annulation de match.** À planifier avant d'inviter des personnes extérieures à l'équipe.
+3. **Pas de limite de fréquence** sur les décisions et les messages. Même échéance.
 4. **Version de la notice bêta répétée en dur** (`2026-11-17`) dans plusieurs fonctions. Changer de notice demandera une migration qui les met toutes à jour.
 
 ## Tests
 
 - **Applicatifs** : `npm test` (Vitest), 93/93.
-- **SQL sur PGlite** : `npm run test:sql`, 36/36. Ils couvrent les autorisations, le rejeu, la découverte, la localisation, les photos, les messages, la révocation et désormais la révocation de l'autre testeur.
+- **SQL sur PGlite** : `npm run test:sql`, 44/44. Ils couvrent les autorisations, le rejeu, la découverte, la localisation, les photos, les messages et la révocation.
+  - `meetings-privacy.test.mjs` y ajoute la lecture directe par un autre compte, les colonnes exactes de la découverte, la conversation entre participants et le refus d'un tiers, ainsi que la révocation de l'autre testeur puis celle de l'appelant.
+  - Contrôle : sans la migration de confidentialité, deux de ces scénarios échouent.
 - **Concurrence sur un vrai PostgreSQL** : `FURRIX_TEST_PG_URL=postgres://… npm run test:pg --prefix supabase/tests`.
   - Le test crée puis supprime sa propre base, sur un serveur jetable. Ne jamais le pointer vers Supabase DEV.
   - Il vérifie :
@@ -63,7 +82,7 @@ Points relevés, non traités dans ce lot :
     - cinq envois parallèles du même message.
   - Sans URL, il est ignoré.
   - Contrôle : avec la fonction de `main`, le même scénario perd entre 65 et 147 matchs sur 150 selon les essais ; avec ce lot, aucun.
-- **Retour arrière** : le script commenté en tête de la migration a été exécuté puis la migration réappliquée, sur PostgreSQL 16 local.
+- **Retour arrière** : pour chacune des deux migrations, le script commenté en tête a été exécuté puis la migration réappliquée, sur PostgreSQL 16 local.
 
 ## Recette
 
@@ -82,7 +101,7 @@ Points relevés, non traités dans ce lot :
 Elle n'est pas faite et demande un accord explicite :
 
 - cible `jemikzqgbpaivlujnfgl` ;
-- uniquement cette migration, après `20261117110807_private_beta`, déjà présente ;
-- retour arrière : script en tête du fichier.
+- uniquement les deux migrations ci-dessus, dans l'ordre ;
+- retour arrière : script en tête de chaque fichier, la seconde d'abord.
 
 Ne rejouer aucune migration antérieure.
