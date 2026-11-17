@@ -45,6 +45,9 @@ test('rencontres : autorisation, rejouabilité, découverte et messages',async t
   await assert.rejects(as(A,"select swipe_and_match($1,$2,'left')",[PA,PB]));
   await assert.rejects(as(A,"select swipe_and_match($1,$2,'super')",[PA,PC]));
   await assert.rejects(as(A,`insert into swipes(pet_id,target_pet_id,direction) values('${PA}','${PC}','right')`));
+  for(const table of ['swipes','matches','messages'])for(const role of ['anon','authenticated'])for(const priv of ['INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER'])
+   assert.equal((await db.query(`select has_table_privilege($1,$2,$3) ok`,[role,'public.'+table,priv])).rows[0].ok,false,`${role} ${priv} ${table}`);
+  assert.equal((await db.query("select has_table_privilege('authenticated','public.messages','SELECT') ok")).rows[0].ok,true);
   assert.equal((await as(A,'select * from list_pet_matches($1)',[PA]))[0].match_id,match);
  });
  await t.test('message gratuit uniquement après match, avec rejeu sans duplication',async()=>{

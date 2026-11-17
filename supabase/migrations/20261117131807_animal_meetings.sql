@@ -56,6 +56,7 @@ revoke all on function public.set_pet_meeting_location(uuid,numeric,numeric) fro
 grant execute on function public.set_pet_meeting_location(uuid,numeric,numeric) to authenticated;
 
 -- Les décisions passent exclusivement par la RPC ; retirer aussi les grants hérités et de colonnes.
+-- Tous les droits par défaut de Supabase sont retirés (dont TRUNCATE, qui ignore la RLS) ; seule la lecture est rendue.
 do $$ declare r record; t text; cols text; begin
   for r in
     with recursive api_roles(oid) as (
@@ -64,13 +65,14 @@ do $$ declare r record; t text; cols text; begin
     ) select quote_ident(p.rolname) grantee from pg_roles p join api_roles a on a.oid=p.oid union select 'PUBLIC'
   loop
     foreach t in array array['swipes','matches','messages'] loop
-      execute format('revoke insert,update,delete on public.%I from %s cascade',t,r.grantee);
+      execute format('revoke all privileges on public.%I from %s cascade',t,r.grantee);
       select string_agg(quote_ident(attname),',') into cols from pg_attribute
         where attrelid=format('public.%I',t)::regclass and attnum>0 and not attisdropped;
       execute format('revoke insert (%s),update (%s) on public.%I from %s cascade',cols,cols,t,r.grantee);
     end loop;
   end loop;
 end $$;
+grant select on public.swipes, public.matches, public.messages to authenticated;
 
 create or replace function public.swipe_and_match(p_pet uuid,p_target uuid,p_dir text)
 returns uuid language plpgsql volatile security definer set search_path='' as $$
