@@ -73,6 +73,9 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      private_beta_status: { Args: Record<string, never>; Returns: string };
+      can_use_private_beta: { Args: Record<string, never>; Returns: boolean };
+      accept_private_beta_notice: { Args: { p_adult: boolean; p_read_notice: boolean }; Returns: undefined };
       accept_registration_terms: { Args: { p_terms: string; p_privacy: string; p_adult: boolean }; Returns: undefined };
     };
     Enums: { [_ in never]: never };

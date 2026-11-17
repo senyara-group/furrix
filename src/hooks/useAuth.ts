@@ -16,6 +16,7 @@ export type UseAuth = {
   fieldErrors: Partial<Record<keyof Credentials, string>>;
   notice: string | null;
   recovery: boolean;
+  startPasswordSetup: () => void;
   finishRecovery: () => void;
   submit: (mode: AuthMode, credentials: Credentials) => Promise<boolean>;
   signOut: () => Promise<boolean>;
@@ -140,6 +141,7 @@ export function useAuth(client: FurrixClient | null): UseAuth {
     fieldErrors,
     notice,
     recovery,
+    startPasswordSetup: () => setRecovery(true),
     finishRecovery: () => setRecovery(false),
     submit,
     signOut,
