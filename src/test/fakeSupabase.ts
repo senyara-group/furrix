@@ -37,6 +37,7 @@ export function createFakeSupabase() {
     };
     b.single = settle('single');
     b.maybeSingle = settle('maybeSingle');
+    b.then = (resolve: (value: Result) => unknown, reject: (reason: unknown) => unknown) => settle('rows')().then(resolve, reject);
     return b;
   };
 
