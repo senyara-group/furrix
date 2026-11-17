@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Button, ChatThread, Composer, Loading, MessageBubble } from '../design-system';
 import type { FurrixClient } from '../services/supabaseClient';
 import { loadMessages, sendMessage } from './service';
 import type { MatchMessage, PetMatch } from './types';
@@ -22,8 +23,12 @@ export default function Conversation({ client, match, ownerId, close }: { client
     void load(); const interval = window.setInterval(() => { void load(); }, 10_000);
     return () => { alive.current = false; window.clearInterval(interval); };
   }, [client, match.match_id]);
-  const submit = async (event: FormEvent) => {
-    event.preventDefault(); if (sending.current || !text.trim() || text.trim().length > 2000) return;
+  /**
+   * Un même texte garde son identifiant de requête tant qu'il n'est pas confirmé : un nouvel essai
+   * après une réponse perdue ne crée pas de doublon côté serveur.
+   */
+  const submit = async () => {
+    if (sending.current || !text.trim() || text.trim().length > 2000) return;
     const value = text.trim(); if (pending.current?.text !== value) pending.current = { text: value, id: crypto.randomUUID() };
     sending.current = true; setBusy(true); setError('');
     try {
@@ -38,11 +43,20 @@ export default function Conversation({ client, match, ownerId, close }: { client
     catch { if (alive.current) setError('Les anciens messages n’ont pas pu être chargés.'); }
     finally { if (alive.current) setOlder(false); }
   };
-  return <section className="meet-conversation"><button className="app-outline" onClick={close}>Revenir aux matchs</button><p className="app-eyebrow">Un match, une conversation gratuite</p><h2>{match.name}{match.owner_name ? ` et ${match.owner_name}` : ''}</h2><p className="app-small">Actualisation toutes les 10 secondes. La proposition d’une rencontre organisée arrivera dans un prochain lot.</p>
-    {more && <button onClick={() => { void loadOlder(); }} disabled={older}>Voir les messages précédents</button>}
-    {loading && <p role="status">Chargement de la conversation…</p>}
+  const time = (value: string) => <time dateTime={value}>{new Date(value).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</time>;
+  const other = match.owner_name || 'Ton correspondant';
+  return <section className="meet-conversation" aria-labelledby="meet-conversation-title">
+    <Button variant="quiet" size="sm" icon="chevronLeft" onClick={close}>Revenir aux matchs</Button>
+    <p className="app-eyebrow">Un match, une conversation gratuite</p><h2 id="meet-conversation-title">{match.name}{match.owner_name ? ` et ${match.owner_name}` : ''}</h2>
+    <p className="app-small">Actualisation toutes les 10 secondes. La proposition d’une rencontre organisée arrivera dans un prochain lot.</p>
+    {more && <Button variant="quiet" size="sm" loading={older} loadingLabel="chargement" onClick={() => { void loadOlder(); }}>Voir les messages précédents</Button>}
+    {loading && <Loading label="Chargement de la conversation…" />}
     {!loading && !messages.length && <p>Le premier bonjour est à toi.</p>}
-    <ol className="meet-message-list" aria-label="Messages de la conversation">{messages.map((message) => <li className={message.sender_id === ownerId ? 'meet-mine' : ''} key={message.id}><span className="app-small">{message.sender_id === ownerId ? 'Toi' : match.owner_name || 'Ton correspondant'}</span><p>{message.text}</p><time className="app-small" dateTime={message.created_at}>{new Date(message.created_at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</time></li>)}</ol>
-    <form onSubmit={(e) => { void submit(e); }}><label htmlFor="meet-message">Ton message<textarea id="meet-message" value={text} onChange={(e) => setText(e.target.value)} maxLength={2000} disabled={busy} rows={3} /></label><button className="app-primary" disabled={busy || !text.trim()}>{busy ? 'Envoi…' : 'Envoyer'}</button></form>{error && <p role="alert">{error}</p>}
+    <ChatThread className="meet-thread" aria-label="Messages de la conversation">{messages.map((message) => {
+      const mine = message.sender_id === ownerId;
+      return <MessageBubble key={message.id} from={mine ? 'me' : 'them'} time={<><span className="fx-vh">{mine ? 'Toi' : other}, </span>{time(message.created_at)}</>}>{message.text}</MessageBubble>;
+    })}</ChatThread>
+    {error && <Alert tone="err" title={error} />}
+    <Composer className="meet-composer" label="Ton message" placeholder="Écris ton message" value={text} onChange={setText} onSend={() => { void submit(); }} sending={busy} maxLength={2000} />
   </section>;
 }
