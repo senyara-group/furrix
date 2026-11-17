@@ -9,6 +9,7 @@ import { startNativeAuth } from '../platform/nativeAuth';
 import { validateEmail, validateNewPassword } from '../validation/auth';
 import { legalDocuments, validateRegistration, type LegalDocuments, type RegistrationForm } from './registration';
 import { acceptDocuments, hasAcceptedDocuments } from './consentService';
+import { Alert, Button, Checkbox, Field, FurrixScope, Input } from '../design-system';
 import './auth.css';
 import BetaGate from '../beta/BetaGate';
 import BetaInvitation from '../beta/BetaInvitation';
@@ -26,15 +27,15 @@ function initialView(): View {
 
 function Declarations({ form, set, documents }: { form: RegistrationForm; set: (key: keyof RegistrationForm, value: boolean) => void; documents: LegalDocuments }) {
   return <div className="fa-checks">
-    <label><input type="checkbox" checked={form.adult} onChange={(e) => set('adult', e.target.checked)} />Je déclare avoir au moins 18 ans.</label>
-    <label><input type="checkbox" checked={form.terms} onChange={(e) => set('terms', e.target.checked)} />
-      <span>J’accepte les <a href={documents.termsUrl} target="_blank" rel="noopener noreferrer">conditions d’utilisation</a>.</span></label>
-    <label><input type="checkbox" checked={form.privacy} onChange={(e) => set('privacy', e.target.checked)} />
-      <span>J’ai pris connaissance de la <a href={documents.privacyUrl} target="_blank" rel="noopener noreferrer">politique de confidentialité</a>.</span></label>
+    <Checkbox checked={form.adult} onChange={(e) => set('adult', e.target.checked)}>Je déclare avoir au moins 18 ans.</Checkbox>
+    <Checkbox checked={form.terms} onChange={(e) => set('terms', e.target.checked)}>
+      J’accepte les <a href={documents.termsUrl} target="_blank" rel="noopener noreferrer">conditions d’utilisation</a>.</Checkbox>
+    <Checkbox checked={form.privacy} onChange={(e) => set('privacy', e.target.checked)}>
+      J’ai pris connaissance de la <a href={documents.privacyUrl} target="_blank" rel="noopener noreferrer">politique de confidentialité</a>.</Checkbox>
   </div>;
 }
 
-/** Première intégration auth ; les contrôles HTML seront remplaçables par les composants d'Alexis. */
+/** Connexion, inscription et récupération ; contrôles du design system Plein air. */
 export default function AuthApplication({ client = supabase, documents = legalDocuments(import.meta.env), renderAuthenticated,
   privateBeta = import.meta.env.VITE_PRIVATE_BETA === 'true' }: {
   client?: FurrixClient | null; documents?: LegalDocuments | null;
@@ -152,8 +153,9 @@ export default function AuthApplication({ client = supabase, documents = legalDo
     if (await auth.signOut()) { auth.finishRecovery(); setView('login'); setForm(blank); setCallbackFailed(false);
       window.history.replaceState(null, '', `${window.location.pathname}#/auth/login`); }
   }); };
-  const notices = <>{(error || auth.error) && <p className="fa-error" role="alert">{error || auth.error}</p>}
-    {(message || auth.notice) && <p className="fa-notice" role="status">{message || auth.notice}</p>}</>;
+  const working = busy || auth.pending;
+  const notices = <>{(error || auth.error) && <Alert tone="err" title={error || auth.error} />}
+    {(message || auth.notice) && <Alert tone="ok" title={message || auth.notice} />}</>;
 
   if (view === 'invite') return <BetaInvitation client={client} enabled={privateBeta}
     verified={() => { auth.startPasswordSetup(); setView('reset'); }} cancel={() => changeView('login')} />;
@@ -182,44 +184,46 @@ export default function AuthApplication({ client = supabase, documents = legalDo
   let content;
   if (!client) content = <><h1>Furrix arrive bientôt.</h1><p role="alert">Le service de connexion n’est pas disponible sur cet environnement. Réessaie plus tard.</p></>;
   else if (auth.status === 'loading') content = <p role="status">Nous retrouvons ta session…</p>;
-  else if (callbackFailed && view === 'callback') content = <>{notices}<h1>Lien indisponible</h1><button onClick={() => changeView('forgot')}>Demander un nouveau lien</button><button className="fa-secondary" onClick={() => changeView('login')}>Revenir à la connexion</button></>;
+  else if (callbackFailed && view === 'callback') content = <>{notices}<h1>Lien indisponible</h1><div className="fa-actions"><Button block onClick={() => changeView('forgot')}>Demander un nouveau lien</Button><Button block variant="out" onClick={() => changeView('login')}>Revenir à la connexion</Button></div></>;
   else if (auth.status === 'signedIn' && !auth.recovery && view !== 'reset') {
     content = <>{notices}{!documents ? <><h1>Compte connecté.</h1><p>L’ouverture du service est en préparation. Les documents d’utilisation seront disponibles avant de continuer.</p></>
       : consent === 'loading' ? <p role="status">Vérification du compte…</p>
-      : consent === 'error' ? <><h1>Nous n’avons pas pu vérifier ton compte.</h1><button onClick={() => setReloadConsent((n) => n + 1)}>Réessayer</button></>
+      : consent === 'error' ? <><h1>Nous n’avons pas pu vérifier ton compte.</h1><Button onClick={() => setReloadConsent((n) => n + 1)}>Réessayer</Button></>
       : consent === 'required' ? <><h1>Avant de continuer.</h1><p>Merci de confirmer ces informations pour ton compte.</p>
         <Declarations form={form} set={set} documents={documents} />
-        <button disabled={busy} onClick={() => { void run(async () => {
+        <Button block loading={busy} onClick={() => { void run(async () => {
           await acceptDocuments(client, documents, form.adult, form.terms, form.privacy);
           // Relire la trace serveur : pas d'accès à l'accueil sur un simple succès local.
           setReloadConsent((n) => n + 1);
-        }); }}>Continuer</button></>
+        }); }}>Continuer</Button></>
       : <><p className="fa-eyebrow">Ton espace Furrix</p><h1>Bienvenue, à toi et tes animaux.</h1><p>Ton compte est prêt. L’accueil, les animaux et le menu « Plein air » arrivent au prochain lot.</p></>}
-      <button className="fa-secondary" disabled={busy || auth.pending} onClick={logout}>Déconnecter cet appareil</button></>;
+      <Button block variant="out" disabled={working} onClick={logout}>Déconnecter cet appareil</Button></>;
   } else content = <>
     <p className="fa-eyebrow">Rencontres · Garde · Services</p>
     {privateBeta && <p className="fa-hint">Bêta privée · Accès sur invitation</p>}
     <h1 ref={heading} tabIndex={-1}>{titles[view]}</h1>
     {notices}
-    {view === 'reset' && auth.status !== 'signedIn' && <p role="alert">La session de récupération a expiré. <button className="fa-link" onClick={() => changeView('forgot')}>Demander un nouveau lien</button></p>}
-    {view === 'signup' && (privateBeta || !documents) ? <><p>{privateBeta ? 'La bêta privée est accessible sur invitation uniquement.' : 'Les inscriptions ne sont pas encore ouvertes.'}</p><button onClick={() => changeView('login')}>J’ai déjà un compte</button></>
-      : view === 'confirmation' ? <><p>Le lien confirme ton adresse. Ensuite, tu pourras retrouver ton espace.</p><button disabled={busy} onClick={resend}>Renvoyer le lien</button><button className="fa-secondary" onClick={() => changeView('login')}>Revenir à la connexion</button></>
-      : view === 'callback' ? <><p role="status">Nous vérifions ton lien…</p><button className="fa-secondary" onClick={() => changeView('login')}>Revenir à la connexion</button></>
-      : <form onSubmit={submit}>
-        {view !== 'reset' && <label>Ton e-mail<input type="email" required autoComplete="username" value={form.email} onChange={(e) => set('email', e.target.value)} /></label>}
-        {view !== 'forgot' && <label>{view === 'reset' ? 'Nouveau mot de passe' : 'Mot de passe'}<input type="password" required autoComplete={view === 'login' ? 'current-password' : 'new-password'} value={form.password} onChange={(e) => set('password', e.target.value)} /></label>}
-        {(view === 'signup' || view === 'reset') && <><p className="fa-hint">Au moins 8 caractères. Utilise un mot de passe unique.</p><label>Confirmer le mot de passe<input type="password" required autoComplete="new-password" value={form.confirmPassword} onChange={(e) => set('confirmPassword', e.target.value)} /></label></>}
+    {view === 'reset' && auth.status !== 'signedIn' && <Alert tone="err" title="La session de récupération a expiré."
+      actions={<Button size="sm" variant="ink" onClick={() => changeView('forgot')}>Demander un nouveau lien</Button>} />}
+    {view === 'signup' && (privateBeta || !documents) ? <><p>{privateBeta ? 'La bêta privée est accessible sur invitation uniquement.' : 'Les inscriptions ne sont pas encore ouvertes.'}</p><Button block onClick={() => changeView('login')}>J’ai déjà un compte</Button></>
+      : view === 'confirmation' ? <><p>Le lien confirme ton adresse. Ensuite, tu pourras retrouver ton espace.</p><div className="fa-actions"><Button block loading={busy} onClick={resend}>Renvoyer le lien</Button><Button block variant="out" onClick={() => changeView('login')}>Revenir à la connexion</Button></div></>
+      : view === 'callback' ? <><p role="status">Nous vérifions ton lien…</p><Button block variant="out" onClick={() => changeView('login')}>Revenir à la connexion</Button></>
+      : <form onSubmit={submit} className="fa-form">
+        {view !== 'reset' && <Field label="Ton e-mail" error={auth.fieldErrors.email}><Input type="email" required autoComplete="username" value={form.email} onChange={(e) => set('email', e.target.value)} /></Field>}
+        {view !== 'forgot' && <Field label={view === 'reset' ? 'Nouveau mot de passe' : 'Mot de passe'} error={auth.fieldErrors.password}
+          hint={view === 'signup' || view === 'reset' ? 'Au moins 8 caractères. Utilise un mot de passe unique.' : undefined}>
+          <Input type="password" required autoComplete={view === 'login' ? 'current-password' : 'new-password'} value={form.password} onChange={(e) => set('password', e.target.value)} /></Field>}
+        {(view === 'signup' || view === 'reset') && <Field label="Confirmer le mot de passe"><Input type="password" required autoComplete="new-password" value={form.confirmPassword} onChange={(e) => set('confirmPassword', e.target.value)} /></Field>}
         {view === 'signup' && documents && <Declarations form={form} set={set} documents={documents} />}
-        {Object.values(auth.fieldErrors).map((text) => <p role="alert" key={text}>{text}</p>)}
-        <button disabled={busy || auth.pending || (view === 'reset' && auth.status !== 'signedIn')}>
-          {busy || auth.pending ? 'Un instant…' : view === 'login' ? 'Se connecter' : view === 'signup' ? 'Créer mon compte' : view === 'forgot' ? 'Recevoir le lien' : 'Enregistrer le mot de passe'}
-        </button>
+        <Button type="submit" block loading={working} disabled={view === 'reset' && auth.status !== 'signedIn'}>
+          {view === 'login' ? 'Se connecter' : view === 'signup' ? 'Créer mon compte' : view === 'forgot' ? 'Recevoir le lien' : 'Enregistrer le mot de passe'}
+        </Button>
       </form>}
-    {view === 'login' && <nav aria-label="Aide à la connexion"><button className="fa-link" onClick={() => changeView('forgot')}>Mot de passe oublié ?</button><button className="fa-link" onClick={() => changeView('signup')}>Créer un compte</button><button className="fa-link" disabled={busy} onClick={resend}>Renvoyer l’e-mail de confirmation</button></nav>}
-    {(view === 'forgot' || view === 'reset') && <button className="fa-link" onClick={() => {
+    {view === 'login' && <nav aria-label="Aide à la connexion" className="fa-links"><Button variant="quiet" size="sm" onClick={() => changeView('forgot')}>Mot de passe oublié ?</Button><Button variant="quiet" size="sm" onClick={() => changeView('signup')}>Créer un compte</Button><Button variant="quiet" size="sm" disabled={busy} onClick={resend}>Renvoyer l’e-mail de confirmation</Button></nav>}
+    {(view === 'forgot' || view === 'reset') && <Button variant="quiet" size="sm" onClick={() => {
       if (view === 'reset') logout(); else changeView('login');
-    }}>Revenir à la connexion</button>}
+    }}>Revenir à la connexion</Button>}
     {documents && <footer><a href={documents.termsUrl} target="_blank" rel="noopener noreferrer">Conditions d’utilisation</a> · <a href={documents.privacyUrl} target="_blank" rel="noopener noreferrer">Confidentialité</a></footer>}
   </>;
-  return <div className="furrix-auth"><aside><a className="fa-brand" href="#/">furrix<span>●</span></a><p className="fa-intro">Leur bonheur,<br />nos rencontres.</p><p>Un compagnon de balade, une garde attentionnée, les bons professionnels.</p><span className="fa-seal">Tout commence par une rencontre.</span></aside><main><div className="fa-panel" aria-busy={busy || auth.pending}>{content}</div></main></div>;
+  return <div className="furrix-auth"><aside><a className="fa-brand" href="#/">furrix<span>●</span></a><p className="fa-intro">Leur bonheur,<br />nos rencontres.</p><p>Un compagnon de balade, une garde attentionnée, les bons professionnels.</p><span className="fa-seal">Tout commence par une rencontre.</span></aside><main><FurrixScope className="fa-panel" aria-busy={working}>{content}</FurrixScope></main></div>;
 }
