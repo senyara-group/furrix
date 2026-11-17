@@ -56,6 +56,14 @@ test('rencontres : autorisation, rejouabilité, découverte et messages',async t
   await assert.rejects(as(A,'select * from send_match_message($1,$2,$3)',[match,'Autre texte',request]));
   await assert.rejects(as(A,'select * from send_match_message($1,$2,$3)',[match,' ',request]));
  });
+ await t.test('autre testeur révoqué : match masqué, conversation fermée, statut non sondable',async()=>{
+  await db.query('update private_beta_members set active=false where user_id=$1',[B]);
+  assert.equal((await as(A,'select * from list_pet_matches($1)',[PA])).length,0);
+  await assert.rejects(as(A,'select * from send_match_message($1,$2,$3)',[match,'Encore là ?','30000000-0000-0000-0000-000000000003']),/Conversation indisponible/);
+  await assert.rejects(as(A,'select meeting_member_active($1)',[B]),/permission denied/);
+  await db.query('update private_beta_members set active=true where user_id=$1',[B]);
+  assert.equal((await as(A,'select * from list_pet_matches($1)',[PA]))[0].match_id,match);
+ });
  await t.test('révocation : ni découverte, ni photo, ni décision, ni message',async()=>{
   await db.query('update private_beta_members set active=false where user_id=$1',[A]);
   await assert.rejects(as(A,'select * from discover_pets($1)',[PA]));

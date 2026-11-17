@@ -1,5 +1,31 @@
--- Rencontres bêta : migration locale à revoir avant application distante.
+-- Rencontres bêta : animal actif côté client, découverte, localisation approximative facultative,
+-- j'aime, matchs réciproques et conversation après match. À appliquer uniquement après revue et accord sur DEV.
+--
+-- Retour arrière (testé localement sur PostgreSQL 16, à exécuter dans une transaction) :
+--   begin;
+--   drop policy if exists "rencontres : photo principale" on storage.objects;
+--   drop function if exists public.send_match_message(uuid,text,uuid);
+--   drop index if exists public.messages_request_unique;
+--   alter table public.messages drop column if exists request_id;
+--   drop function if exists public.list_pet_matches(uuid);
+--   drop function if exists public.meeting_photo_visible(text);
+--   drop function if exists public.discover_pets(uuid,text,text,integer,uuid,integer);
+--   drop function if exists public.set_pet_meeting_location(uuid,numeric,numeric);
+--   drop table if exists public.pet_meeting_locations;
+--   -- puis recréer swipe_and_match à l'identique de 20261117110807_private_beta.sql, et seulement ensuite :
+--   drop function if exists public.meeting_member_active(uuid);
+--   commit;
+-- Les écritures directes sur swipes, matches et messages restent retirées : l'ancien client ne les utilisait pas.
 begin;
+
+-- Statut d'un autre testeur, réservé aux fonctions privilégiées : non exécutable par les clients,
+-- pour ne pas permettre de sonder l'appartenance à la bêta d'un identifiant quelconque.
+create function public.meeting_member_active(p_user uuid) returns boolean
+language sql stable security definer set search_path='' as $$
+  select exists(select 1 from public.private_beta_members b where b.user_id=p_user and b.active and b.expires_at>now()
+    and b.declared_adult and b.notice_version='2026-11-17' and b.accepted_at is not null);
+$$;
+revoke all on function public.meeting_member_active(uuid) from public,anon,authenticated;
 
 create table public.pet_meeting_locations (
   pet_id uuid primary key references public.pets(id) on delete cascade,
@@ -52,11 +78,11 @@ declare uid uuid:=auth.uid(); target_owner uuid; decision text; result uuid;
 begin
   if uid is null or not public.can_use_private_beta() then raise exception 'Accès bêta requis' using errcode='42501'; end if;
   if p_dir is null or p_dir not in ('left','right') then raise exception 'Direction invalide' using errcode='22023'; end if;
-  -- Même verrou dans les deux sens ; une collision de hash ne fait que sérialiser davantage.
-  perform pg_advisory_xact_lock(hashtextextended(least(p_pet,p_target)::text||greatest(p_pet,p_target)::text,0));
   if not exists(select 1 from public.pets where id=p_pet and owner_id=uid) then raise exception 'Animal non autorisé' using errcode='42501'; end if;
+  -- Même verrou dans les deux sens, pris seulement pour son propre animal ; une collision de hash ne fait que sérialiser davantage.
+  perform pg_advisory_xact_lock(hashtextextended(least(p_pet,p_target)::text||greatest(p_pet,p_target)::text,0));
   select owner_id into target_owner from public.pets where id=p_target and id<>p_pet and owner_id<>uid;
-  if target_owner is null or not exists(select 1 from public.private_beta_members where user_id=target_owner and active and expires_at>now() and declared_adult and notice_version='2026-11-17' and accepted_at is not null) then
+  if target_owner is null or not public.meeting_member_active(target_owner) then
     raise exception 'Profil indisponible' using errcode='42501'; end if;
   insert into public.swipes(pet_id,target_pet_id,direction) values(p_pet,p_target,p_dir) on conflict(pet_id,target_pet_id) do nothing;
   select direction into decision from public.swipes where pet_id=p_pet and target_pet_id=p_target;
@@ -120,7 +146,8 @@ begin
   return query select m.id,p.id,p.name,pr.name,m.created_at from public.matches m
     join public.pets p on p.id=case when m.pet_a=p_pet then m.pet_b else m.pet_a end
     join public.profiles pr on pr.id=p.owner_id
-    where m.pet_a=p_pet or m.pet_b=p_pet order by m.created_at desc,m.id limit 100;
+    where (m.pet_a=p_pet or m.pet_b=p_pet) and public.meeting_member_active(p.owner_id)
+    order by m.created_at desc,m.id limit 100;
 end $$;
 revoke all on function public.list_pet_matches(uuid) from public,anon,authenticated;
 grant execute on function public.list_pet_matches(uuid) to authenticated;
@@ -130,11 +157,15 @@ alter table public.messages add column request_id uuid;
 create unique index messages_request_unique on public.messages(sender_id,request_id) where request_id is not null;
 create function public.send_match_message(p_match uuid,p_text text,p_request uuid)
 returns public.messages language plpgsql security definer set search_path='' as $$
-declare saved public.messages; uid uuid:=auth.uid();
+declare saved public.messages; uid uuid:=auth.uid(); other uuid;
 begin
-  if uid is null or not public.can_use_private_beta() or not exists(
-    select 1 from public.matches m join public.pets a on a.id=m.pet_a join public.pets b on b.id=m.pet_b
-    where m.id=p_match and (a.owner_id=uid or b.owner_id=uid)) then raise exception 'Conversation non autorisée' using errcode='42501'; end if;
+  if uid is not null and public.can_use_private_beta() then
+    select case when a.owner_id=uid then b.owner_id else a.owner_id end into other
+      from public.matches m join public.pets a on a.id=m.pet_a join public.pets b on b.id=m.pet_b
+      where m.id=p_match and (a.owner_id=uid or b.owner_id=uid);
+  end if;
+  if other is null then raise exception 'Conversation non autorisée' using errcode='42501'; end if;
+  if not public.meeting_member_active(other) then raise exception 'Conversation indisponible' using errcode='42501'; end if;
   if p_request is null or p_text is null or char_length(btrim(p_text)) not between 1 and 2000 then raise exception 'Message invalide' using errcode='22023'; end if;
   insert into public.messages(match_id,sender_id,text,request_id) values(p_match,uid,btrim(p_text),p_request)
     on conflict(sender_id,request_id) where request_id is not null do nothing returning * into saved;
