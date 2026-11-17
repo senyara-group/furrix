@@ -48,7 +48,7 @@ aucun e-mail envoyé et aucun mot de passe changé par l'agent.
 
 ## Migration préparée, non appliquée
 
-`20261117094847_registration_consent.sql`, créée par le CLI local 2.122.0.
+`20261117110803_registration_consent.sql`, créée par le CLI local 2.122.0.
 
 - `registration_consents` : utilisateur, versions CGU/confidentialité, déclaration de majorité, heure serveur,
   origine `signup` ou `account`. Clé primaire utilisateur + deux versions.

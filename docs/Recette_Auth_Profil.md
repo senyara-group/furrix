@@ -29,8 +29,8 @@ Branche : `feat/auth-profil-animal`, depuis `main` (`a92db2d`). Projet cible : *
 | Upload photo (`<uid>/<pet_id>/<uuid>.<ext>`, JPEG/PNG/WebP, 5 Mo) | `src/services/petPhotos.ts` |
 | Remplacement de photo réconcilié avec l'état serveur (voir ci-dessous) | `src/services/petPhotoFlow.ts` |
 | Banc d'essai : écrans du MVP branchés, design inchangé, mode démonstration conservé | `src/FurrixMVP.jsx`, `src/main.jsx` (`VITE_FURRIX_APP=mvp`) |
-| Règles Storage du bucket `pet-photos` | `supabase/migrations/20261103120000_furrix_0004_pet_photos_storage.sql` |
-| Contraintes serveur du profil animal (longueurs, chemins photo) | `supabase/migrations/20261103120100_furrix_0005_pet_profile_constraints.sql` |
+| Règles Storage du bucket `pet-photos` | `supabase/migrations/20261117110755_furrix_0004_pet_photos_storage.sql` |
+| Contraintes serveur du profil animal (longueurs, chemins photo) | `supabase/migrations/20261117110759_furrix_0005_pet_profile_constraints.sql` |
 | Recette SQL avec comptes fictifs, nettoyage | `supabase/tests/recette/` |
 
 TypeScript n'est introduit que pour les nouveaux services, contrats et hooks (`tsconfig.json` limité à `src/**/*.ts`) ;

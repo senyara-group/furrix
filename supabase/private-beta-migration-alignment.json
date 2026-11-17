@@ -1,0 +1,26 @@
+{
+  "project": "jemikzqgbpaivlujnfgl",
+  "date": "2026-11-17",
+  "migrations": [
+    {
+      "previous": "20261103120000_furrix_0004_pet_photos_storage.sql",
+      "current": "20261117110755_furrix_0004_pet_photos_storage.sql",
+      "sha256": "6a02a0275c51f8c1774323909fcbca0e071e1c983de3c6cfaf911093f05e885a"
+    },
+    {
+      "previous": "20261103120100_furrix_0005_pet_profile_constraints.sql",
+      "current": "20261117110759_furrix_0005_pet_profile_constraints.sql",
+      "sha256": "7fe5357fb242fbfcc9607711bc5c8380a829fd922be019cf5c9e1cb65e583ea8"
+    },
+    {
+      "previous": "20261117094847_registration_consent.sql",
+      "current": "20261117110803_registration_consent.sql",
+      "sha256": "c1a5aba4f498d47c41fb446766d3248aa93412e04bfe0d64b6565ee0c415bd82"
+    },
+    {
+      "previous": "20261117104702_private_beta.sql",
+      "current": "20261117110807_private_beta.sql",
+      "sha256": "1f5f89e86fe75f4cdac341d429f9815b5aa7ef5962772d562bcdd9413d99898d"
+    }
+  ]
+}

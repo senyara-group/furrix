@@ -34,13 +34,13 @@ test('bêta privée : contrôle réel des tables, RPC, stockage et révocation',
     await db.exec((await migration('20261023134044_furrix_0002_rate_limiting.sql')).replace(/create extension if not exists pg_cron;[\s\S]*?(?=-- ═══ IDEMPOTENCE)/,''));
     await db.exec('grant all on all tables in schema public to anon,authenticated,service_role; grant usage,select on all sequences in schema public to anon,authenticated,service_role;');
     await db.exec(await migration('20261023134053_furrix_0003_security_boundaries.sql'));
-    await db.exec(await migration('20261103120000_furrix_0004_pet_photos_storage.sql'));
-    await db.exec(await migration('20261103120100_furrix_0005_pet_profile_constraints.sql'));
-    await db.exec(await migration('20261117094847_registration_consent.sql'));
+    await db.exec(await migration('20261117110755_furrix_0004_pet_photos_storage.sql'));
+    await db.exec(await migration('20261117110759_furrix_0005_pet_profile_constraints.sql'));
+    await db.exec(await migration('20261117110803_registration_consent.sql'));
     await db.exec(`insert into auth.users(id) values('${A}'),('${B}'),('${C}');
       insert into pets(id,owner_id,name,species) values('${PA}','${A}','A','chien'),('${PB}','${B}','B','chien');`);
     assert.equal((await as('anon', null, 'select * from profiles')).rows.length,3,'exposition initiale reproduite');
-    await db.exec(await migration('20261117104702_private_beta.sql'));
+    await db.exec(await migration('20261117110807_private_beta.sql'));
     await db.exec(`insert into private_beta_members(user_id,expires_at) values('${A}',now()+interval '1 day'),('${B}',now()-interval '1 day');`);
 
     await t.test('anonyme et compte non invité : pas de données ni RPC swipe', async () => {

@@ -5,7 +5,7 @@ import { test } from 'node:test';
 
 const A = '10000000-0000-0000-0000-000000000001';
 const B = '10000000-0000-0000-0000-000000000002';
-const sql = await readFile(new URL('../migrations/20261117094847_registration_consent.sql', import.meta.url), 'utf8');
+const sql = await readFile(new URL('../migrations/20261117110803_registration_consent.sql', import.meta.url), 'utf8');
 
 test('déclarations d’inscription : trace serveur, isolation et absence de réécriture client', async () => {
   const db = new PGlite();

@@ -2,9 +2,15 @@
 
 Première vague : Guillaume, Alexis et Yannis uniquement. Chaque personne utilise son propre compte et choisit son mot de passe. Aucun mot de passe partagé, aucune adresse de testeur dans le dépôt.
 
-## Préparation locale, activation non effectuée
+## État au 17 novembre : base préparée, invitations non envoyées
 
-La variable `VITE_PRIVATE_BETA=true` affiche le parcours privé. Elle ne constitue pas une protection de la base : la migration `20261117104702_private_beta.sql` ajoute une liste d'accès serveur et des politiques restrictives aux tables publiques existantes ainsi qu'au stockage. Un compte doit être autorisé, non expiré et avoir confirmé la notice et sa déclaration 18+. Il ne peut pas s'autoriser lui-même.
+Après accord explicite de Guillaume, les quatre migrations ont été appliquées sur DEV. Les contrôles distants confirment : sept versions dans l'historique, aucun utilisateur ni membre bêta, dix contraintes de profil animal, aucun droit client d'ajout/modification/suppression de la liste d'accès, aucune table publique métier dépourvue de la politique restrictive bêta, politique restrictive de stockage présente, deux buckets privés. Une requête en rôle `authenticated` avec une identité non autorisée retourne `denied`, accès faux et aucune ligne visible dans profils, animaux et membres. Il ne s'agit pas d'une recette avec connexion réelle, puisque les comptes n'existent pas encore.
+
+Les noms locaux sont alignés aux versions attribuées par Supabase ; les quatre SQL sont strictement identiques avant/après renommage (preuves SHA-256 dans `supabase/private-beta-migration-alignment.json`). Les paragraphes d'état initial ci-dessous décrivent le préflight, pas l'état après application. Les étapes d'application 1 sont réalisées ; la configuration Auth, les invitations, la variable Vercel et la recette de connexion restent à effectuer.
+
+Les conseillers Supabase signalent encore le `search_path` mutable de `touch_updated_at` et les droits d'exécution de `handle_new_user` (fonction trigger). Ils signalent aussi les RPC privilégiées volontairement exposées aux utilisateurs connectés, dont les contrôles d'identité et d'accès restent nécessaires. Aucun correctif distant supplémentaire n'a été appliqué hors du périmètre autorisé.
+
+La variable `VITE_PRIVATE_BETA=true` affiche le parcours privé. Elle ne constitue pas une protection de la base : la migration `20261117110807_private_beta.sql` ajoute une liste d'accès serveur et des politiques restrictives aux tables publiques existantes ainsi qu'au stockage. Un compte doit être autorisé, non expiré et avoir confirmé la notice et sa déclaration 18+. Il ne peut pas s'autoriser lui-même.
 
 Le client vérifie l'accès avant de monter l'application, puis toutes les 60 secondes et au retour dans la fenêtre. Une erreur ferme l'accès. La base contrôle chaque nouvelle requête ; une révocation ne retire pas les données déjà téléchargées. Les nouvelles tables et les futures fonctions privilégiées devront intégrer ce contrôle explicitement.
 
