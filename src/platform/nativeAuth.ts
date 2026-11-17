@@ -20,7 +20,9 @@ export async function startNativeAuth(client: FurrixClient, onError: (message: s
     if (received.has(result.code)) return;
     received.add(result.code);
     try {
-      const { error } = await client.auth.exchangeCodeForSession(result.code);
+      const { error } = result.flowId
+        ? await client.auth.exchangeCodeForSession(result.code, { flowId: result.flowId })
+        : await client.auth.exchangeCodeForSession(result.code);
       if (error && active) onError('Impossible de valider ce lien sur cet appareil. Demande un nouveau lien depuis cette application.');
     } catch {
       if (active) onError('Connexion interrompue. Demande un nouveau lien.');

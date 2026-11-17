@@ -44,4 +44,10 @@ describe('cycle de vie natif et liens PKCE', () => {
     expect(onError.mock.calls.flat().join(' ')).not.toMatch(/secret/);
     stop();
   });
+  it('transmet l’identifiant du flux PKCE au SDK pour le bon vérificateur local', async () => {
+    const stop = await startNativeAuth(client, vi.fn());
+    callbacks.get('appUrlOpen')!({ url: 'fr.furrix.app://auth/callback?code=test-code&sb_flow_id=0123456789abcdef0123456789abcdef' });
+    await vi.waitFor(() => expect(auth.exchangeCodeForSession).toHaveBeenCalledWith('test-code', { flowId: '0123456789abcdef0123456789abcdef' }));
+    stop();
+  });
 });

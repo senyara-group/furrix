@@ -15,6 +15,8 @@ export type UseAuth = {
   error: string | null;
   fieldErrors: Partial<Record<keyof Credentials, string>>;
   notice: string | null;
+  recovery: boolean;
+  finishRecovery: () => void;
   submit: (mode: AuthMode, credentials: Credentials) => Promise<boolean>;
   signOut: () => Promise<boolean>;
   clearMessages: () => void;
@@ -32,6 +34,7 @@ export function useAuth(client: FurrixClient | null): UseAuth {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<UseAuth['fieldErrors']>({});
   const [notice, setNotice] = useState<string | null>(null);
+  const [recovery, setRecovery] = useState(false);
   const mounted = useRef(true);
 
   const apply = useCallback((next: Session | null) => {
@@ -50,9 +53,11 @@ export function useAuth(client: FurrixClient | null): UseAuth {
       return () => { active = false; mounted.current = false; };
     }
     // L'abonnement est posé avant la lecture : aucun événement n'est perdu entre les deux.
-    const unsubscribe = authService.subscribeToAuthChanges(client, (next) => {
+    const unsubscribe = authService.subscribeToAuthChanges(client, (next, event) => {
       if (!active) return;
       sessionEventReceived = true;
+      if (event === 'PASSWORD_RECOVERY') setRecovery(true);
+      if (event === 'SIGNED_OUT') setRecovery(false);
       apply(next);
     });
     authService
@@ -134,6 +139,8 @@ export function useAuth(client: FurrixClient | null): UseAuth {
     error,
     fieldErrors,
     notice,
+    recovery,
+    finishRecovery: () => setRecovery(false),
     submit,
     signOut,
     clearMessages,

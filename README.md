@@ -10,6 +10,10 @@ Branche d'essai avec Capacitor 8 et projets natifs ; `npm run dev:platform` ouvr
 La génération/synchronisation des projets ne vaut pas validation d'une compilation native ou d'un appareil.
 Le prochain lot reste l'authentification complète puis l'accueil « Plein air » avec les composants d'Alexis.
 
+**Parcours auth préparé** : `npm run dev:auth` / `npm run build:auth`, voir
+[l'activation, les limites et la recette](docs/Authentification.md). L'inscription reste fermée tant que les
+documents validés ne sont pas configurés. La migration de traçabilité est proposée mais non appliquée sur DEV.
+
 > **Note sur les extensions** : `vite.config.mjs` et `src/lib/supabase.mjs` utilisent l'extension `.mjs` au lieu de `.js`, uniquement parce que Gmail bloque les fichiers `.js` même à l'intérieur d'une archive. Vite résout `.mjs` nativement, rien à changer. Renomme-les en `.js` si tu préfères.
 
 ## Démarrage rapide (5 minutes)
