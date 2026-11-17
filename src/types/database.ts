@@ -46,6 +46,7 @@ export type Database = {
           created_at: string;
         };
         Insert: {
+          id?: string;
           owner_id: string;
           name: string;
           species: string;

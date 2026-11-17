@@ -42,6 +42,7 @@ export function createFakeSupabase() {
   };
 
   const bucket = {
+    download: vi.fn(async (_path: string, _options?: unknown, _parameters?: unknown) => ({ data: new Blob(['photo'], { type: 'image/jpeg' }) as Blob | null, error: null as unknown })),
     upload: vi.fn(async (_path: string, _file: unknown, _opts: unknown) => ({ data: { path: _path }, error: null as unknown })),
     remove: vi.fn(async (_paths: string[]) => ({ data: [], error: null as unknown })),
     getPublicUrl: vi.fn((path: string) => ({ data: { publicUrl: `https://cdn.test/pet-photos/${path}` } })),

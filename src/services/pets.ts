@@ -32,13 +32,22 @@ export async function fetchMyPet(client: FurrixClient, ownerId: string): Promise
   return data as PetRow | null;
 }
 
-export async function createPet(client: FurrixClient, ownerId: string, input: PetInput): Promise<PetRow> {
+export async function createPet(client: FurrixClient, ownerId: string, input: PetInput, draftId?: string): Promise<PetRow> {
   const { data, error } = await client
     .from('pets')
-    .insert({ owner_id: ownerId, ...toWritable(input) })
+    .insert({ ...(draftId ? { id: draftId } : {}), owner_id: ownerId, ...toWritable(input) })
     .select(PET_COLUMNS)
     .single();
-  if (error) throw toDataError(error);
+  if (error) {
+    // Identifiant stable pendant le formulaire : un nouvel essai ne crée pas un deuxième animal.
+    if (draftId) {
+      try {
+        const fresh = await fetchPetById(client, draftId);
+        if (fresh?.owner_id === ownerId) return fresh;
+      } catch { /* État inconnu : le même identifiant sera conservé au prochain essai. */ }
+    }
+    throw toDataError(error);
+  }
   return data as PetRow;
 }
 
