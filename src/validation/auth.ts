@@ -9,6 +9,17 @@ export const PASSWORD_MAX = 72;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+export function validateEmail(input: string): string | null {
+  const email = input.trim();
+  return !email ? "L'e-mail est requis" : email.length > 254 || !EMAIL_RE.test(email) ? 'E-mail invalide' : null;
+}
+
+export function validateNewPassword(password: string, confirmation: string): string | null {
+  if (password.length < PASSWORD_MIN) return `Au moins ${PASSWORD_MIN} caractères`;
+  if (new TextEncoder().encode(password).length > PASSWORD_MAX) return 'Mot de passe trop long';
+  return password === confirmation ? null : 'Les mots de passe ne correspondent pas.';
+}
+
 export function validateCredentials(
   input: Credentials,
   mode: AuthMode,

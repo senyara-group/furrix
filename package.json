@@ -15,7 +15,10 @@
     "platform:doctor": "node scripts/platform-doctor.mjs",
     "platform:sync": "npm run build:platform && cap sync",
     "android:open": "cap open android",
-    "ios:open": "cap open ios"
+    "ios:open": "cap open ios",
+    "dev:auth": "vite --mode auth",
+    "build:auth": "vite build --mode auth",
+    "auth:sync": "npm run build:auth && cap sync"
   },
   "dependencies": {
     "@aparajita/capacitor-secure-storage": "8.0.1",

@@ -48,7 +48,15 @@ export function toAuthError(error: unknown): AppError {
       return new AppError('email_not_confirmed', 'Confirme ton e-mail avant de te connecter.', error);
     case 'user_already_exists':
     case 'email_exists':
-      return new AppError('user_exists', 'Un compte existe déjà avec cet e-mail.', error);
+      return new AppError('user_exists', 'Si cette adresse peut être inscrite, un e-mail sera envoyé. Sinon, connecte-toi ou demande un nouveau mot de passe.', error);
+    case 'otp_expired':
+    case 'flow_state_expired':
+    case 'flow_state_not_found':
+    case 'bad_code_verifier':
+    case 'validation_failed':
+      return new AppError('validation', 'Ce lien est expiré ou invalide. Demande un nouveau lien depuis cet appareil.', error);
+    case 'same_password':
+      return new AppError('validation', 'Choisis un mot de passe différent de l’ancien.', error);
     case 'weak_password':
       return new AppError('weak_password', 'Mot de passe trop faible.', error);
     case 'signup_disabled':

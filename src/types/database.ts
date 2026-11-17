@@ -8,6 +8,12 @@ export type Database = {
   __InternalSupabase: { PostgrestVersion: '14.18' };
   public: {
     Tables: {
+      registration_consents: {
+        Row: { user_id: string; terms_version: string; privacy_version: string; declared_adult: boolean; recorded_at: string; source: string };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
       profiles: {
         Row: {
           id: string;
@@ -66,7 +72,9 @@ export type Database = {
       };
     };
     Views: { [_ in never]: never };
-    Functions: { [_ in never]: never };
+    Functions: {
+      accept_registration_terms: { Args: { p_terms: string; p_privacy: string; p_adult: boolean }; Returns: undefined };
+    };
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };

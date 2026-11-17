@@ -18,6 +18,9 @@ describe('retours de confirmation', () => {
   });
   it('ne consomme que le code PKCE du retour exact attendu', () => {
     expect(parseNativeAuthReturn(`${NATIVE_AUTH_REDIRECT}?code=abc`)).toEqual({ code: 'abc' });
+    expect(parseNativeAuthReturn(`${NATIVE_AUTH_REDIRECT}?code=abc&sb_flow_id=0123456789abcdef0123456789abcdef`))
+      .toEqual({ code: 'abc', flowId: '0123456789abcdef0123456789abcdef' });
+    expect(parseNativeAuthReturn(`${NATIVE_AUTH_REDIRECT}?code=abc&sb_flow_id=one&sb_flow_id=two`)).toBeNull();
     for (const value of ['https://auth/callback?code=a', 'fr.furrix.app://other/callback?code=a',
       'fr.furrix.app://auth/other?code=a', 'fr.furrix.app://auth/callback?code=',
       'fr.furrix.app://auth/callback?code=a&code=b', 'fr.furrix.app://auth/callback#access_token=a',

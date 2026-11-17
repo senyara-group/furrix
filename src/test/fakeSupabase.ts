@@ -51,6 +51,9 @@ export function createFakeSupabase() {
     signUp: vi.fn(async (_c: unknown) => ({ data: { session: null as Session | null, user: null }, error: null as unknown })),
     signInWithPassword: vi.fn(async (_c: unknown) => ({ data: { session: fakeSession() as Session | null, user: null }, error: null as unknown })),
     signOut: vi.fn(async () => ({ error: null as unknown })),
+    resend: vi.fn(async (_input: unknown) => ({ data: {}, error: null as unknown })),
+    resetPasswordForEmail: vi.fn(async (_email: string, _options: unknown) => ({ data: {}, error: null as unknown })),
+    updateUser: vi.fn(async (_input: unknown) => ({ data: { user: null }, error: null as unknown })),
     unsubscribe: vi.fn(),
     onAuthStateChange: vi.fn((cb: (event: string, session: Session | null) => void) => {
       authListener = cb;
@@ -61,6 +64,7 @@ export function createFakeSupabase() {
   const client = {
     auth,
     from: vi.fn((table: string) => builder(table)),
+    rpc: vi.fn(async (_name: string, _args: unknown) => ({ data: undefined, error: null as unknown })),
     storage: { from: vi.fn((_bucket: string) => bucket) },
   };
 

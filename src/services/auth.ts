@@ -4,6 +4,7 @@ import { toAuthError } from './errors';
 import type { FurrixClient } from './supabaseClient';
 import { Capacitor } from '@capacitor/core';
 import { getAuthRedirect } from '../platform/authRedirect';
+import type { RegistrationConsent } from '../auth/registration';
 
 export function authRedirect(): string {
   return getAuthRedirect(Capacitor.isNativePlatform(), window.location.origin);
@@ -11,13 +12,17 @@ export function authRedirect(): string {
 
 export type SignUpResult = { session: Session | null; needsEmailConfirmation: boolean };
 
-export async function signUp(client: FurrixClient, { email, password }: Credentials): Promise<SignUpResult> {
+export async function signUp(client: FurrixClient, { email, password }: Credentials, consent?: RegistrationConsent): Promise<SignUpResult> {
   const { data, error } = await client.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: authRedirect() },
+    options: { emailRedirectTo: authRedirect(), ...(consent ? { data: { registration_consent: consent } } : {}) },
   });
-  if (error) throw toAuthError(error);
+  if (error) {
+    const translated = toAuthError(error);
+    if (translated.code === 'user_exists') return { session: null, needsEmailConfirmation: true };
+    throw translated;
+  }
   // Avec confirmation d'e-mail activée, aucune session n'est ouverte avant le clic sur le lien.
   // Un e-mail déjà inscrit renvoie aussi un utilisateur sans identité (anti-énumération) : même message.
   return { session: data.session, needsEmailConfirmation: data.session === null };
