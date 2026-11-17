@@ -209,3 +209,33 @@
     padding: var(--fx-space-12) var(--fx-space-6);
   }
 }
+/* Chargement */
+.fx-spinner {
+  display: inline-block;
+  flex: none;
+  border-radius: 50%;
+  border: 2.5px solid currentColor;
+  border-right-color: transparent;
+  animation: fx-spin .8s linear infinite;
+}
+@keyframes fx-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-spinner {
+    animation: none;
+    border-right-color: currentColor;
+    opacity: .6;
+  }
+}
+.fx-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--fx-space-3);
+  padding: var(--fx-space-6) var(--fx-space-4);
+  color: var(--fx-color-ink-muted);
+  font: var(--fx-type-body);
+}

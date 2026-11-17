@@ -194,3 +194,9 @@
     display: inline-flex;
   }
 }
+/* Action en cours : la couleur de la variante reste, le curseur et les clics changent. */
+.fx-btn[aria-busy=true],
+.fx-send[aria-busy=true] {
+  cursor: progress;
+  transform: none;
+}
