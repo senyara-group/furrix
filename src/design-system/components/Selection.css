@@ -111,10 +111,10 @@
   color: #fff;
 }
 @media (hover: hover) {
-  .fx-chip:hover {
+  .fx-chip:hover:not([disabled]) {
     background: var(--fx-color-surface-stone-hover);
   }
-  .fx-chip[aria-pressed=true]:hover {
+  .fx-chip[aria-pressed=true]:hover:not([disabled]) {
     background: var(--fx-color-ink);
   }
   .fx-opt:hover:not([disabled]) {
@@ -123,7 +123,7 @@
   .fx-opt[aria-pressed=true]:hover:not([disabled]) {
     box-shadow: inset 0 0 0 2.5px var(--fx-color-ink);
   }
-  .fx-seg__btn:hover {
+  .fx-seg__btn:hover:not([disabled]) {
     background: var(--fx-color-surface-stone-hover);
   }
   .fx-seg__btn[aria-pressed=true]:hover {
@@ -142,4 +142,16 @@
     gap: var(--fx-space-2);
     font-size: 14.5px;
   }
+}
+/* Choix indisponibles : visiblement inactifs, sans dépendre de la couleur seule (texte barré). */
+.fx-chip[disabled],
+.fx-seg__btn[disabled] {
+  color: var(--fx-color-ink-muted);
+  background: var(--fx-color-surface-sand);
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  cursor: not-allowed;
+}
+.fx-seg__btn[disabled] {
+  background: transparent;
 }

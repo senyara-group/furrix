@@ -119,29 +119,38 @@ Familles : **Actions** `Button`, `IconButton`, `SendButton`, `BackLink` · **Sé
 - **Accessibilité** : `IconButton` exige un `label` ; `Field` relie étiquette/aide/erreur ;
   `alt=""` seulement si le nom est écrit à côté de la photo ; `prefers-reduced-motion` respecté.
 - **Pas de mode sombre** pour l'instant (un seul thème clair).
-- Les styles du design system sont **globaux** (`body`, titres, `:focus-visible`). Ne les importer
-  que dans les écrans qui ont migré vers le design system ; les anciens écrans (`app/shell.css`,
-  `auth/auth.css`) ont leur propre habillage tant qu'ils ne sont pas migrés.
+- La base du design system (police, couleurs, titres, `:focus-visible`) ne s'applique **qu'à l'intérieur**
+  de `.fx-root` (posé par `AppShell`) ou de `FurrixScope` (écran migré dans une structure plus ancienne).
+  Ses sélecteurs passent par `:where()` : ils ne l'emportent jamais sur un composant ni sur un écran.
+  Les styles peuvent donc être importés une seule fois, à la racine, sans toucher les écrans non migrés.
+- Le préfixe `fx-` (classes et variables) est **réservé** au design system. Les écrans de l'application
+  utilisent `app-`.
+- **États** : `Button loading` (indicateur, `aria-busy`, clics ignorés, focus conservé), `Loading` pour une
+  zone, `disabled` pour un choix indisponible (puces, segments, options). Une action qui attend le serveur
+  utilise `loading`, pas `disabled`, pour ne pas faire perdre le focus clavier.
+- **Pile de profils** : `onDecide` renvoie la promesse de l'appel serveur. La carte reste en place jusqu'à
+  la confirmation et revient en cas d'échec ; `onPendingChange` sert à désactiver `SwipeActions`.
+- **Messages** : `Composer` limite à 2 000 caractères (comme la base) et accepte `sending`. Le texte reste
+  affiché pendant l'envoi : un nouvel essai réutilise le même identifiant de requête côté écran.
 - `MapFrame` n'est qu'un cadre : le fournisseur de carte (Mapbox) reste à brancher dans `.fx-map__canvas`.
 - Tout ce que la maquette marque « Provisoire » ou « fictif » (délais, tarifs, frais) est une
   hypothèse : ne jamais figer ces valeurs dans le code (`RecapRow open` → « à définir »).
 
 ### Contenu et ton (textes d'interface)
 
-Français, phrases courtes et concrètes, du point de vue de l'utilisateur. Pas d'emoji ; pas de
+Français, **tutoiement**, phrases courtes et concrètes, du point de vue de l'utilisateur. Pas d'emoji ; pas de
 point d'exclamation sauf « C'est un match ! ». Casse de phrase. Boutons à l'impératif ou à
 l'infinitif d'action (« Envoyer la demande »). Alertes : le fait en titre, la suite en texte.
 Dates « Ven. 21 → dim. 23 nov. », heures « 10:00 », distances « ≈ 1,5 km », prix « 20 € / nuit ».
 
-> **Point ouvert** : le design system vouvoie (« Vous paierez… »), l'accueil et l'authentification
-> actuels tutoient (« Salut », « toi »). À trancher avec l'équipe avant de migrer ces écrans ;
-> en attendant, ne pas mélanger les deux sur un même écran.
+> **Décidé** : Furrix tutoie partout (« Tu paieras… », « Ton message »), comme l'accueil,
+> l'authentification et les rencontres. Les maquettes encore au vouvoiement sont à adapter lors de leur migration.
 
 ## Conventions de code
 
 - TypeScript strict pour tout nouveau fichier (`.ts` / `.tsx`) ; pas de nouveau `.jsx`.
 - Composants fonctionnels, props typées et documentées par un court commentaire `/** … */` en français.
-- Classes CSS préfixées : `fx-` pour le design system, préfixe propre à chaque écran sinon.
+- Classes CSS préfixées : `fx-` pour le design system, `app-` pour les écrans de l'application.
 - Commentaires, documentation, messages de commit et textes d'interface **en français**.
 - Pas de nouvelle dépendance sans raison claire ; versions figées comme dans `package.json`.
 - Ne jamais committer de secret (`.env.local`, clés Supabase, keystores).

@@ -21,7 +21,7 @@ export interface FieldProps {
   label: ReactNode;
   optional?: boolean;
   hint?: ReactNode;
-  /** Message qui dit quoi faire (« Indiquez le prénom de l'animal »). */
+  /** Message qui dit quoi faire (« Indique le prénom de ton animal »). */
   error?: ReactNode;
   /** Le contrôle : `Input` ou `Textarea`. */
   children: ReactElement<ControlProps>;
@@ -58,22 +58,49 @@ export interface ComposerProps {
   placeholder?: string;
   label?: string;
   disabled?: boolean;
+  /** Envoi en cours : le texte reste affiché, un second envoi est bloqué. */
+  sending?: boolean;
+  /** Longueur maximale du message (2 000 caractères par défaut, comme côté serveur). */
+  maxLength?: number;
   className?: string;
 }
 
-/** Saisie d'un message + bouton d'envoi (actif seulement si le texte n'est pas vide). */
-export function Composer({ value, onChange, onSend, placeholder = 'Votre message', label = 'Message', disabled, className }: ComposerProps) {
-  const canSend = !disabled && value.trim().length > 0;
+/** Nombre de caractères restants à partir duquel le compteur s'affiche. */
+const COUNTER_FROM = 200;
+
+/** Saisie d'un message + bouton d'envoi (actif seulement si le texte n'est ni vide ni trop long). */
+export function Composer({
+  value, onChange, onSend, placeholder = 'Ton message', label = 'Message', disabled, sending = false, maxLength = 2000, className,
+}: ComposerProps) {
+  const counterId = useId();
+  const length = value.trim().length;
+  const remaining = maxLength - value.length;
+  const canSend = !disabled && !sending && length > 0 && length <= maxLength;
   return (
     <form
       className={cx('fx-composer', className)}
+      aria-busy={sending || undefined}
       onSubmit={(e) => {
         e.preventDefault();
         if (canSend) onSend();
       }}
     >
-      <Input aria-label={label} placeholder={placeholder} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} enterKeyHint="send" />
-      <SendButton type="submit" label="Envoyer" disabled={!canSend} />
+      <Input
+        aria-label={label}
+        placeholder={placeholder}
+        value={value}
+        disabled={disabled}
+        maxLength={maxLength}
+        aria-describedby={remaining <= COUNTER_FROM ? counterId : undefined}
+        onChange={(e) => onChange(e.target.value)}
+        enterKeyHint="send"
+      />
+      <SendButton type="submit" label="Envoyer" loading={sending} disabled={!sending && !canSend} />
+      {remaining <= COUNTER_FROM ? (
+        <p className="fx-composer__count fx-num" id={counterId} aria-live="polite">
+          {remaining > 0 ? `${remaining} caractère${remaining > 1 ? 's' : ''} restant${remaining > 1 ? 's' : ''}` : 'Limite atteinte'}
+        </p>
+      ) : null}
     </form>
   );
 }

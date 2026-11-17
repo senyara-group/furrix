@@ -9,7 +9,7 @@
 export { tokens, vars } from './tokens/tokens';
 export { cx, space, cssVars, type SpaceStep, type PhotoSource } from './utils';
 export { getPlatform, isNative, initPlatform, setHapticsHandler, haptic, type Platform, type HapticKind } from './platform';
-export { FurrixProvider, useFurrix } from './provider';
+export { FurrixProvider, FurrixScope, useFurrix } from './provider';
 export { useMediaQuery, useBreakpoint, DESKTOP_QUERY } from './hooks';
 export { Icon, iconNames, type IconName, type IconProps } from './icons/Icon';
 

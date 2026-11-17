@@ -1,43 +1,36 @@
-*,
-*::before,
-*::after {
+/*
+ * Base du design system, limitée à ses conteneurs : `.fx-root` (AppShell) et `.fx-scope`
+ * (écran migré à l'intérieur d'une structure plus ancienne). Les écrans non migrés ne sont pas touchés.
+ * `:where()` garde une spécificité nulle : les composants et les styles d'écran l'emportent toujours.
+ */
+:where(.fx-root, .fx-scope),
+:where(.fx-root, .fx-scope) *,
+:where(.fx-root, .fx-scope) *::before,
+:where(.fx-root, .fx-scope) *::after {
   box-sizing: border-box;
 }
-:root {
+:where(.fx-root, .fx-scope) {
   color-scheme: light;
-}
-html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-}
-body {
-  margin: 0;
+  -webkit-tap-highlight-color: transparent;
   background: var(--fx-color-surface-page);
   color: var(--fx-color-ink);
   font: 400 15px/1.55 var(--fx-font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-h1,
-h2,
-h3,
-p,
-dl,
-dd,
-figure {
+:where(.fx-root, .fx-scope) :where(h1, h2, h3, p, dl, dd, figure) {
   margin: 0;
 }
-button,
-input,
-textarea,
-select {
+:where(.fx-root, .fx-scope) :where(button, input, textarea, select) {
   font: inherit;
   color: inherit;
 }
-img {
+:where(.fx-root, .fx-scope) :where(img) {
   max-width: 100%;
 }
-:focus-visible {
+:where(.fx-root, .fx-scope) :focus-visible {
   outline: 3px solid var(--fx-color-ink);
   outline-offset: 2px;
 }
@@ -140,11 +133,17 @@ img {
   color: var(--fx-color-ink);
 }
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  :where(.fx-root, .fx-scope),
+  :where(.fx-root, .fx-scope) *,
+  :where(.fx-root, .fx-scope) *::before,
+  :where(.fx-root, .fx-scope) *::after {
     transition-duration: .01ms !important;
     animation-duration: .01ms !important;
     scroll-behavior: auto !important;
   }
+}
+/* La structure complète occupe la page : marges du navigateur retirées seulement quand elle est présente. */
+body:has(> * .fx-root, > .fx-root) {
+  margin: 0;
+  background: var(--fx-color-surface-page);
 }

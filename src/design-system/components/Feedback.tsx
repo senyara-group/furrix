@@ -35,7 +35,7 @@ export interface AlertProps {
   tone: AlertTone;
   /** Le fait (« La demande n'est pas partie »). */
   title: ReactNode;
-  /** La suite (« Réessayez l'envoi »). */
+  /** La suite (« Réessaie l'envoi »). */
   children?: ReactNode;
   actions?: ReactNode;
   className?: string;
@@ -84,6 +84,27 @@ export function EmptyState({ icon, title, children, action, className }: EmptySt
       <Text variant="h2">{title}</Text>
       {children ? <Text variant="body">{children}</Text> : null}
       {action}
+    </div>
+  );
+}
+
+/** Indicateur de chargement décoratif ; le texte d'état est porté par le composant parent. */
+export function Spinner({ size = 20, className }: { size?: number; className?: string }) {
+  return <span className={cx('fx-spinner', className)} style={{ width: size, height: size }} aria-hidden="true" />;
+}
+
+export interface LoadingProps {
+  /** Ce qui se charge (« Chargement des profils… »). */
+  label: ReactNode;
+  className?: string;
+}
+
+/** État de chargement d'une zone, annoncé poliment aux lecteurs d'écran. */
+export function Loading({ label, className }: LoadingProps) {
+  return (
+    <div className={cx('fx-loading', className)} role="status" aria-live="polite">
+      <Spinner size={22} />
+      <span>{label}</span>
     </div>
   );
 }
