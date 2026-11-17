@@ -4,9 +4,6 @@
   --fx-safe-bottom: env(safe-area-inset-bottom, 0px);
   --fx-safe-left: env(safe-area-inset-left, 0px);
 }
-html {
-  -webkit-tap-highlight-color: transparent;
-}
 html[data-native=true] {
   -webkit-touch-callout: none;
   overscroll-behavior: none;
