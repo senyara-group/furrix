@@ -5,10 +5,14 @@
 // n'a pas le droit de les écrire (migration 0003) : les types Insert/Update ci-dessous l'expriment.
 
 import type { DiscoveryPet, PetMatch, MatchMessage } from '../meetings/types';
+import type { LostAlert, LocalNotification, LostSector, LostSighting, PublishLostArgs } from '../lost-pets/types';
 export type Database = {
   __InternalSupabase: { PostgrestVersion: '14.18' };
   public: {
     Tables: {
+      lost_alert_subscriptions: { Row: LostSector; Insert: never; Update: never; Relationships: [] };
+      local_notifications: { Row: LocalNotification; Insert: never; Update: never; Relationships: [] };
+      lost_sightings: { Row: LostSighting; Insert: never; Update: never; Relationships: [] };
       pet_meeting_locations: {
         Row: { pet_id: string; latitude: number; longitude: number };
         Insert: never; Update: never; Relationships: [];
@@ -80,6 +84,13 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      publish_lost_alert: { Args: PublishLostArgs; Returns: string };
+      list_lost_alerts: { Args: { p_city?: string; p_after?: string; p_limit?: number; p_id?: string }; Returns: LostAlert[] };
+      update_lost_alert: { Args: { p_id: string; p_description: string; p_instructions: string; p_status: string }; Returns: undefined };
+      add_lost_sighting: { Args: { p_id: string; p_alert: string; p_seen: string; p_city: string; p_message: string }; Returns: string };
+      set_lost_alert_sector: { Args: { p_enabled: boolean; p_lat?: number; p_lng?: number; p_radius?: number }; Returns: undefined };
+      read_local_notification: { Args: { p_id: string }; Returns: undefined };
+      report_lost_alert: { Args: { p_id: string; p_reason: string }; Returns: undefined };
       discover_pets: { Args: { p_pet: string; p_species?: string; p_purpose?: string; p_radius?: number; p_after?: string; p_limit?: number }; Returns: DiscoveryPet[] };
       swipe_and_match: { Args: { p_pet: string; p_target: string; p_dir: string }; Returns: string | null };
       set_pet_meeting_location: { Args: { p_pet: string; p_lat?: number; p_lng?: number }; Returns: undefined };

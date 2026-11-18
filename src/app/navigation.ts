@@ -9,8 +9,9 @@ export const destinations = [
   { id: 'animaux', label: 'Mes animaux', icon: PawPrint },
   { id: 'compte', label: 'Mon compte', icon: UserRound },
 ] as const;
-export type AppRoute = typeof destinations[number]['id'];
+export type AppRoute = typeof destinations[number]['id'] | 'animaux-perdus';
 export function routeFromHash(hash: string): AppRoute {
   const candidate = hash.replace(/^#\//, '').split('?')[0];
+  if (candidate === 'animaux-perdus') return candidate;
   return destinations.find((item) => item.id === candidate)?.id ?? 'accueil';
 }

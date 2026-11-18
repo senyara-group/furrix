@@ -1,0 +1,112 @@
+.app-lost {
+  max-width: 100%;
+  margin: auto;
+}
+.app-lost-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fx-space-3);
+  margin-block: var(--fx-space-5);
+}
+.app-lost-fields {
+  border: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--fx-space-4);
+}
+.app-lost-wide {
+  grid-column: 1/-1;
+}
+.app-lost select {
+  font: inherit;
+  width: 100%;
+  min-height: var(--fx-size-input);
+  padding: var(--fx-space-3);
+  border: 1px solid var(--fx-color-line-field);
+  border-radius: var(--fx-radius-sm);
+  background: var(--fx-color-surface-white);
+  color: var(--fx-color-ink);
+}
+.app-lost-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--fx-space-5);
+}
+.app-lost-card,
+.app-lost-observation {
+  padding: var(--fx-space-5);
+  border: 1px solid var(--fx-color-line-strong);
+  border-radius: var(--fx-radius-2xl);
+  background: var(--fx-color-surface-white);
+  margin-block: var(--fx-space-4);
+  min-width: 0;
+}
+.app-lost-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.app-lost .pet-photo {
+  max-width: 100%;
+  margin-block: var(--fx-space-5);
+}
+.app-lost-check {
+  display: flex;
+  align-items: center;
+  gap: var(--fx-space-3);
+  min-height: var(--fx-size-input);
+}
+.app-lost-check input {
+  width: var(--fx-space-5);
+  height: var(--fx-space-5);
+}
+.app-lost-filter {
+  display: flex;
+  gap: var(--fx-space-4);
+  align-items: center;
+  flex-wrap: wrap;
+}
+.app-local-alert {
+  background: var(--fx-color-surface-sand);
+  padding: var(--fx-space-4);
+  border-radius: var(--fx-radius-2xl);
+  margin-block: var(--fx-space-4);
+}
+.app-local-alert a {
+  display: block;
+  min-height: var(--fx-size-touch);
+}
+.app-lost details {
+  margin-block: var(--fx-space-5);
+}
+.app-lost summary {
+  cursor: pointer;
+  min-height: var(--fx-size-touch);
+}
+@media (max-width: 899px) {
+  .app-lost-fields,
+  .app-lost-grid {
+    grid-template-columns: 1fr;
+  }
+  .app-lost-wide {
+    grid-column: auto;
+  }
+  .app-lost-actions > .fx-btn {
+    flex: 1 1 auto;
+  }
+}
+
+.app-lost-fields {
+  min-width: 0;
+}
+.app-lost-fields > * {
+  min-width: 0;
+}
+.app-lost .fx-btn {
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+}
+.app-lost .fx-field {
+  min-width: 0;
+}

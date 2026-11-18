@@ -5,6 +5,7 @@ import { AppShellView } from './AppShell';
 import ProductApp from './ProductApp';
 import * as service from './accountOverview';
 import { useAccountOverview } from './useAccountOverview';
+import * as lostService from '../lost-pets/service';
 import type { PetRow } from '../types/database';
 
 const documents = { termsUrl: 'https://furrix.example/terms', privacyUrl: 'https://furrix.example/privacy', termsVersion: 'v1', privacyVersion: 'v1' };
@@ -12,7 +13,7 @@ const empty = { status: 'ready', data: { profile: { name: null, city: null }, pe
 const pet: PetRow = { id: 'pet-a', owner_id: fakeSession().user.id, name: 'Luna', species: 'chien', breed: null, age: null, gender: null, purpose: null, city: null, bio: null, photos: [], verified: false, created_at: '' };
 const navigate = (route: string) => act(() => { window.history.replaceState(null, '', `/#/${route}`); fireEvent(window, new HashChangeEvent('hashchange')); });
 
-beforeEach(() => { vi.spyOn(window, 'scrollTo').mockImplementation(() => {}); });
+beforeEach(() => { vi.spyOn(window, 'scrollTo').mockImplementation(() => {}); vi.spyOn(lostService, 'listNotifications').mockResolvedValue([]); });
 afterEach(() => { cleanup(); window.history.replaceState(null, '', '/'); vi.restoreAllMocks(); });
 
 describe('accueil et navigation', () => {
