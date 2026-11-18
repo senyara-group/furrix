@@ -4,7 +4,7 @@
 // Les colonnes protégées (role, premium, verified, owner_id, dates) sont lisibles mais le client
 // n'a pas le droit de les écrire (migration 0003) : les types Insert/Update ci-dessous l'expriment.
 
-import type { DiscoveryPet, PetMatch, MatchMessage } from '../meetings/types';
+import type { DiscoveryPet, PetMatch, MatchMessage, NewPetMatch, MyMatch, MeetingProposal } from '../meetings/types';
 import type { LostAlert, LocalNotification, LostSector, LostSighting, PublishLostArgs } from '../lost-pets/types';
 export type Database = {
   __InternalSupabase: { PostgrestVersion: '14.18' };
@@ -18,6 +18,7 @@ export type Database = {
         Insert: never; Update: never; Relationships: [];
       };
       messages: { Row: MatchMessage; Insert: never; Update: never; Relationships: [] };
+      meeting_proposals: { Row: MeetingProposal; Insert: never; Update: never; Relationships: [] };
       registration_consents: {
         Row: { user_id: string; terms_version: string; privacy_version: string; declared_adult: boolean; recorded_at: string; source: string };
         Insert: never;
@@ -54,6 +55,12 @@ export type Database = {
           photos: string[] | null;
           verified: boolean | null;
           created_at: string;
+          meeting_goals?: string[];
+          size?: string | null;
+          temperament?: string | null;
+          good_with?: string | null;
+          usual_outings?: string | null;
+          behaviour_traits?: string[];
         };
         Insert: {
           id?: string;
@@ -67,6 +74,12 @@ export type Database = {
           city?: string | null;
           bio?: string | null;
           photos?: string[] | null;
+          meeting_goals?: string[];
+          size?: string | null;
+          temperament?: string | null;
+          good_with?: string | null;
+          usual_outings?: string | null;
+          behaviour_traits?: string[];
         };
         Update: {
           name?: string;
@@ -78,6 +91,12 @@ export type Database = {
           city?: string | null;
           bio?: string | null;
           photos?: string[] | null;
+          meeting_goals?: string[];
+          size?: string | null;
+          temperament?: string | null;
+          good_with?: string | null;
+          usual_outings?: string | null;
+          behaviour_traits?: string[];
         };
         Relationships: [];
       };
@@ -91,7 +110,13 @@ export type Database = {
       set_lost_alert_sector: { Args: { p_enabled: boolean; p_lat?: number; p_lng?: number; p_radius?: number }; Returns: undefined };
       read_local_notification: { Args: { p_id: string }; Returns: undefined };
       report_lost_alert: { Args: { p_id: string; p_reason: string }; Returns: undefined };
-      discover_pets: { Args: { p_pet: string; p_species?: string; p_purpose?: string; p_radius?: number; p_after?: string; p_limit?: number }; Returns: DiscoveryPet[] };
+      discover_pets: { Args: { p_pet: string; p_species?: string; p_purpose?: string; p_radius?: number; p_after?: string; p_limit?: number; p_goal?: string; p_size?: string }; Returns: DiscoveryPet[] };
+      list_new_pet_matches: { Args: { p_pet: string }; Returns: NewPetMatch[] };
+      list_my_matches: { Args: { p_match?: string }; Returns: MyMatch[] };
+      create_meeting_proposal: { Args: { p_match: string; p_activity: string; p_place: string; p_slots: string[]; p_message: string; p_request: string }; Returns: MeetingProposal };
+      update_meeting_proposal: { Args: { p_id: string; p_action: string; p_slot?: string; p_note?: string }; Returns: MeetingProposal };
+      report_or_block_match: { Args: { p_match: string; p_reason: string; p_details: string; p_report: boolean }; Returns: undefined };
+      mark_pet_match_seen: { Args: { p_match: string; p_pet: string }; Returns: undefined };
       swipe_and_match: { Args: { p_pet: string; p_target: string; p_dir: string }; Returns: string | null };
       set_pet_meeting_location: { Args: { p_pet: string; p_lat?: number; p_lng?: number }; Returns: undefined };
       list_pet_matches: { Args: { p_pet: string }; Returns: PetMatch[] };

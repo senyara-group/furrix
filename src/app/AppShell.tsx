@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, ArrowRight, Sun, Dog, LogOut, CalendarDays, PawPrint, Heart, HandHeart, Stethoscope } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import type { FurrixClient } from '../services/supabaseClient';
 import { destinations, headerNav, routeFromHash, tabNav } from './navigation';
 import { useAccountOverview, type OverviewState } from './useAccountOverview';
+import { PhoneBarContext, type PhoneBarOverride } from './phoneBar';
 import '@fontsource/bricolage-grotesque/latin-700.css';
 import '@fontsource/figtree/latin-400.css';
 import '@fontsource/figtree/latin-600.css';
@@ -12,7 +13,12 @@ import './shell.css';
 import { Avatar, FurrixScope, HeaderAction, IconButton, PhoneBar, SiteHeader, TabBar } from '../design-system';
 import PetsWorkspace from '../pets/PetsWorkspace';
 import type { ReactNode } from 'react';
-import MeetingsArea from '../meetings/MeetingsArea';
+// Rencontres et Messages : chargées à part, pour alléger le démarrage de l'app (préchargées juste après).
+const loadRencontres = () => import('../meetings/Rencontres');
+const loadMessages = () => import('../meetings/AfterMatch');
+const Rencontres = lazy(loadRencontres);
+const MessagesArea = lazy(loadMessages);
+const pageLoading = <p role="status" className="app-small">Chargement…</p>;
 import LostPetsArea from '../lost-pets/LostPetsArea';
 import LocalAlertNotice from '../lost-pets/LocalAlertNotice';
 
@@ -52,6 +58,7 @@ export function AppShellView({ overview, retry, email, onSignOut, preview = fals
   const [route, setRoute] = useState(() => routeFromHash(window.location.hash));
   const [leaving, setLeaving] = useState(false);
   const [error, setError] = useState('');
+  const [phoneBar, setPhoneBar] = useState<PhoneBarOverride | null>(null);
   const title = useRef<HTMLElement>(null);
   useEffect(() => {
     const readRoute = () => setRoute(routeFromHash(window.location.hash));
@@ -80,9 +87,9 @@ export function AppShellView({ overview, retry, email, onSignOut, preview = fals
       <HeaderAction icon="message" onClick={() => go('messages')}>Messages</HeaderAction>
       {initial ? <Avatar initials={initial} onClick={() => go('compte')} /> : <IconButton icon="user" label="Mon compte" onClick={() => go('compte')} />}
     </>} /></FurrixScope>
-    <FurrixScope className="app-phonebar"><PhoneBar titleAs="p" title={destinations.find((item) => item.id === route)?.label}
-      back={isTab ? undefined : { label: 'Retour à l’accueil', onClick: () => go('accueil') }} /></FurrixScope>
-    <main id="app-content" tabIndex={-1} ref={title}>
+    <FurrixScope className="app-phonebar"><PhoneBar titleAs="p" title={phoneBar?.title ?? destinations.find((item) => item.id === route)?.label}
+      back={phoneBar?.back ?? (isTab ? undefined : { label: 'Retour à l’accueil', onClick: () => go('accueil') })} /></FurrixScope>
+    <PhoneBarContext.Provider value={setPhoneBar}><main id="app-content" tabIndex={-1} ref={title}>
       {overview.status === 'error' && <div className="app-load-error" role="alert">Ton espace n’a pas pu être chargé. <button onClick={retry}>Réessayer</button></div>}
       {localNotice}
       {route === 'accueil' ? <Home overview={overview} />
@@ -97,7 +104,7 @@ export function AppShellView({ overview, retry, email, onSignOut, preview = fals
           : <div className="app-empty"><PawPrint size={42} strokeWidth={1.3} aria-hidden /><h2>Chaque aventure commence avec eux.</h2><p>Aucun animal n’est encore associé à cet espace. La création et l’édition des profils arrivent au prochain lot.</p></div>}</section>
         : <section className="app-page app-pending"><p className="app-eyebrow">Bientôt dans ton quartier</p><h1>{pending?.label || 'Tes conversations'}</h1><span className="app-stage">En préparation</span><p>{pending?.text || 'Tu retrouveras ici les conversations liées à tes matchs, demandes de garde et rendez-vous.'}</p><p>{route === 'rencontres' ? 'Un j’aime, puis un match réciproque : vous pourrez discuter et proposer une rencontre.' : 'Ce service n’est pas encore disponible. Aucune recherche, demande ou réservation n’est envoyée.'}</p><a className="app-outline" href="#/accueil">Revenir à l’accueil <ArrowRight size={18} aria-hidden /></a></section>}
       <footer className="app-footer"><span>furrix · Bien ensemble, tout simplement.</span><a href="#/compte">Mon compte</a></footer>
-    </main>
+    </main></PhoneBarContext.Provider>
     <FurrixScope className="app-tabbar"><TabBar items={tabNav} current={route} /></FurrixScope>
   </div>;
 }
@@ -106,8 +113,12 @@ export default function AppShell({ client, user, onSignOut }: { client: FurrixCl
   const overview = useAccountOverview(client, user.id);
   const petsContent = overview.status === 'ready' && overview.data
     ? <PetsWorkspace key={user.id} client={client} ownerId={user.id} pets={overview.data.pets} onSaved={overview.savePet} reload={overview.retry} /> : undefined;
-  const meetingsContent = overview.status === 'ready' && overview.data ? <MeetingsArea key={`${user.id}:discover`} client={client} ownerId={user.id} pets={overview.data.pets} /> : undefined;
-  const messagesContent = overview.status === 'ready' && overview.data ? <MeetingsArea key={`${user.id}:matches`} client={client} ownerId={user.id} pets={overview.data.pets} initialTab="matches" /> : undefined;
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void loadRencontres().catch(() => {}); void loadMessages().catch(() => {}); }, 1500);
+    return () => window.clearTimeout(timer);
+  }, []);
+  const meetingsContent = overview.status === 'ready' && overview.data ? <Suspense fallback={pageLoading}><Rencontres key={user.id} client={client} ownerId={user.id} pets={overview.data.pets} /></Suspense> : undefined;
+  const messagesContent = overview.status === 'ready' && overview.data ? <Suspense fallback={pageLoading}><MessagesArea key={user.id} client={client} ownerId={user.id} /></Suspense> : undefined;
   const lostContent = <LostPetsArea key={`${user.id}:lost`} client={client} owner={user.id} pets={overview.data?.pets || []} />;
   return <AppShellView overview={overview} retry={overview.retry} email={user.email} onSignOut={onSignOut} petsContent={petsContent} meetingsContent={meetingsContent} messagesContent={messagesContent} lostContent={lostContent} localNotice={<LocalAlertNotice key={`${user.id}:local-notice`} client={client} owner={user.id} />} />;
 }

@@ -1,10 +1,14 @@
 import {
   PET_GENDERS,
+  PET_MEETING_GOALS,
+  PET_SIZES,
   PET_PURPOSES,
   PET_SPECIES,
   type FieldErrors,
   type PetFormValues,
   type PetGender,
+  type PetMeetingGoal,
+  type PetSize,
   type PetInput,
   type PetPurpose,
   type PetSpecies,
@@ -13,6 +17,8 @@ import {
 
 /** Limites identiques aux contraintes serveur (migration 0005). */
 export const PET_LIMITS = { name: 50, breed: 60, age: 30, city: 80, bio: 500 } as const;
+/** Profil de rencontre : limites identiques à la migration meeting_profile. */
+export const PET_MEETING_LIMITS = { temperament: 40, good_with: 40, usual_outings: 60, trait: 80 } as const;
 /** Champs de l'onboarding de Furrix.jsx, pas encore branchés : mêmes limites que 0005. */
 export const PET_EXTRA_LIMITS = { allerg: 120, food: 80, toy: 80, weight: 20 } as const;
 
@@ -45,6 +51,20 @@ export function validatePetForm(values: PetFormValues): ValidationResult<PetInpu
   if (!includes(PET_GENDERS, values.gender)) errors.gender = 'Sexe invalide';
   if (!includes(PET_PURPOSES, values.purpose)) errors.purpose = 'Objectif invalide';
 
+  const goals = [...new Set(clean(values.goals).split(',').map((g) => g.trim()).filter(Boolean))];
+  if (goals.some((g) => !includes(PET_MEETING_GOALS, g))) errors.goals = 'Choix invalide';
+  const size = clean(values.size);
+  if (size && !includes(PET_SIZES, size)) errors.size = 'Gabarit invalide';
+  const short = { temperament: clean(values.temperament), good_with: clean(values.good_with), usual_outings: clean(values.usual_outings) };
+  for (const key of Object.keys(short) as Array<keyof typeof short>) {
+    if (short[key].length > PET_MEETING_LIMITS[key]) errors[key] = `${PET_MEETING_LIMITS[key]} caractères maximum`;
+  }
+  const traits = (['trait1', 'trait2', 'trait3'] as const).map((key) => {
+    const v = clean(values[key]);
+    if (v.length > PET_MEETING_LIMITS.trait) errors[key] = `${PET_MEETING_LIMITS.trait} caractères maximum`;
+    return v;
+  }).filter(Boolean);
+
   if (Object.keys(errors).length > 0) return { ok: false, errors };
 
   return {
@@ -58,6 +78,12 @@ export function validatePetForm(values: PetFormValues): ValidationResult<PetInpu
       city,
       bio: bio || null,
       purpose: values.purpose as PetPurpose,
+      meeting_goals: goals as PetMeetingGoal[],
+      size: (size || null) as PetSize | null,
+      temperament: short.temperament || null,
+      good_with: short.good_with || null,
+      usual_outings: short.usual_outings || null,
+      behaviour_traits: traits,
     },
   };
 }
