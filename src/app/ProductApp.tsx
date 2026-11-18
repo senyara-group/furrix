@@ -1,3 +1,4 @@
+import '../design-system/styles';
 import AuthApplication from '../auth/AuthApplication';
 import { supabase, type FurrixClient } from '../services/supabaseClient';
 import type { LegalDocuments } from '../auth/registration';

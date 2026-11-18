@@ -49,15 +49,37 @@ describe('animal actif et découverte', () => {
   it('lie le j’aime à l’animal actif et propose la conversation uniquement au match', async () => {
     setupDiscovery(); vi.spyOn(service, 'decide').mockResolvedValue(match.match_id); const fake = createFakeSupabase();
     render(<MeetingsArea client={fake.client} ownerId={owner} pets={[pet]} />);
-    await screen.findByRole('heading', { name: 'Rocky' }); fireEvent.click(screen.getByRole('button', { name: 'J’aime' }));
+    await screen.findByRole('heading', { name: 'Rocky' }); fireEvent.click(screen.getByRole('button', { name: 'J’aime Rocky' }));
     await screen.findByText(/C’est un match/); expect(service.decide).toHaveBeenCalledWith(fake.client, pet.id, target.id, 'right');
     fireEvent.click(screen.getByRole('button', { name: 'Voir mes matchs' })); await screen.findByRole('button', { name: 'Écrire' });
   });
   it('conserve le profil lorsque l’envoi du j’aime n’est pas confirmé', async () => {
     setupDiscovery(); vi.spyOn(service, 'decide').mockRejectedValue(new Error('réseau')); const fake = createFakeSupabase();
     render(<MeetingsArea client={fake.client} ownerId={owner} pets={[pet]} />);
-    await screen.findByRole('heading', { name: 'Rocky' }); fireEvent.click(screen.getByRole('button', { name: 'J’aime' }));
+    await screen.findByRole('heading', { name: 'Rocky' }); fireEvent.click(screen.getByRole('button', { name: 'J’aime Rocky' }));
     await screen.findByRole('alert'); expect(screen.getByRole('heading', { name: 'Rocky' })).toBeTruthy();
+  });
+  it('garde la carte et désactive les actions jusqu’à la confirmation du serveur', async () => {
+    setupDiscovery(); let confirm!: (id: string | null) => void;
+    vi.spyOn(service, 'decide').mockImplementation(() => new Promise((resolve) => { confirm = resolve; })); const fake = createFakeSupabase();
+    render(<MeetingsArea client={fake.client} ownerId={owner} pets={[pet]} />);
+    await screen.findByRole('heading', { name: 'Rocky' });
+    fireEvent.click(screen.getByRole('button', { name: 'J’aime Rocky' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Passer Rocky' }).getAttribute('aria-disabled')).toBe('true'));
+    fireEvent.click(screen.getByRole('button', { name: 'Passer Rocky' }));
+    expect(service.decide).toHaveBeenCalledTimes(1); expect(screen.getByRole('heading', { name: 'Rocky' })).toBeTruthy();
+    await act(async () => confirm(null));
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Rocky' })).toBeNull());
+    expect(screen.getByText('J’aime envoyé au nom de Luna.')).toBeTruthy();
+  });
+  it('donne les mêmes actions en liste, avec la photo privée chargée par animal', async () => {
+    setupDiscovery(); vi.spyOn(service, 'decide').mockResolvedValue(null); const fake = createFakeSupabase();
+    render(<MeetingsArea client={fake.client} ownerId={owner} pets={[pet]} />);
+    await screen.findByRole('heading', { name: 'Rocky' }); fireEvent.click(screen.getByRole('button', { name: 'Liste' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Fiche de Rocky' })); expect(screen.getByText('Prêt pour une balade')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Passer Rocky' }));
+    await waitFor(() => expect(screen.queryByRole('heading', { name: 'Rocky' })).toBeNull());
+    expect(service.decide).toHaveBeenCalledWith(fake.client, pet.id, target.id, 'left');
   });
   it('ignore la réponse tardive de l’ancien animal après sélection d’un autre', async () => {
     let finish!: (data: DiscoveryPet[]) => void;
@@ -73,7 +95,7 @@ describe('animal actif et découverte', () => {
     render(<MeetingsArea client={fake.client} ownerId={owner} pets={[pet]} />);
     await screen.findByRole('heading', { name: 'Rocky' }); expect(locate).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Utiliser ma zone approximative' }));
-    await screen.findByRole('alert'); expect(screen.getByRole('button', { name: 'J’aime' })).toBeTruthy();
+    await screen.findByRole('alert'); expect(screen.getByRole('button', { name: 'J’aime Rocky' })).toBeTruthy();
   });
 });
 
@@ -88,6 +110,20 @@ describe('conversation et requêtes', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Envoyer' })); await screen.findByRole('alert');
     fireEvent.click(screen.getByRole('button', { name: 'Envoyer' })); await screen.findByText('Bonjour !');
     expect(send.mock.calls[0]![3]).toBe(send.mock.calls[1]![3]); expect(screen.getAllByText('Bonjour !')).toHaveLength(1);
+  });
+  it('affiche l’envoi en cours, bloque un second envoi et limite à 2 000 caractères', async () => {
+    vi.spyOn(service, 'loadMessages').mockResolvedValue([]); let finish!: (m: MatchMessage) => void;
+    const send = vi.spyOn(service, 'sendMessage').mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    const fake = createFakeSupabase();
+    render(<Conversation client={fake.client} ownerId={owner} match={match} close={vi.fn()} />);
+    await screen.findByText('Le premier bonjour est à toi.');
+    expect((screen.getByLabelText('Ton message') as HTMLInputElement).maxLength).toBe(2000);
+    fireEvent.change(screen.getByLabelText('Ton message'), { target: { value: 'Bonjour !' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Envoyer' }));
+    const busy = await screen.findByRole('button', { name: /Envoyer, en cours/ });
+    expect(busy.getAttribute('aria-busy')).toBe('true'); fireEvent.click(busy); expect(send).toHaveBeenCalledTimes(1);
+    await act(async () => finish(message)); await screen.findByText('Bonjour !');
+    expect((screen.getByLabelText('Ton message') as HTMLInputElement).value).toBe('');
   });
   it('ne passe pas de colonnes arbitraires et borne les messages avant le serveur', async () => {
     const fake = createFakeSupabase();

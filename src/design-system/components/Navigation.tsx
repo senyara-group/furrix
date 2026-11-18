@@ -1,4 +1,4 @@
-import type { ReactNode, Ref } from 'react';
+import type { HTMLAttributes, ReactNode, Ref } from 'react';
 import { Icon, type IconName } from '../icons/Icon';
 import { linkProps, useFurrix } from '../provider';
 import { cx } from '../utils';
@@ -67,27 +67,29 @@ export function HeaderAction({ icon, children, onClick }: { icon?: IconName; chi
 
 export interface PhoneBarProps {
   title: ReactNode;
+  /** `p` quand la page affiche déjà son propre `h1` (un seul titre principal par écran). */
+  titleAs?: 'h1' | 'p';
   back?: { label?: string; onClick?: () => void };
   actions?: ReactNode;
   className?: string;
 }
 
 /** Barre du haut sur téléphone. */
-export function PhoneBar({ title, back, actions, className }: PhoneBarProps) {
+export function PhoneBar({ title, titleAs: TitleTag = 'h1', back, actions, className }: PhoneBarProps) {
   return (
     <div className={cx('fx-phonebar', className)}>
       {back ? <IconButton icon="chevronLeft" label={back.label ?? 'Retour'} onClick={back.onClick} /> : null}
-      <h1 className="fx-phonebar__title">{title}</h1>
+      <TitleTag className="fx-phonebar__title">{title}</TitleTag>
       {actions ? <div className="fx-phonebar__actions">{actions}</div> : null}
     </div>
   );
 }
 
 /** Barre d'onglets du bas sur téléphone (80 px, zone sûre comprise). */
-export function TabBar({ items, current, className }: { items: NavItem[]; current?: string; className?: string }) {
+export function TabBar({ items, current, label = 'Navigation principale', className }: { items: NavItem[]; current?: string; label?: string; className?: string }) {
   const { linkComponent: Link } = useFurrix();
   return (
-    <nav className={cx('fx-tabbar', className)} aria-label="Navigation principale">
+    <nav className={cx('fx-tabbar', className)} aria-label={label}>
       {items.map((it) => (
         <Link key={it.id} className="fx-tab" aria-current={it.id === current ? 'page' : undefined} {...linkProps(Link, it.href)}>
           <span className="fx-tab__icon">{it.icon ? <Icon name={it.icon} size={22} /> : null}</span>
@@ -103,24 +105,32 @@ export interface AppShellProps {
   current?: string;
   /** Titre de la barre téléphone. */
   title: ReactNode;
+  /** Voir `PhoneBar` : `p` si chaque page a son propre `h1`. */
+  phoneTitleAs?: PhoneBarProps['titleAs'];
   back?: PhoneBarProps['back'];
   phoneActions?: ReactNode;
   headerRight?: ReactNode;
   /** Masque les onglets (conversation, paiement). */
   hideTabs?: boolean;
+  /** Onglets du téléphone, si différents de `nav` (5 au plus). */
+  tabs?: NavItem[];
+  /** Nom de la navigation du téléphone, distinct de celui de l'en-tête quand les deux coexistent. */
+  tabsLabel?: string;
+  /** Attributs de la zone de contenu (`id`, `tabIndex` pour y placer le focus…). */
+  mainProps?: HTMLAttributes<HTMLElement>;
   scrollRef?: Ref<HTMLElement>;
   children: ReactNode;
   className?: string;
 }
 
 /** Structure de l'app : en-tête (ordinateur) ou barre + onglets (téléphone), contenu qui défile dedans. */
-export function AppShell({ nav, current, title, back, phoneActions, headerRight, hideTabs, scrollRef, children, className }: AppShellProps) {
+export function AppShell({ nav, current, title, phoneTitleAs, back, phoneActions, headerRight, hideTabs, tabs, tabsLabel, mainProps, scrollRef, children, className }: AppShellProps) {
   return (
     <div className={cx('fx-root fx-shell', hideTabs && 'fx-shell--notabs', className)}>
       <SiteHeader items={nav} current={current} right={headerRight} />
-      <PhoneBar title={title} back={back} actions={phoneActions} />
-      <main className="fx-shell__vp" ref={scrollRef}>{children}</main>
-      {hideTabs ? null : <TabBar items={nav} current={current} />}
+      <PhoneBar title={title} titleAs={phoneTitleAs} back={back} actions={phoneActions} />
+      <main {...mainProps} className={cx('fx-shell__vp', mainProps?.className)} ref={scrollRef}>{children}</main>
+      {hideTabs ? null : <TabBar items={tabs ?? nav} current={current} label={tabsLabel} />}
     </div>
   );
 }

@@ -117,6 +117,23 @@ describe('pile de profils contrôlée par le serveur', () => {
     expect(decide).toHaveBeenCalledTimes(3);
   });
 
+  it('avec un index contrôlé, signale la sortie de la carte pour retirer l’élément ensuite', async () => {
+    reduceMotion();
+    const left: string[] = [];
+    const deck = { current: null as SwipeDeckHandle | null };
+    function Controlled() {
+      const [items, setItems] = useState(pets);
+      return <SwipeDeck ref={(h) => { deck.current = h; }} index={0} items={items} getKey={(p) => p.id} getLabel={(p) => p.name} onDecide={() => Promise.resolve()}
+        onLeave={(p, d) => { left.push(`${p.name}:${d}`); setItems((v) => v.filter((x) => x.id !== p.id)); }}
+        renderCard={(p) => <p>{p.name}</p>} empty={<p>Pile vide</p>} />;
+    }
+    render(<Controlled />);
+    expect(screen.getByRole('group', { name: 'Luna' })).toBeTruthy();
+    await act(async () => { deck.current?.like(); });
+    expect(left).toEqual(['Luna:like']);
+    expect(screen.getByRole('group', { name: 'Pistache' })).toBeTruthy();
+  });
+
   it('ne lance pas de glissement depuis un bouton de la carte', () => {
     const decide = vi.fn();
     render(<SwipeDeck items={pets} getKey={(p) => p.id} onDecide={decide} renderCard={(p) => <button type="button">Fiche de {p.name}</button>} />);
@@ -125,5 +142,41 @@ describe('pile de profils contrôlée par le serveur', () => {
     fireEvent.pointerMove(inner, { clientX: 200, pointerId: 1 });
     fireEvent.pointerUp(inner, { clientX: 200, pointerId: 1 });
     expect(decide).not.toHaveBeenCalled();
+  });
+});
+
+import { Checkbox, Field, Select } from './index';
+
+describe('contrôles de formulaire', () => {
+  it('relie une liste de choix à son étiquette et à son erreur', () => {
+    render(<Field label="Espèce *" error="Choisis une espèce"><Select defaultValue=""><option value="">Choisir</option><option value="chien">Chien</option></Select></Field>);
+    const select = screen.getByLabelText('Espèce *');
+    expect(select.tagName).toBe('SELECT');
+    expect(select.getAttribute('aria-invalid')).toBe('true');
+    expect(document.getElementById(select.getAttribute('aria-describedby')!)?.textContent).toContain('Choisis une espèce');
+  });
+
+  it('coche une case en cliquant sur sa phrase', () => {
+    const onChange = vi.fn();
+    render(<Checkbox onChange={onChange}>Je déclare avoir au moins 18 ans.</Checkbox>);
+    fireEvent.click(screen.getByText('Je déclare avoir au moins 18 ans.'));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('checkbox', { name: 'Je déclare avoir au moins 18 ans.' })).toBeTruthy();
+  });
+});
+
+import { AppShell } from './index';
+
+describe('structure de l’application', () => {
+  it('garde un seul titre principal et des navigations aux noms distincts', () => {
+    const nav = [{ id: 'accueil', label: 'Accueil', href: '#/accueil' }, { id: 'compte', label: 'Mon compte', href: '#/compte' }];
+    render(<AppShell nav={nav} tabs={nav.slice(0, 1)} tabsLabel="Navigation téléphone" current="accueil" title="Accueil" phoneTitleAs="p"
+      mainProps={{ id: 'contenu', tabIndex: -1 }}><h1>Bienvenue</h1></AppShell>);
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('navigation', { name: 'Navigation principale' })).toBeTruthy();
+    const phone = screen.getByRole('navigation', { name: 'Navigation téléphone' });
+    expect(phone.querySelectorAll('a')).toHaveLength(1);
+    expect(screen.getByRole('main').id).toBe('contenu');
+    expect(screen.getAllByRole('link', { name: 'Accueil' }).every((a) => a.getAttribute('aria-current') === 'page')).toBe(true);
   });
 });
