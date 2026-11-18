@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFakeSupabase, fakeSession } from '../test/fakeSupabase';
 import { AppShellView } from './AppShell';
@@ -28,12 +28,35 @@ describe('accueil et navigation', () => {
     navigate('unknown-path');
     expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('Bienvenue chez toi');
   });
-  it('ouvre le menu du compte et explique l’absence d’animaux sans profil fictif', () => {
-    render(<AppShellView overview={{ ...empty, data: { ...empty.data, pets: [] } }} retry={vi.fn()} preview />);
-    fireEvent.click(screen.getByRole('button', { name: 'Ouvrir le menu' }));
-    expect(screen.getByRole('navigation', { name: 'Menu du compte' })).toBeTruthy();
+  it('affiche l’en-tête Plein air avec Animaux perdus, Messages et le compte', () => {
+    const { container } = render(<AppShellView overview={{ ...empty, data: { profile: { name: 'alice', city: null }, pets: [] } }} retry={vi.fn()} preview />);
+    const nav = container.querySelector<HTMLElement>('.fx-site nav')!;
+    expect(Array.from(nav.querySelectorAll('a'), (a) => a.textContent)).toEqual(['Accueil', 'Rencontres', 'Garde', 'Services', 'Animaux perdus']);
+    expect(within(nav).getByRole('link', { name: 'Accueil' }).getAttribute('aria-current')).toBe('page');
+    expect(within(nav).getByRole('link', { name: 'Animaux perdus' }).getAttribute('href')).toBe('#/animaux-perdus');
+    navigate('animaux-perdus');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Animaux perdus');
+    expect(within(nav).getByRole('link', { name: 'Animaux perdus' }).getAttribute('aria-current')).toBe('page');
+    fireEvent.click(screen.getByRole('button', { name: 'Mon compte' }));
+    expect(window.location.hash).toBe('#/compte');
+    expect(screen.getByRole('button', { name: 'Mon compte' }).textContent).toBe('A');
+    fireEvent.click(screen.getByRole('button', { name: 'Messages' }));
+    expect(window.location.hash).toBe('#/messages');
+  });
+  it('affiche la barre téléphone et les onglets Plein air, avec retour à l’accueil hors des onglets', () => {
+    const { container } = render(<AppShellView overview={{ ...empty, data: { ...empty.data, pets: [] } }} retry={vi.fn()} preview />);
+    const tabs = container.querySelector<HTMLElement>('.fx-tabbar')!;
+    expect(within(tabs).getAllByRole('link').map((a) => a.textContent)).toEqual(['Accueil', 'Rencontres', 'Garde', 'Services', 'Messages']);
+    expect(within(tabs).getByRole('link', { name: 'Accueil' }).getAttribute('aria-current')).toBe('page');
+    const bar = container.querySelector<HTMLElement>('.fx-phonebar')!;
+    expect(bar.textContent).toBe('Accueil');
+    expect(within(bar).queryByRole('button')).toBeNull();
     navigate('animaux');
-    expect(screen.queryByRole('navigation', { name: 'Menu du compte' })).toBeNull();
+    expect(bar.textContent).toBe('Mes animaux');
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Mes animaux');
+    fireEvent.click(within(bar).getByRole('button', { name: 'Retour à l’accueil' }));
+    expect(window.location.hash).toBe('#/accueil');
+    navigate('animaux');
     expect(screen.getByText(/Aucun animal n’est encore associé/)).toBeTruthy();
     expect(screen.queryByText('Luna')).toBeNull();
   });

@@ -34,15 +34,17 @@ export interface SiteHeaderProps {
   items: NavItem[];
   current?: string;
   right?: ReactNode;
+  /** Lien du logo (accueil de l'app). */
+  homeHref?: string;
   className?: string;
 }
 
 /** En-tête ordinateur (72 px). */
-export function SiteHeader({ items, current, right, className }: SiteHeaderProps) {
+export function SiteHeader({ items, current, right, homeHref, className }: SiteHeaderProps) {
   const { linkComponent: Link } = useFurrix();
   return (
     <header className={cx('fx-site', className)}>
-      <Logo />
+      <Logo href={homeHref} />
       <nav className="fx-nav" aria-label="Navigation principale">
         {items.map((it) => (
           <Link key={it.id} className="fx-nav__link" aria-current={it.id === current ? 'page' : undefined} {...linkProps(Link, it.href)}>
@@ -69,15 +71,17 @@ export interface PhoneBarProps {
   title: ReactNode;
   back?: { label?: string; onClick?: () => void };
   actions?: ReactNode;
+  /** `p` quand l'écran porte déjà son propre titre `h1` (comme la maquette). */
+  titleAs?: 'h1' | 'p';
   className?: string;
 }
 
 /** Barre du haut sur téléphone. */
-export function PhoneBar({ title, back, actions, className }: PhoneBarProps) {
+export function PhoneBar({ title, back, actions, titleAs: Title = 'h1', className }: PhoneBarProps) {
   return (
     <div className={cx('fx-phonebar', className)}>
       {back ? <IconButton icon="chevronLeft" label={back.label ?? 'Retour'} onClick={back.onClick} /> : null}
-      <h1 className="fx-phonebar__title">{title}</h1>
+      <Title className="fx-phonebar__title">{title}</Title>
       {actions ? <div className="fx-phonebar__actions">{actions}</div> : null}
     </div>
   );
