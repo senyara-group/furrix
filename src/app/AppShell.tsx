@@ -11,6 +11,8 @@ import './shell.css';
 import PetsWorkspace from '../pets/PetsWorkspace';
 import type { ReactNode } from 'react';
 import MeetingsArea from '../meetings/MeetingsArea';
+import LostPetsArea from '../lost-pets/LostPetsArea';
+import LocalAlertNotice from '../lost-pets/LocalAlertNotice';
 
 const pillars = [
   { route: 'rencontres', label: 'Faire des rencontres', tag: 'Un peu de compagnie', text: 'Des compagnons de balade et de nouveaux amis, pour eux comme pour toi.', icon: Heart, color: 'sky' },
@@ -21,6 +23,7 @@ const pillars = [
 function Home({ overview }: { overview: OverviewState }) {
   const name = overview.data?.profile.name?.trim().split(/\s+/)[0];
   return <>
+    <section className="app-local-alert"><a href="#/animaux-perdus">Animaux perdus : consulter les alertes locales ou déclarer une disparition.</a></section>
     <section className="app-hero">
       <div><p className="app-eyebrow"><Sun size={17} aria-hidden /> Le quotidien, en bonne compagnie</p>
         <h1>{name ? `Salut ${name}.` : 'Bienvenue chez toi.'}<br />Et si on prenait<br className="app-desktop-break" /> l’air ensemble ?</h1>
@@ -40,8 +43,8 @@ function Home({ overview }: { overview: OverviewState }) {
   </>;
 }
 
-export function AppShellView({ overview, retry, email, onSignOut, preview = false, petsContent, meetingsContent, messagesContent }: {
-  overview: OverviewState; retry: () => void; email?: string; onSignOut?: () => Promise<boolean>; preview?: boolean; petsContent?: ReactNode; meetingsContent?: ReactNode; messagesContent?: ReactNode;
+export function AppShellView({ overview, retry, email, onSignOut, preview = false, petsContent, meetingsContent, messagesContent, lostContent, localNotice }: {
+  overview: OverviewState; retry: () => void; email?: string; onSignOut?: () => Promise<boolean>; preview?: boolean; petsContent?: ReactNode; meetingsContent?: ReactNode; messagesContent?: ReactNode; lostContent?: ReactNode; localNotice?: ReactNode;
 }) {
   const [route, setRoute] = useState(() => routeFromHash(window.location.hash));
   const [mobileMenu, setMobileMenu] = useState(false);
@@ -77,7 +80,9 @@ export function AppShellView({ overview, retry, email, onSignOut, preview = fals
     {mobileMenu && <nav id="app-mobile-menu" className="app-more-menu" aria-label="Menu du compte"><a href="#/animaux">Mes animaux</a><a href="#/compte">Mon compte</a></nav>}
     <main id="app-content" tabIndex={-1} ref={title}>
       {overview.status === 'error' && <div className="app-load-error" role="alert">Ton espace n’a pas pu être chargé. <button onClick={retry}>Réessayer</button></div>}
+      {localNotice}
       {route === 'accueil' ? <Home overview={overview} />
+        : route === 'animaux-perdus' && lostContent ? lostContent
         : route === 'rencontres' && meetingsContent ? meetingsContent
         : route === 'messages' && messagesContent ? messagesContent
         : route === 'compte' ? <section className="app-page"><p className="app-eyebrow">Ton espace personnel</p><h1>Mon compte</h1><p>Un seul compte pour le web et les applications mobiles.</p><dl><dt>E-mail</dt><dd>{email || (preview ? 'Non affiché dans cet aperçu' : 'Non renseigné')}</dd><dt>Prénom</dt><dd>{overview.data?.profile.name || 'Non renseigné'}</dd><dt>Ville</dt><dd>{overview.data?.profile.city || 'Non renseignée'}</dd></dl>
@@ -99,7 +104,8 @@ export default function AppShell({ client, user, onSignOut }: { client: FurrixCl
     ? <PetsWorkspace key={user.id} client={client} ownerId={user.id} pets={overview.data.pets} onSaved={overview.savePet} reload={overview.retry} /> : undefined;
   const meetingsContent = overview.status === 'ready' && overview.data ? <MeetingsArea key={`${user.id}:discover`} client={client} ownerId={user.id} pets={overview.data.pets} /> : undefined;
   const messagesContent = overview.status === 'ready' && overview.data ? <MeetingsArea key={`${user.id}:matches`} client={client} ownerId={user.id} pets={overview.data.pets} initialTab="matches" /> : undefined;
-  return <AppShellView overview={overview} retry={overview.retry} email={user.email} onSignOut={onSignOut} petsContent={petsContent} meetingsContent={meetingsContent} messagesContent={messagesContent} />;
+  const lostContent = <LostPetsArea key={`${user.id}:lost`} client={client} owner={user.id} pets={overview.data?.pets || []} />;
+  return <AppShellView overview={overview} retry={overview.retry} email={user.email} onSignOut={onSignOut} petsContent={petsContent} meetingsContent={meetingsContent} messagesContent={messagesContent} lostContent={lostContent} localNotice={<LocalAlertNotice key={`${user.id}:local-notice`} client={client} owner={user.id} />} />;
 }
 
 export function AppPreview() {
