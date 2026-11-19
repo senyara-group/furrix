@@ -1,3 +1,4 @@
+import type {Professional,OwnProfessional,SaveProfessionalArgs} from '../professionals/types';
 // Contrat de base de données — extrait limité aux tables de ce lot (profiles, pets).
 // Source : types générés depuis le schéma DEV (generate_typescript_types, lecture seule, 3 novembre 2026),
 // réduits volontairement. Les autres tables seront ajoutées au fil du branchement.
@@ -10,6 +11,7 @@ export type Database = {
   __InternalSupabase: { PostgrestVersion: '14.18' };
   public: {
     Tables: {
+      professional_profiles: {Row:OwnProfessional;Insert:never;Update:never;Relationships:[]};
       lost_pets: { Row: import('../lost-pets/types').OwnLostRow; Insert: never; Update: never; Relationships: [] };
       lost_alert_subscriptions: { Row: LostSector; Insert: never; Update: never; Relationships: [] };
       local_notifications: { Row: LocalNotification; Insert: never; Update: never; Relationships: [] };
@@ -104,6 +106,9 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      search_professionals: {Args:{p_lat?:number;p_lng?:number;p_radius?:number;p_category?:string;p_professional?:string};Returns:Professional[]};
+      save_professional_profile: {Args:SaveProfessionalArgs;Returns:OwnProfessional};
+      set_professional_active: {Args:{p_active:boolean};Returns:undefined};
       register_android_push: { Args: { p_device: string; p_owner: string; p_token: string }; Returns: undefined };
       remove_android_push: { Args: { p_device: string; p_owner: string }; Returns: undefined };
       android_push_status: { Args: { p_device: string }; Returns: boolean };
