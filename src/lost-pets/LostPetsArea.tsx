@@ -24,6 +24,7 @@ import type {
   LostSector,
   LostSighting,
 } from "./types";
+import { lostHref, lostShareUrl, readLostRoute, type LostTab } from "./links";
 import "./lost-pets.css";
 
 const localTime = () => {
@@ -104,12 +105,25 @@ function NewAlert({
     }
   };
   const useTown = async () => {
-    setLocating(true); setError('');
+    setLocating(true);
+    setError("");
     try {
       const point = await locateTown(values.city);
-      if (alive.current) setValues(v => ({ ...v, city: point.label.split(' · ')[0] || v.city, latitude: String(point.latitude), longitude: String(point.longitude) }));
-    } catch { if (alive.current) setError('Commune introuvable. Précise son nom ou utilise ta position.'); }
-    finally { if (alive.current) setLocating(false); }
+      if (alive.current)
+        setValues((v) => ({
+          ...v,
+          city: point.label.split(" · ")[0] || v.city,
+          latitude: String(point.latitude),
+          longitude: String(point.longitude),
+        }));
+    } catch {
+      if (alive.current)
+        setError(
+          "Commune introuvable. Précise son nom ou utilise ta position.",
+        );
+    } finally {
+      if (alive.current) setLocating(false);
+    }
   };
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -194,7 +208,11 @@ function NewAlert({
               <Input
                 value={values.city}
                 maxLength={80}
-                onChange={(e) => { change("city", e.target.value); change("latitude", ""); change("longitude", ""); }}
+                onChange={(e) => {
+                  change("city", e.target.value);
+                  change("latitude", "");
+                  change("longitude", "");
+                }}
                 required
               />
             </Field>
@@ -229,11 +247,26 @@ function NewAlert({
                 Utiliser ma position actuelle comme dernière zone connue
               </Button>
               <p>
-                Choisis le centre de la commune ou une autre zone ci-dessous si ton animal a disparu
-                ailleurs. Les coordonnées sont arrondies avant envoi.
+                Choisis le centre de la commune ou une autre zone ci-dessous si
+                ton animal a disparu ailleurs. Les coordonnées sont arrondies
+                avant envoi.
               </p>
             </div>
-            <div className="app-lost-wide"><Button variant="out" loading={locating} onClick={() => { void useTown(); }}>Utiliser le centre de cette commune</Button><p>Le nom de commune est envoyé au service public de géocodage. La zone publiée reste approximative.</p></div>
+            <div className="app-lost-wide">
+              <Button
+                variant="out"
+                loading={locating}
+                onClick={() => {
+                  void useTown();
+                }}
+              >
+                Utiliser le centre de cette commune
+              </Button>
+              <p>
+                Le nom de commune est envoyé au service public de géocodage. La
+                zone publiée reste approximative.
+              </p>
+            </div>
             <Field label="Latitude de la zone">
               <Input
                 inputMode="decimal"
@@ -325,7 +358,8 @@ export function SectorSettings({
     running = useRef(false);
   useEffect(() => {
     let active = true;
-    setSectorLoading(true); setError("");
+    setSectorLoading(true);
+    setError("");
     void api
       .getSector(client, owner)
       .then((s) => {
@@ -336,7 +370,10 @@ export function SectorSettings({
       })
       .catch(() => {
         if (active) setError("Le secteur n’a pas pu être chargé.");
-      }).finally(() => { if (active) setSectorLoading(false); });
+      })
+      .finally(() => {
+        if (active) setSectorLoading(false);
+      });
     return () => {
       active = false;
     };
@@ -347,7 +384,11 @@ export function SectorSettings({
     setBusy(true);
     setError("");
     try {
-      const location = enabled ? (fromTown ? await locateTown(town) : await approximateLocation()) : undefined;
+      const location = enabled
+        ? fromTown
+          ? await locateTown(town)
+          : await approximateLocation()
+        : undefined;
       if (!alive.current) return;
       await api.setSector(
         client,
@@ -357,7 +398,14 @@ export function SectorSettings({
         Number(radius),
       );
       const fresh = await api.getSector(client, owner);
-      if (alive.current) { setSector(fresh); setNotice(enabled ? "Ton secteur est enregistré pour les prochaines alertes." : "Ton abonnement est désactivé et ta zone supprimée."); }
+      if (alive.current) {
+        setSector(fresh);
+        setNotice(
+          enabled
+            ? "Ton secteur est enregistré pour les prochaines alertes."
+            : "Ton abonnement est désactivé et ta zone supprimée.",
+        );
+      }
     } catch {
       if (alive.current)
         setError(
@@ -377,12 +425,20 @@ export function SectorSettings({
         déplacements.
       </p>
       <p>
-        {sectorLoading ? "Vérification de ton abonnement…" : sector === undefined ? "Ton abonnement n’a pas pu être vérifié." : sector
-          ? `Abonnement actif : rayon maximal ${sector.radius_km} km. Le rayon choisi par le propriétaire peut être plus petit.`
-          : "Tu ne reçois pas encore les alertes de secteur."}
+        {sectorLoading
+          ? "Vérification de ton abonnement…"
+          : sector === undefined
+            ? "Ton abonnement n’a pas pu être vérifié."
+            : sector
+              ? `Abonnement actif : rayon maximal ${sector.radius_km} km. Le rayon choisi par le propriétaire peut être plus petit.`
+              : "Tu ne reçois pas encore les alertes de secteur."}
       </p>
       {sectorLoading && <Loading label="Chargement de ton secteur" />}
-      {!sectorLoading && sector === undefined && <Button variant="out" onClick={() => setAttempt(v => v + 1)}>Réessayer le chargement du secteur</Button>}
+      {!sectorLoading && sector === undefined && (
+        <Button variant="out" onClick={() => setAttempt((v) => v + 1)}>
+          Réessayer le chargement du secteur
+        </Button>
+      )}
       <Field label="Rayon maximal">
         <Select value={radius} onChange={(e) => setRadius(e.target.value)}>
           {[5, 10, 25, 50].map((n) => (
@@ -392,9 +448,31 @@ export function SectorSettings({
           ))}
         </Select>
       </Field>
-      <Field label="Commune de mon secteur"><Input value={town} maxLength={80} onChange={e => setTown(e.target.value)} placeholder="Nom de commune ou code postal" /></Field>
-      <p>Tu peux choisir le centre d’une commune sans autoriser le GPS. Seul le nom saisi est envoyé au service public de géocodage.</p>
-      <div className="app-lost-actions"><Button variant="out" loading={busy} disabled={sectorLoading || sector === undefined || town.trim().length < 2} onClick={() => { void save(true, true); }}>Activer les alertes pour cette commune</Button>
+      <Field label="Commune de mon secteur">
+        <Input
+          value={town}
+          maxLength={80}
+          onChange={(e) => setTown(e.target.value)}
+          placeholder="Nom de commune ou code postal"
+        />
+      </Field>
+      <p>
+        Tu peux choisir le centre d’une commune sans autoriser le GPS. Seul le
+        nom saisi est envoyé au service public de géocodage.
+      </p>
+      <div className="app-lost-actions">
+        <Button
+          variant="out"
+          loading={busy}
+          disabled={
+            sectorLoading || sector === undefined || town.trim().length < 2
+          }
+          onClick={() => {
+            void save(true, true);
+          }}
+        >
+          Activer les alertes pour cette commune
+        </Button>
         <Button
           variant={activationVariant}
           disabled={sectorLoading || sector === undefined}
@@ -481,6 +559,7 @@ function AlertDetail({
     [city, setCity] = useState(alert.city),
     [message, setMessage] = useState(""),
     [reason, setReason] = useState("");
+  const [linkNotice, setLinkNotice] = useState("");
   const [observations, setObservations] = useState<LostSighting[]>([]),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
@@ -503,6 +582,17 @@ function AlertDetail({
       active = false;
     };
   }, [client, alert.id]);
+  const copyLink = async () => {
+    setLinkNotice("");
+    try {
+      if (!navigator.clipboard?.writeText) throw Error("Copie indisponible");
+      await navigator.clipboard.writeText(lostShareUrl(alert.id));
+      if (alive.current) setLinkNotice("Le lien de l’alerte est copié.");
+    } catch {
+      if (alive.current)
+        setLinkNotice("Copie le lien ci-dessous pour partager cette alerte.");
+    }
+  };
   const execute = async (
     operation: () => Promise<void>,
     text: string,
@@ -555,6 +645,29 @@ function AlertDetail({
       >
         Voir la zone approximative sur OpenStreetMap (site externe)
       </a>
+      <div className="app-lost-share">
+        <Button
+          variant="out"
+          onClick={() => {
+            void copyLink();
+          }}
+        >
+          Copier le lien de l’alerte
+        </Button>
+        <p>Le lien est accessible aux personnes autorisées à la bêta Furrix.</p>
+        {linkNotice && (
+          <>
+            <p role="status">{linkNotice}</p>
+            <Field label="Lien de l’alerte">
+              <Input
+                readOnly
+                value={lostShareUrl(alert.id)}
+                onFocus={(event) => event.target.select()}
+              />
+            </Field>
+          </>
+        )}
+      </div>
       {alert.is_mine ? (
         <>
           <h3>Gérer mon alerte</h3>
@@ -598,14 +711,14 @@ function AlertDetail({
                 <Button
                   loading={busy}
                   variant={pendingStatus ? "out" : "main"}
-                  onClick={() => setPendingStatus('found')}
+                  onClick={() => setPendingStatus("found")}
                 >
                   Mon animal est retrouvé
                 </Button>
                 <Button
                   variant="quiet"
                   disabled={busy}
-                  onClick={() => setPendingStatus('closed')}
+                  onClick={() => setPendingStatus("closed")}
                 >
                   Clôturer sans retour
                 </Button>
@@ -676,21 +789,52 @@ function AlertDetail({
         )
       )}
       {pendingStatus && (
-        <Alert tone="warn"
-          title={pendingStatus === 'found' ? 'Confirmer que ton animal est retrouvé' : 'Clôturer cette alerte'}
-          actions={<>
-            <Button loading={busy} onClick={() => {
-              const status = pendingStatus;
-              void execute(async () => {
-                await api.updateLost(client, alert.id, description, instructions, status);
-                if (alive.current) setPendingStatus(undefined);
-              }, status === 'found' ? 'Alerte marquée retrouvée.' : 'Alerte clôturée.', true);
-            }}>Confirmer</Button>
-            <Button variant="quiet" disabled={busy} onClick={() => setPendingStatus(undefined)}>Annuler</Button>
-          </>}>
-          {pendingStatus === 'found'
-            ? 'Les personnes prévenues recevront une notification de retour. Les nouvelles observations seront fermées.'
-            : 'L’annonce ne sera plus visible des autres testeurs. Cette action ne pourra pas être annulée depuis ce parcours.'}
+        <Alert
+          tone="warn"
+          title={
+            pendingStatus === "found"
+              ? "Confirmer que ton animal est retrouvé"
+              : "Clôturer cette alerte"
+          }
+          actions={
+            <>
+              <Button
+                loading={busy}
+                onClick={() => {
+                  const status = pendingStatus;
+                  void execute(
+                    async () => {
+                      await api.updateLost(
+                        client,
+                        alert.id,
+                        description,
+                        instructions,
+                        status,
+                      );
+                      if (alive.current) setPendingStatus(undefined);
+                    },
+                    status === "found"
+                      ? "Alerte marquée retrouvée."
+                      : "Alerte clôturée.",
+                    true,
+                  );
+                }}
+              >
+                Confirmer
+              </Button>
+              <Button
+                variant="quiet"
+                disabled={busy}
+                onClick={() => setPendingStatus(undefined)}
+              >
+                Annuler
+              </Button>
+            </>
+          }
+        >
+          {pendingStatus === "found"
+            ? "Les personnes prévenues recevront une notification de retour. Les nouvelles observations seront fermées."
+            : "L’annonce ne sera plus visible des autres testeurs. Cette action ne pourra pas être annulée depuis ce parcours."}
         </Alert>
       )}
       <h3>{alert.is_mine ? "Observations reçues" : "Mes observations"}</h3>
@@ -740,7 +884,7 @@ function AlertDetail({
   );
 }
 
-/** Parcours autonome ; aucune modification du header ou des rencontres. */
+/** Listes et liens d’alertes : l’adresse garde l’onglet et la fiche ouverte. */
 export default function LostPetsArea({
   client,
   owner,
@@ -750,57 +894,86 @@ export default function LostPetsArea({
   owner: string;
   pets: PetRow[];
 }) {
-  const [tab, setTab] = useState<"list" | "new" | "notifications" | "sector">(
-    () =>
-      window.location.hash.includes("notifications") ? "notifications" : "list",
-  );
+  const [route, setRoute] = useState(() => readLostRoute(window.location.hash));
   const [alerts, setAlerts] = useState<LostAlert[]>([]),
-    [notifications, setNotifications] = useState<LocalNotification[]>([]),
-    [detail, setDetail] = useState<LostAlert>();
+    [notifications, setNotifications] = useState<LocalNotification[]>([]);
   const [city, setCity] = useState(""),
     [filter, setFilter] = useState(""),
-    [attempt, setAttempt] = useState(0),
-    [loading, setLoading] = useState(true),
+    [attempt, setAttempt] = useState(0);
+  const [loading, setLoading] = useState(true),
     [more, setMore] = useState(false),
-    [unavailable, setUnavailable] = useState(false),
-    [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
+    [loadingMore, setLoadingMore] = useState(false);
+  const [unavailable, setUnavailable] = useState(false),
+    [listError, setListError] = useState(""),
+    [actionError, setActionError] = useState("");
+  const [notificationAttempt, setNotificationAttempt] = useState(0),
+    [notificationLoading, setNotificationLoading] = useState(false),
+    [notificationError, setNotificationError] = useState("");
+  const [unreadOnly, setUnreadOnly] = useState(false),
+    [reading, setReading] = useState<string>();
+  const [detailAttempt, setDetailAttempt] = useState(0);
+  const [detailState, setDetailState] = useState<{
+    key: string;
+    status: "loading" | "ready" | "error" | "missing";
+    data?: LostAlert;
+  }>({ key: "", status: "loading" });
   const alive = useAlive(),
-    opening = useRef(false),
-    listingKey = useRef("");
-  listingKey.current = JSON.stringify([filter, attempt]);
-  useEffect(() => {
-    const read = () => {
-      if (window.location.hash.includes("notifications")) {
-        setTab("notifications");
-        setDetail(undefined);
-        setAttempt((v) => v + 1);
-      }
+    page = useRef(0),
+    moreRunning = useRef(false),
+    readRunning = useRef(false),
+    listingKey = useRef(""),
+    clientRevision = useRef({ client, revision: 0 });
+  const mine = route.tab === "mine";
+  if (clientRevision.current.client !== client)
+    clientRevision.current = {
+      client,
+      revision: clientRevision.current.revision + 1,
     };
+  listingKey.current = JSON.stringify([
+    clientRevision.current.revision,
+    owner,
+    mine,
+    filter,
+    attempt,
+  ]);
+  const detailKey = JSON.stringify([owner, route.alertId, detailAttempt]);
+  const navigate = (tab: LostTab, id?: string) => {
+    const hash = lostHref(tab, id);
+    setRoute(readLostRoute(hash));
+    if (window.location.hash !== hash) window.location.hash = hash;
+  };
+  useEffect(() => {
+    const read = () => setRoute(readLostRoute(window.location.hash));
     window.addEventListener("hashchange", read);
     return () => window.removeEventListener("hashchange", read);
   }, []);
   useEffect(() => {
     let active = true;
     setLoading(true);
-    setError("");
-    void Promise.all([
-      api.listLost(client, filter),
-      api.listNotifications(client, owner),
-    ])
-      .then(([a, n]) => {
+    setListError("");
+    page.current = 0;
+    void (mine ? api.listOwnLost(client, owner) : api.listLost(client, filter))
+      .then((rows) => {
         if (active) {
-          setUnavailable(false); setAlerts(a); setMore(a.length === 30);
-          setNotifications(n);
+          setUnavailable(false);
+          setAlerts(rows);
+          setMore(rows.length === 30);
         }
       })
       .catch((cause: unknown) => {
         const error = cause as { code?: string; cause?: { code?: string } };
-        if (active) setUnavailable(['PGRST202', 'PGRST205', '42P01', '42883'].includes(error.cause?.code ?? error.code ?? ''));
-        if (active)
-          setError(
+        if (active) {
+          setUnavailable(
+            ["PGRST202", "PGRST205", "42P01", "42883"].includes(
+              error.cause?.code ?? error.code ?? "",
+            ),
+          );
+          setListError(
             "Les alertes ne sont pas disponibles pour le moment. Réessaie plus tard.",
           );
+          setAlerts([]);
+          setMore(false);
+        }
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -808,154 +981,329 @@ export default function LostPetsArea({
     return () => {
       active = false;
     };
-  }, [client, owner, filter, attempt]);
-  const open = async (id: string, notification?: string) => {
-    if (opening.current) return;
-    opening.current = true;
-    setBusy(true);
-    setError("");
+  }, [client, owner, mine, filter, attempt]);
+  useEffect(() => {
+    if (route.tab !== "notifications") return;
+    let active = true;
+    setNotificationLoading(true);
+    setNotificationError("");
+    void api
+      .listNotifications(client, owner, unreadOnly)
+      .then((rows) => {
+        if (active) setNotifications(rows);
+      })
+      .catch(() => {
+        if (active)
+          setNotificationError("Tes notifications n’ont pas pu être chargées.");
+      })
+      .finally(() => {
+        if (active) setNotificationLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [client, owner, route.tab, unreadOnly, notificationAttempt]);
+  useEffect(() => {
+    if (route.tab !== "notifications") return;
+    const refresh = () => {
+      if (!document.hidden) setNotificationAttempt((v) => v + 1);
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [route.tab]);
+  useEffect(() => {
+    if (!route.alertId) return;
+    let active = true;
+    setDetailState({ key: detailKey, status: "loading" });
+    void api
+      .listLost(client, "", undefined, route.alertId)
+      .then((rows) => {
+        if (active)
+          setDetailState({
+            key: detailKey,
+            status: rows[0] ? "ready" : "missing",
+            data: rows[0],
+          });
+      })
+      .catch(() => {
+        if (active) setDetailState({ key: detailKey, status: "error" });
+      });
+    return () => {
+      active = false;
+    };
+  }, [client, owner, route.alertId, detailAttempt, detailKey]);
+  const loadMore = async () => {
+    if (moreRunning.current) return;
+    moreRunning.current = true;
+    setLoadingMore(true);
+    const key = listingKey.current;
     try {
-      const rows = await api.listLost(client, "", undefined, id);
-      if (notification) {
-        await api.readNotification(client, notification);
-        window.dispatchEvent(new Event('furrix:notifications-read'));
-      }
-      if (!rows[0]) { if (alive.current) { setError('Cette alerte a été retirée ou n’est plus disponible.'); setAttempt(v => v + 1); } return; }
-      if (alive.current) {
-        setDetail(rows[0]);
-        setAttempt((v) => v + 1);
+      const rows = mine
+        ? await api.listOwnLost(client, owner, page.current + 1)
+        : await api.listLost(client, filter, alerts[alerts.length - 1]!.id);
+      if (alive.current && listingKey.current === key) {
+        if (mine) page.current += 1;
+        setAlerts((previous) => [
+          ...new Map([...previous, ...rows].map((a) => [a.id, a])).values(),
+        ]);
+        setMore(rows.length === 30);
       }
     } catch {
-      if (alive.current) setError("Cette alerte n’est plus disponible.");
+      if (alive.current && listingKey.current === key)
+        setListError("La suite des alertes n’a pas pu être chargée.");
     } finally {
-      opening.current = false;
-      if (alive.current) setBusy(false);
+      moreRunning.current = false;
+      if (alive.current) setLoadingMore(false);
     }
   };
-  const refreshDetail = () => {
-    if (detail) void open(detail.id);
+  const read = async (n: LocalNotification, open: boolean) => {
+    if (readRunning.current) return;
+    readRunning.current = true;
+    setReading(n.id);
+    setActionError("");
+    const context = window.location.hash;
+    try {
+      if (!n.read_at) {
+        await api.readNotification(client, n.id);
+        if (alive.current)
+          setNotifications((rows) =>
+            rows.map((row) =>
+              row.id === n.id
+                ? { ...row, read_at: new Date().toISOString() }
+                : row,
+            ),
+          );
+        window.dispatchEvent(new Event("furrix:notifications-read"));
+      }
+    } catch {
+      if (alive.current)
+        setActionError(
+          "La lecture de cette notification n’a pas été enregistrée. Tu peux réessayer.",
+        );
+    } finally {
+      readRunning.current = false;
+      if (alive.current) {
+        setReading(undefined);
+        if (open && window.location.hash === context)
+          navigate("notifications", n.alert_id);
+      }
+    }
   };
+  const currentDetail = detailState.key === detailKey ? detailState : undefined;
+  const shownNotifications = unreadOnly
+    ? notifications.filter((n) => !n.read_at)
+    : notifications;
+  const tabs: Array<[LostTab, string]> = [
+    ["list", "Les alertes"],
+    ["mine", "Mes alertes"],
+    ["new", "Déclarer une disparition"],
+    ["notifications", "Mes notifications"],
+    ["sector", "Mon secteur"],
+  ];
   return (
     <FurrixScope className="app-lost">
       <p className="app-eyebrow">Ensemble, gardons les yeux ouverts</p>
       <h1>Animaux perdus</h1>
       <div className="app-lost-actions" aria-label="Parcours animaux perdus">
-        {(["list", "new", "notifications", "sector"] as const).map((t) => (
+        {tabs.map(([tab, label]) => (
           <Button
-            key={t}
-            disabled={unavailable && t !== "list"}
-            variant={tab === t ? "ink" : "quiet"}
+            key={tab}
+            disabled={unavailable && tab !== "list"}
+            variant={route.tab === tab ? "ink" : "quiet"}
+            aria-pressed={route.tab === tab}
             onClick={() => {
-              setTab(t);
-              setDetail(undefined);
-              setAttempt((v) => v + 1);
+              setActionError("");
+              navigate(tab);
+              if (tab === "notifications") setNotificationAttempt((v) => v + 1);
+              else setAttempt((v) => v + 1);
             }}
           >
-            {t === "list"
-              ? "Les alertes"
-              : t === "new"
-                ? "Déclarer une disparition"
-                : t === "notifications"
-                  ? "Mes notifications"
-                  : "Mon secteur"}
+            {label}
           </Button>
         ))}
       </div>
-      {error && !unavailable && (
+      {actionError && <Alert tone="err" title={actionError} />}
+      {route.invalid ? (
+        <Alert tone="err" title="Ce lien d’alerte est invalide." />
+      ) : route.alertId ? (
+        !currentDetail || currentDetail.status === "loading" ? (
+          <Loading label="Chargement de l’alerte" />
+        ) : currentDetail.status === "ready" && currentDetail.data ? (
+          <AlertDetail
+            key={currentDetail.data.id + currentDetail.data.status}
+            client={client}
+            alert={currentDetail.data}
+            close={() => navigate(route.tab)}
+            refreshed={() => {
+              setDetailAttempt((v) => v + 1);
+              setAttempt((v) => v + 1);
+            }}
+          />
+        ) : (
+          <Alert
+            tone={currentDetail.status === "missing" ? "info" : "err"}
+            title={
+              currentDetail.status === "missing"
+                ? "Cette alerte a été retirée ou n’est plus disponible."
+                : "Cette alerte n’a pas pu être chargée."
+            }
+            actions={
+              <>
+                <Button variant="out" onClick={() => navigate(route.tab)}>
+                  Revenir aux alertes
+                </Button>
+                {currentDetail.status === "error" && (
+                  <Button
+                    variant="out"
+                    onClick={() => setDetailAttempt((v) => v + 1)}
+                  >
+                    Réessayer l’alerte
+                  </Button>
+                )}
+              </>
+            }
+          />
+        )
+      ) : unavailable ? (
         <Alert
-          tone="err"
-          title="Chargement impossible"
+          tone="info"
+          title="Les alertes locales se préparent"
           actions={
             <Button variant="out" onClick={() => setAttempt((v) => v + 1)}>
-              Réessayer
+              Vérifier la disponibilité
             </Button>
           }
         >
-          {error}
+          Ce service n’est pas encore disponible sur cet environnement. Tes
+          profils et tes rencontres restent accessibles.
         </Alert>
-      )}
-      {unavailable ? <Alert tone="info" title="Les alertes locales se préparent"
-        actions={<Button variant="out" onClick={() => setAttempt(v => v + 1)}>Vérifier la disponibilité</Button>}>
-        Ce service n’est pas encore disponible sur cet environnement. Tes profils et tes rencontres restent accessibles.
-      </Alert> : detail ? (
-        <AlertDetail
-          key={detail.id + detail.status}
-          client={client}
-          alert={detail}
-          close={() => setDetail(undefined)}
-          refreshed={refreshDetail}
-        />
-      ) : tab === "new" ? (
+      ) : route.tab === "new" ? (
         <NewAlert
           client={client}
           pets={pets}
           saved={(id) => {
-            setTab("list");
-            void open(id);
+            navigate("mine", id);
             setAttempt((v) => v + 1);
           }}
-          cancel={() => setTab("list")}
+          cancel={() => navigate("list")}
         />
-      ) : tab === "sector" ? (
+      ) : route.tab === "sector" ? (
         <SectorSettings client={client} owner={owner} />
-      ) : tab === "notifications" ? (
+      ) : route.tab === "notifications" ? (
         <section>
           <h2>Mes notifications</h2>
           <p>
             Les alertes de secteur, les observations et les animaux retrouvés.
-            Actualise pour voir les dernières nouvelles.
+            Les 50 dernières notifications de ta sélection sont affichées.
           </p>
-          <Button variant="out" onClick={() => setAttempt((v) => v + 1)}>
-            Actualiser
-          </Button>
-          {loading ? (
+          <div className="app-lost-actions">
+            <Button
+              variant="out"
+              onClick={() => setNotificationAttempt((v) => v + 1)}
+            >
+              Actualiser
+            </Button>
+            <Button
+              variant={unreadOnly ? "ink" : "quiet"}
+              aria-pressed={unreadOnly}
+              onClick={() => setUnreadOnly((v) => !v)}
+            >
+              Non lues uniquement
+            </Button>
+          </div>
+          {notificationError ? (
+            <Alert tone="err" title={notificationError} />
+          ) : notificationLoading ? (
             <Loading label="Chargement des notifications" />
-          ) : !notifications.length ? (
-            <p>Aucune notification pour le moment.</p>
+          ) : !shownNotifications.length ? (
+            <p>
+              {unreadOnly
+                ? "Tu n’as aucune notification non lue."
+                : "Aucune notification pour le moment."}
+            </p>
           ) : (
-            notifications.map((n) => (
+            shownNotifications.map((n) => (
               <article className="app-lost-observation" key={n.id}>
                 <h3>{n.title}</h3>
                 <p>
                   {dateLabel(n.created_at)} · {n.read_at ? "Lue" : "Non lue"}
                 </p>
-                <Button
-                  variant="out"
-                  loading={busy}
-                  onClick={() => {
-                    void open(n.alert_id, n.id);
-                  }}
-                >
-                  Consulter l’alerte
-                </Button>
+                <div className="app-lost-actions">
+                  <Button
+                    variant="out"
+                    loading={reading === n.id}
+                    disabled={!!reading && reading !== n.id}
+                    onClick={() => {
+                      void read(n, true);
+                    }}
+                  >
+                    Consulter l’alerte
+                  </Button>
+                  {!n.read_at && (
+                    <Button
+                      variant="quiet"
+                      disabled={!!reading}
+                      onClick={() => {
+                        void read(n, false);
+                      }}
+                    >
+                      Marquer comme lue
+                    </Button>
+                  )}
+                </div>
               </article>
             ))
           )}
         </section>
       ) : (
         <section>
-          <form
-            className="app-lost-filter"
-            onSubmit={(e) => {
-              e.preventDefault();
-              setFilter(city);
-            }}
-          >
-            <Field label="Filtrer par commune exacte">
-              <Input
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                maxLength={80}
-              />
-            </Field>
-            <Button variant="out" type="submit">
-              Filtrer
-            </Button>
-          </form>
+          {mine ? (
+            <h2>Mes alertes</h2>
+          ) : (
+            <form
+              className="app-lost-filter"
+              onSubmit={(event) => {
+                event.preventDefault();
+                setFilter(city);
+              }}
+            >
+              <Field label="Filtrer par commune exacte">
+                <Input
+                  value={city}
+                  onChange={(event) => setCity(event.target.value)}
+                  maxLength={80}
+                />
+              </Field>
+              <Button variant="out" type="submit">
+                Filtrer
+              </Button>
+            </form>
+          )}
+          {listError && (
+            <Alert
+              tone="err"
+              title="Chargement impossible"
+              actions={
+                <Button variant="out" onClick={() => setAttempt((v) => v + 1)}>
+                  Réessayer
+                </Button>
+              }
+            >
+              {listError}
+            </Alert>
+          )}
           {loading ? (
             <Loading label="Recherche des animaux" />
-          ) : !alerts.length && !error ? (
-            <p>Aucune alerte dans cette sélection.</p>
+          ) : !alerts.length && !listError ? (
+            <p>
+              {mine
+                ? "Tu n’as pas encore déclaré de disparition."
+                : "Aucune alerte dans cette sélection."}
+            </p>
           ) : (
             <div className="app-lost-grid">
               {alerts.map((a) => (
@@ -976,10 +1324,7 @@ export default function LostPetsArea({
                   <p className="app-lost-text">{a.description}</p>
                   <Button
                     variant="out"
-                    loading={busy}
-                    onClick={() => {
-                      void open(a.id);
-                    }}
+                    onClick={() => navigate(route.tab, a.id)}
                   >
                     Voir l’alerte{a.is_mine ? " de mon animal" : ""}
                   </Button>
@@ -990,25 +1335,9 @@ export default function LostPetsArea({
           {more && (
             <Button
               variant="out"
-              loading={busy}
+              loading={loadingMore}
               onClick={() => {
-                const key = listingKey.current;
-                setBusy(true);
-                void api
-                  .listLost(client, filter, alerts[alerts.length - 1]!.id)
-                  .then((rows) => {
-                    if (alive.current && listingKey.current === key) {
-                      setAlerts(previous => [...new Map([...previous, ...rows].map(a => [a.id, a])).values()]);
-                      setMore(rows.length === 30);
-                    }
-                  })
-                  .catch(() => {
-                    if (alive.current)
-                      setError("La suite des alertes n’a pas pu être chargée.");
-                  })
-                  .finally(() => {
-                    if (alive.current) setBusy(false);
-                  });
+                void loadMore();
               }}
             >
               Voir la suite

@@ -10,6 +10,7 @@ export type Database = {
   __InternalSupabase: { PostgrestVersion: '14.18' };
   public: {
     Tables: {
+      lost_pets: { Row: import('../lost-pets/types').OwnLostRow; Insert: never; Update: never; Relationships: [] };
       lost_alert_subscriptions: { Row: LostSector; Insert: never; Update: never; Relationships: [] };
       local_notifications: { Row: LocalNotification; Insert: never; Update: never; Relationships: [] };
       lost_sightings: { Row: LostSighting; Insert: never; Update: never; Relationships: [] };

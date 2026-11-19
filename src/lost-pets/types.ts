@@ -63,3 +63,9 @@ export type PublishLostArgs = {
   p_radius: number;
   p_photo?: string;
 };
+
+/** Lecture privée de ses propres annonces ; coordonnées déjà arrondies par les RPC de publication. */
+export type OwnLostRow = Omit<
+  LostAlert,
+  "latitude" | "longitude" | "is_mine"
+> & { lat: number; lng: number; created_at: string };

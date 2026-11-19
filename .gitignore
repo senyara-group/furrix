@@ -21,3 +21,8 @@ supabase/checks/results/
 
 # Outils de compilation locaux, non distribues
 .mobile-tools/
+
+# Configuration Firebase locale, à fournir au branchement natif.
+/android/app/google-services.json
+/ios/App/App/GoogleService-Info.plist
+**/*firebase-adminsdk*.json

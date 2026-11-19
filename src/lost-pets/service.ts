@@ -202,3 +202,30 @@ export async function reportLost(
   });
   if (error) throw toDataError(error);
 }
+
+/** Filtre propriétaire côté serveur avant pagination, y compris les annonces retrouvées ou clôturées. */
+export async function listOwnLost(
+  client: FurrixClient,
+  owner: string,
+  page = 0,
+): Promise<import("./types").LostAlert[]> {
+  if (!Number.isInteger(page) || page < 0)
+    throw new AppError("validation", "Page invalide.");
+  const { data, error } = await client
+    .from("lost_pets")
+    .select(
+      "id,reporter_id,pet_id,display_name,species,city,lat,lng,last_seen_at,description,instructions,photo_path,radius_km,status,created_at",
+    )
+    .eq("reporter_id", owner)
+    .not("last_seen_at", "is", null)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .range(page * 30, page * 30 + 29);
+  if (error) throw toDataError(error);
+  return (data ?? []).map(({ lat, lng, created_at: _created, ...row }) => ({
+    ...row,
+    latitude: Number(lat),
+    longitude: Number(lng),
+    is_mine: true,
+  }));
+}
