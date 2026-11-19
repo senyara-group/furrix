@@ -74,3 +74,15 @@ Sources officielles consultees : https://capacitorjs.com/docs/getting-started/en
 - Compilation native Android assembleDebug : OK, 249 taches Gradle ; signature Android Debug verifiee avec apksigner.
 - SHA-256 de l'APK de recette : 7f5e475b31c46cc0a0e2057471f00ffc4b333be556edbd00be422fbad0715b9a.
 - Aucun essai sur telephone, aucune compilation Xcode et aucune publication en magasin realises.
+
+## Mise à jour icône et navigation (19 novembre 2026)
+
+Guillaume a confirmé le premier démarrage sur son Honor 400 Lite. La version Android suivante porte le numéro 1.0.1 (code 2) pour permettre une mise à jour.
+
+Les cinq onglets téléphone sont Rencontres, Garde, Services, Messages et Plus. Plus ouvre une page avec Animaux perdus, Mes animaux, Mon compte et Accueil. Le logo de la barre d’accueil est un lien vers l’accueil ; celui-ci reste aussi accessible depuis Plus. Les sous-pages personnelles gardent Plus sélectionné.
+
+L'icône reprend la patte de `src/design-system/icons/Icon.tsx`, le fond clair, l'encre et le point coquelicot des jetons Plein air. Source : `resources/furrix-icon.svg`. Android : cinq densités, premier plan adaptatif transparent et variante thématique API 33 ; iOS : PNG opaque 1024 px. Pour réexporter, suivre les deux commandes en tête de `scripts/mobile-icons.mjs` ; Sharp reste un outil local ignoré, sans nouvelle dépendance du produit. Référence Android : https://developer.android.com/develop/ui/compose/system/icon_design_adaptive.
+
+Installer le nouvel APK par-dessus le précédent, signé avec le même certificat de test, pour conserver la session. Ne pas désinstaller pour actualiser l'icône ; si le lanceur conserve une ancienne image, le relancer. Les écrans de lancement restent ceux du squelette.
+
+Contrôles de la version 1.0.1 : types et compilation web OK, 159/159 tests. Aperçu local sans données de compte dans Chrome à 320, 390 et 1280 px : aucun débordement horizontal ni erreur JavaScript ; cibles des onglets téléphone de 64 × 49 px minimum. Compilation Android réussie ; signature identique à la première bêta, vérifiée avec apksigner. SHA-256 de l'APK : 4cf200c7590bf6ad715e2d3b569cc43081795b856ac85fd7efbafd0a7f0cc8ff. Cette mise à jour reste à essayer sur l'Honor ; aucune compilation iOS réalisée.

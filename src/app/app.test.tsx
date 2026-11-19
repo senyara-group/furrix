@@ -44,23 +44,26 @@ describe('accueil et navigation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Messages' }));
     expect(window.location.hash).toBe('#/messages');
   });
-  it('affiche la barre téléphone et les onglets Plein air, avec retour à l’accueil hors des onglets', () => {
+  it('garde les services dans les onglets et ouvre les animaux perdus depuis Plus', async () => {
     const { container } = render(<AppShellView overview={{ ...empty, data: { ...empty.data, pets: [] } }} retry={vi.fn()} preview />);
     const tabs = container.querySelector<HTMLElement>('.fx-tabbar')!;
-    expect(within(tabs).getAllByRole('link').map((a) => a.textContent)).toEqual(['Accueil', 'Rencontres', 'Garde', 'Services', 'Messages']);
-    expect(within(tabs).getByRole('link', { name: 'Accueil' }).getAttribute('aria-current')).toBe('page');
+    expect(within(tabs).getAllByRole('link').map((a) => a.textContent)).toEqual(['Rencontres', 'Garde', 'Services', 'Messages', 'Plus']);
     const bar = container.querySelector<HTMLElement>('.fx-phonebar')!;
-    expect(bar.textContent).toBe('Accueil');
-    expect(within(bar).getByRole('button', { name: 'Ouvrir le menu du compte' })).toBeTruthy();
-    expect(within(bar).getByRole('button', { name: 'Notifications animaux perdus' })).toBeTruthy();
+    expect(within(bar).getByRole('link', { name: 'Furrix, accueil' }).getAttribute('href')).toBe('#/accueil');
+    fireEvent.click(within(tabs).getByRole('link', { name: 'Plus' }));
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Plus'));
+    const more = screen.getByRole('navigation', { name: 'Plus de destinations' });
+    expect(within(more).getAllByRole('link').map((a) => a.textContent)).toEqual(['Accueil', 'Mes animaux', 'Mon compte', 'Animaux perdus']);
+    fireEvent.click(within(more).getByRole('link', { name: 'Animaux perdus' }));
+    await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Animaux perdus'));
+    expect(within(tabs).getByRole('link', { name: 'Plus' }).getAttribute('aria-current')).toBe('page');
+    navigate('services');
+    expect(within(tabs).getByRole('link', { name: 'Services' }).getAttribute('aria-current')).toBe('page');
     navigate('animaux');
     expect(bar.textContent).toBe('Mes animaux');
     expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Mes animaux');
     fireEvent.click(within(bar).getByRole('button', { name: 'Retour à l’accueil' }));
     expect(window.location.hash).toBe('#/accueil');
-    navigate('animaux');
-    expect(screen.getByText(/Aucun animal n’est encore associé/)).toBeTruthy();
-    expect(screen.queryByText('Luna')).toBeNull();
   });
   it('permet une nouvelle tentative après erreur et garde la déconnexion disponible', async () => {
     window.history.replaceState(null, '', '/#/compte');

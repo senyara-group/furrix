@@ -2,6 +2,7 @@ import { defaultNav, type NavItem } from '../design-system';
 
 export const destinations = [
   { id: 'accueil', label: 'Accueil' },
+  { id: 'plus', label: 'Plus' },
   { id: 'rencontres', label: 'Rencontres' },
   { id: 'garde', label: 'Garde' },
   { id: 'services', label: 'Services' },
@@ -17,8 +18,14 @@ export const headerNav: NavItem[] = destinations
   .filter(({ id }) => inHeader.includes(id))
   .map(({ id, label }) => ({ id, label, href: `#/${id}` }));
 
-/** Onglets téléphone : ceux du design system (mêmes libellés et pictogrammes), en routes de l'app. */
-export const tabNav: NavItem[] = defaultNav.map((item) => ({ ...item, href: `#/${item.id}` }));
+/** Cinq onglets téléphone ; les destinations personnelles sont réunies dans Plus. */
+export const tabNav: NavItem[] = [
+  ...defaultNav.filter((item) => item.id !== 'accueil').map((item) => ({ ...item, href: `#/${item.id}` })),
+  { id: 'plus', label: 'Plus', href: '#/plus', icon: 'more' },
+];
+export const moreNav: NavItem[] = destinations
+  .filter(({ id }) => ['accueil', 'animaux-perdus', 'animaux', 'compte'].includes(id))
+  .map(({ id, label }) => ({ id, label, href: `#/${id}` }));
 
 export type AppRoute = typeof destinations[number]['id'];
 export function routeFromHash(hash: string): AppRoute {

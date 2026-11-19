@@ -2,12 +2,12 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, ArrowRight, Sun, Dog, LogOut, CalendarDays, PawPrint, Heart, HandHeart, Stethoscope } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import type { FurrixClient } from '../services/supabaseClient';
-import { destinations, headerNav, routeFromHash, tabNav } from './navigation';
+import { destinations, headerNav, moreNav, routeFromHash, tabNav } from './navigation';
 import { useAccountOverview, type OverviewState } from './useAccountOverview';
 import { PhoneBarContext, type PhoneBarOverride } from './phoneBar';
 import '../design-system/styles';
 import './shell.css';
-import { Avatar, FurrixScope, HeaderAction, IconButton, PhoneBar, SiteHeader, TabBar } from '../design-system';
+import { Avatar, FurrixScope, HeaderAction, IconButton, Logo, PhoneBar, SiteHeader, TabBar } from '../design-system';
 import PetsWorkspace from '../pets/PetsWorkspace';
 import type { ReactNode } from 'react';
 // Rencontres et Messages : chargées à part, pour alléger le démarrage de l'app (préchargées juste après).
@@ -82,7 +82,8 @@ export function AppShellView({ overview, retry, email, onSignOut, preview = fals
   const notifications=<IconButton icon="bell" label={notificationLabel} className={notificationUnread?'app-notification-unread':undefined} onClick={()=>go('animaux-perdus?notifications')}/>;
   const menuAction=<span data-account-toggle><IconButton icon="user" label={menuOpen?'Fermer le menu du compte':'Ouvrir le menu du compte'} aria-expanded={menuOpen} aria-controls="app-account-menu" onClick={toggleMenu}/></span>;
   const initial = (overview.data?.profile.name?.trim() || email || '').charAt(0).toUpperCase();
-  const isTab = tabNav.some((item) => item.id === route);
+  const isTab = route === 'accueil' || tabNav.some((item) => item.id === route);
+  const currentTab = ['animaux-perdus', 'animaux', 'compte'].includes(route) ? 'plus' : route;
   const pending = route === 'animaux-perdus' ? lostPets : pillars.find((item) => item.route === route);
   return <div className="furrix-shell">
     {preview && <div className="app-preview" role="status">Aperçu local de l’interface · sans connexion, sans données de compte</div>}
@@ -91,13 +92,14 @@ export function AppShellView({ overview, retry, email, onSignOut, preview = fals
       {notifications}<HeaderAction icon="message" onClick={() => go('messages')}>Messages</HeaderAction>
       <span data-account-toggle>{initial ? <Avatar initials={initial} label="Ouvrir le menu du compte" onClick={toggleMenu}/> : <IconButton icon="user" label="Ouvrir le menu du compte" aria-expanded={menuOpen} aria-controls="app-account-menu" onClick={toggleMenu}/>}</span>
     </>} /></FurrixScope>
-    <FurrixScope className="app-phonebar"><PhoneBar titleAs="p" actions={<>{notifications}{menuAction}</>} title={phoneBar?.title ?? destinations.find((item) => item.id === route)?.label}
+    <FurrixScope className="app-phonebar"><PhoneBar titleAs="p" actions={<>{notifications}{menuAction}</>} title={phoneBar?.title ?? (route === 'accueil' ? <Logo href="#/accueil" /> : destinations.find((item) => item.id === route)?.label)}
       back={phoneBar?.back ?? (isTab ? undefined : { label: 'Retour à l’accueil', onClick: () => go('accueil') })} /></FurrixScope>
     {menuOpen&&<FurrixScope><nav onClick={(event) => { if ((event.target as HTMLElement).closest('a')) setMenuOpen(false); }} id="app-account-menu" className="app-account-menu" aria-label="Menu du compte"><a href="#/animaux" aria-current={route==='animaux'?'page':undefined}>Mes animaux</a><a href="#/compte" aria-current={route==='compte'?'page':undefined}>Mon compte</a><a href="#/animaux-perdus" aria-current={route==='animaux-perdus'?'page':undefined}>Animaux perdus</a><a href="#/animaux-perdus?notifications">Notifications animaux perdus</a></nav></FurrixScope>}
     <PhoneBarContext.Provider value={setPhoneBar}><main id="app-content" tabIndex={-1} ref={title}>
       {overview.status === 'error' && <div className="app-load-error" role="alert">Ton espace n’a pas pu être chargé. <button onClick={retry}>Réessayer</button></div>}
       {localNotice}
       {route === 'accueil' ? <Home overview={overview} />
+        : route === 'plus' ? <section className="app-page"><h1>Plus</h1><p>Retrouve tes animaux, ton compte et les alertes de ton secteur.</p><nav className="app-more-links" aria-label="Plus de destinations">{moreNav.map((item) => <a className="app-outline" key={item.id} href={item.href}>{item.label}<ArrowRight size={18} aria-hidden /></a>)}</nav></section>
         : route === 'animaux-perdus' && lostContent ? lostContent
         : route === 'rencontres' && meetingsContent ? meetingsContent
         : route === 'messages' && messagesContent ? messagesContent
@@ -110,7 +112,7 @@ export function AppShellView({ overview, retry, email, onSignOut, preview = fals
         : <section className="app-page app-pending"><p className="app-eyebrow">Bientôt dans ton quartier</p><h1>{pending?.label || 'Tes conversations'}</h1><span className="app-stage">En préparation</span><p>{pending?.text || 'Tu retrouveras ici les conversations liées à tes matchs, demandes de garde et rendez-vous.'}</p><p>{route === 'rencontres' ? 'Un j’aime, puis un match réciproque : vous pourrez discuter et proposer une rencontre.' : 'Ce service n’est pas encore disponible. Aucune recherche, demande ou réservation n’est envoyée.'}</p><a className="app-outline" href="#/accueil">Revenir à l’accueil <ArrowRight size={18} aria-hidden /></a></section>}
       <footer className="app-footer"><span>furrix · Bien ensemble, tout simplement.</span><a href="#/compte">Mon compte</a></footer>
     </main></PhoneBarContext.Provider>
-    <FurrixScope className="app-tabbar"><TabBar items={tabNav} current={route} /></FurrixScope>
+    <FurrixScope className="app-tabbar"><TabBar items={tabNav} current={currentTab} /></FurrixScope>
   </div>;
 }
 
