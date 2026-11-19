@@ -1,0 +1,14 @@
+{
+  "Invite user": {
+    "file": "private-beta-invite.html",
+    "subject": "Ton invitation à la bêta Furrix"
+  },
+  "Confirm sign up": {
+    "file": "confirm-signup.html",
+    "subject": "Confirme ton adresse e-mail — Furrix"
+  },
+  "Reset password": {
+    "file": "reset-password.html",
+    "subject": "Choisis ton nouveau mot de passe — Furrix"
+  }
+}
