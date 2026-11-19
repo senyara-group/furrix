@@ -1,0 +1,81 @@
+.app-pro-root {
+  color: var(--fx-color-ink);
+}
+.app-pro-root .fx-note {
+  margin-block: var(--fx-space-4);
+}
+.app-pro-actions {
+  display: flex;
+  gap: var(--fx-space-3);
+  align-items: center;
+  flex-wrap: wrap;
+}
+.app-pro-shortcuts {
+  margin-bottom: var(--fx-space-6);
+}
+.app-pro-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--fx-space-3);
+  align-items: end;
+}
+.app-pro-search .fx-field {
+  margin: 0;
+}
+.app-pro-detail {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--fx-space-6);
+}
+.app-pro-price {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--fx-space-4);
+  border-bottom: 1px solid var(--fx-color-line-subtle);
+  padding-block: var(--fx-space-3);
+}
+.app-pro-price strong {
+  text-align: right;
+}
+.app-pro-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.app-pro-results {
+  margin-block: var(--fx-space-6);
+}
+.app-pro-fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.app-pro-fieldset select {
+  min-height: var(--fx-size-button);
+  font: inherit;
+  color: inherit;
+  border: 1px solid var(--fx-color-line-field);
+  border-radius: var(--fx-radius-sm);
+  padding: var(--fx-space-3);
+  background: var(--fx-color-surface-white);
+  width: 100%;
+}
+.app-pro-service-edit {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr auto;
+  gap: var(--fx-space-3);
+  align-items: end;
+}
+@media (max-width: 899px) {
+  .app-pro-search,
+  .app-pro-detail,
+  .app-pro-service-edit {
+    grid-template-columns: 1fr;
+  }
+  .app-pro-price {
+    flex-wrap: wrap;
+  }
+  .app-pro-price strong {
+    text-align: left;
+  }
+}

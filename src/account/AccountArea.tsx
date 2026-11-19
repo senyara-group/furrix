@@ -49,6 +49,7 @@ export default function AccountArea({ client, owner, email, profile, onSaved, on
       <Button type="submit" loading={saving} disabled={leaving}>Enregistrer mon profil</Button>
     </Stack></form></Card>
     <Card><SectorSettings client={client} owner={owner} activationVariant="out" /></Card>
+    <Card><Stack gap={3}><h2>Mon activité</h2><p>Propose tes services avec ce compte, tout en conservant ton espace personnel.</p><a className="app-outline" href="#/services?vue=profil">Mon activité professionnelle</a><a className="app-outline" href="#/garde?vue=profil">Mon profil de gardien</a></Stack></Card>
     <AndroidPushSettings/><Card><Stack gap={3}><h2>Cet appareil</h2><Note>La déconnexion ferme ta session sur cet appareil. Tes autres appareils restent connectés.</Note>
       <Button variant="out" loading={leaving} disabled={saving} onClick={() => { void signOut(); }}>Déconnecter cet appareil</Button>
       {signOutError && <Alert tone="err" title={signOutError} />}

@@ -17,6 +17,9 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLElement> {
   /** `as="a"` + `href` en fait un lien. */
   as?: ElementType;
   href?: string;
+  /** Liens externes : cible et protection de l’onglet d’origine. */
+  target?: '_blank' | '_self';
+  rel?: string;
   /**
    * Action en cours (envoi, enregistrement) : indicateur, `aria-busy` et clics ignorés.
    * Le bouton garde le focus, contrairement à `disabled`.
