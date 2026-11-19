@@ -14,6 +14,7 @@
             android:name=".MainActivity"
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:windowSoftInputMode="adjustResize"
             android:launchMode="singleTask"
             android:exported="true">
 
@@ -27,6 +28,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="fr.furrix.app" android:host="auth" android:path="/callback" />
+                <data android:scheme="fr.furrix.app" android:host="auth" android:path="/reset" />
             </intent-filter>
 
         </activity>

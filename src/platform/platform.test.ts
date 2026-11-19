@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { getAuthRedirect, NATIVE_AUTH_REDIRECT, parseNativeAuthReturn } from './authRedirect';
+import { getAuthRedirect, getPasswordResetRedirect, NATIVE_PASSWORD_REDIRECT, NATIVE_AUTH_REDIRECT, parseNativeAuthReturn } from './authRedirect';
 import { nativeSessionStorage } from './sessionStorage';
 import { SecureStorage } from '@aparajita/capacitor-secure-storage';
 
@@ -46,4 +46,10 @@ describe('coffre natif des sessions', () => {
     vi.mocked(SecureStorage.get).mockRejectedValueOnce(new Error('locked'));
     await expect(nativeSessionStorage.getItem('session')).rejects.toThrow('locked');
   });
+});
+
+it('dedie le retour de recuperation au formulaire web et natif',()=>{
+  expect(getPasswordResetRedirect(false,'https://furrix.fr')).toBe('https://furrix.fr/#/auth/reset');
+  expect(getPasswordResetRedirect(true,'capacitor://localhost')).toBe(NATIVE_PASSWORD_REDIRECT);
+  expect(parseNativeAuthReturn(NATIVE_PASSWORD_REDIRECT+'?code=abc')).toEqual({code:'abc',recovery:true});
 });

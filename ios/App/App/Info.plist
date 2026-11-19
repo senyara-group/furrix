@@ -12,15 +12,15 @@
         </dict>
     </array>
     <key>NSLocationWhenInUseUsageDescription</key>
-    <string>À votre demande, utiliser une zone approximative pour trouver des compagnons proches de votre animal.</string>
+    <string>À ta demande, utiliser une zone approximative pour les rencontres et les alertes animaux perdus.</string>
     <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-    <string>À votre demande, utiliser une zone approximative pour trouver des compagnons proches de votre animal.</string>
+    <string>À ta demande, utiliser une zone approximative pour les rencontres et les alertes animaux perdus.</string>
     <key>NSCameraUsageDescription</key>
-    <string>Prendre une photo pour le profil de votre animal.</string>
+    <string>Prendre une photo pour le profil de ton animal.</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>Choisir une photo pour le profil de votre animal.</string>
+    <string>Choisir une photo pour le profil de ton animal.</string>
     <key>NSPhotoLibraryAddUsageDescription</key>
-    <string>Enregistrer une photo de votre animal dans votre photothèque.</string>
+    <string>Enregistrer une photo de ton animal dans ta photothèque.</string>
   <key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>

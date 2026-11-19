@@ -63,7 +63,7 @@ export default function AuthApplication({ client = supabase, documents = legalDo
   useEffect(() => {
     if (!client) return;
     let disposed = false, stop: (() => void) | undefined;
-    void startNativeAuth(client, (text) => { setError(text); setCallbackFailed(true); }).then((cleanup) => {
+    void startNativeAuth(client, (text) => { setError(text); setCallbackFailed(true); }, () => { auth.startPasswordSetup(); setView('reset'); setCallbackFailed(false); }).then((cleanup) => {
       if (disposed) cleanup(); else stop = cleanup;
     });
     return () => { disposed = true; stop?.(); };
