@@ -86,6 +86,9 @@ test("animaux perdus : diffusion de secteur, confidentialité et déduplication"
       "lecture par DTO et protection des tables et des notifications",
       async () => {
         assert.equal((await as(B, "select * from lost_pets")).length, 0);
+        const own = await as(A,"select id,lat,lng,status from lost_pets where reporter_id=$1 and last_seen_at is not null order by created_at desc,id desc limit 30 offset 0",[A]);
+        assert.equal(own.length,1);assert.equal(own[0].id,L);
+        assert.equal((await as(B,"select id from lost_pets where reporter_id=$1",[A])).length,0);
         const list = await as(B, "select * from list_lost_alerts()");
         assert.equal(list[0].display_name, "Luna");
         assert.equal(list[0].is_mine, false);

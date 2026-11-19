@@ -24,7 +24,7 @@ export function createFakeSupabase() {
 
   const builder = (table: string) => {
     const b: Record<string, unknown> = {};
-    for (const op of ['select', 'insert', 'update', 'delete', 'eq', 'is', 'lt', 'gt', 'order', 'limit']) {
+    for (const op of ['select', 'insert', 'update', 'delete', 'eq', 'is', 'lt', 'gt', 'order', 'limit', 'range', 'not']) {
       b[op] = (...args: unknown[]) => {
         calls.push({ table, op, args });
         return b;
