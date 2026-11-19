@@ -22,6 +22,7 @@ async function prepare() {
   await admin.query(`
     create schema auth; create schema storage;
     create table auth.users(id uuid primary key, raw_user_meta_data jsonb default '{}');
+    create table auth.sessions(id uuid primary key,user_id uuid references auth.users(id),not_after timestamptz);
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
     create table storage.buckets(id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
     create table storage.objects(id uuid primary key default gen_random_uuid(), bucket_id text, name text, owner_id text);
@@ -63,6 +64,20 @@ test('rencontres : concurrence sur plusieurs sessions PostgreSQL', { skip: url ?
     const as = users.map((u) => caller(target, u));
     const like = (i, j) => as[i]("select swipe_and_match($1,$2,'right') id", [pets[i], pets[j]]).then((r) => r[0].id);
     const count = async (sql) => (await admin.query(sql)).rows[0].n;
+
+
+    await t.test('push : deux serveurs réclament des lots distincts sans attendre le verrou du premier',async()=>{
+      const sid=uuid(),d1=uuid(),d2=uuid(),alert=uuid();
+      await admin.query('insert into auth.sessions(id,user_id) values($1,$2)',[sid,users[1]]);
+      await admin.query('insert into android_push_devices(id,user_id,session_id,token) values($1,$3,$4,$5),($2,$3,$4,$6)',[d1,d2,users[1],sid,'test-token-one-concurrent','test-token-two-concurrent']);
+      await as[1]('select set_lost_alert_sector(true,50.63,3.06,25)');
+      await as[0]("select publish_lost_alert($1,$2,'Lille',50.63,3.06,now(),'Collier','Calme',25)",[alert,pets[0]]);
+      const first=new pg.Client({connectionString:target}),second=new pg.Client({connectionString:target});await first.connect();await second.connect();
+      try{await first.query('begin');await first.query('set local role service_role');const a=await first.query('select * from claim_android_push(1)');
+        await second.query('set statement_timeout=2000');await second.query('set role service_role');const b=await second.query('select * from claim_android_push(1)');
+        assert.equal(a.rows.length,1);assert.equal(b.rows.length,1);assert.notEqual(a.rows[0].job_id,b.rows[0].job_id);await first.query('commit');
+      }finally{await first.query('rollback');await first.end();await second.end();}
+    });
 
     await t.test('j’aime réciproques simultanés : exactement un match par paire, jamais perdu', async () => {
       const results = await Promise.all(Array.from({ length: N }, (_, k) => Promise.all([like(2 * k, 2 * k + 1), like(2 * k + 1, 2 * k)])));
