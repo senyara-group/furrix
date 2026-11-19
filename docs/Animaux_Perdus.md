@@ -46,3 +46,32 @@ Le schéma historique autorise certaines colonnes nulles et les suppressions d'a
 6. Vérifier les nouvelles pages et les notifications après rechargement, sur ordinateur et téléphone. Sur Android/iOS : permissions de localisation refusées/accordées, photo, réseau interrompu et retour dans l'application. Aucun build APK/IPA ni essai sur appareil n'est présenté comme exécuté pour ce lot.
 
 Les tests SQL utilisent PGlite jetable ; ils ne reproduisent pas les véritables services Auth/REST/Storage de Supabase. La recette visuelle utilise un faux client local, supprimé après les essais. Les captures sont des données fictives. Les migrations, la recette connectée et toute diffusion distante restent non effectuées à la livraison.
+
+## Complément du 19 novembre 2026
+
+La branche feat/animaux-perdus-parcours complète le parcours sans modifier le header ni les rencontres.
+
+- Déclaration : choisir le centre de la commune via le service public Géoplateforme, ou utiliser sa position actuelle. Les coordonnées manuelles restent disponibles. Changer le nom de commune efface la zone précédente pour éviter de publier une commune avec des coordonnées devenues incohérentes.
+- Secteur privé : abonnement par commune sans GPS, confirmation après enregistrement et suppression de la zone au désabonnement. Aucun suivi de déplacement.
+- Une confirmation est demandée avant de marquer retrouvé ou clôturer.
+- Les pages suivantes s’ajoutent à la liste sans doublon. Lire une notification actualise immédiatement la cloche ; une notification pointant vers une annonce retirée peut être marquée lue sans réafficher son contenu.
+- Si les fonctions ne sont pas installées, un état de préparation remplace les formulaires.
+
+### Vérification distante, lecture seule
+
+Sur DEV jemikzqgbpaivlujnfgl : PostgreSQL 17.11 ; 13 migrations annoncées, jusqu’à meetings_performance ; zéro ligne dans lost_pets ; local_notifications et publish_lost_alert absents. Ni lost_pets_local_alerts ni meeting_integration_safety ne sont appliquées. Aucun compte ou alerte n’a été créé pour ces vérifications.
+
+Les conseillers signalent toujours les points antérieurs : search_path de touch_updated_at, exécution de handle_new_user par les rôles API et protection des mots de passe compromis désactivée. Les RPC SECURITY DEFINER authentifiées sont également signalées automatiquement : leur présence seule ne démontre pas une faille ; elles portent les contrôles d’autorisation métier. Ces points ne sont pas corrigés silencieusement par ce lot.
+
+### Application ultérieure, après revue et accord
+
+Comparer de nouveau les versions distantes et les empreintes des fichiers avant toute application. Les fichiers déjà versionnés restent inchangés. Trois migrations sont en attente dans cet état :
+
+1. 20261118122724_lost_pets_local_alerts.sql (lot initial).
+2. 20261119082707_meeting_integration_safety.sql (correctif rencontres antérieur, à revoir séparément).
+3. 20261119094151_lost_alerts_completion.sql (ce lot : une annonce clôturée n’est plus accessible par son identifiant aux autres comptes ; une annonce retrouvée reste consultable pour annoncer le retour).
+
+Ne pas utiliser db push à l’aveugle : la première version est antérieure aux trois dernières migrations déjà appliquées. Conserver son identifiant ; ne pas réparer l’historique pour contourner le décalage. Après application autorisée, exécuter supabase/checks/lost-pets-postflight.sql en lecture seule, puis la recette avec comptes réels décrite plus haut. Le postflight valide le catalogue et les privilèges ; il ne remplace pas Auth/REST/Storage ni des essais de concurrence.
+
+Contrôles de cette livraison : tests SQL locaux 72/72 sur PGlite ; postflight exécuté sur cette base jetable ; recette navigateur locale avec déclaration, centre de commune obtenu auprès du service public, confirmation du retour, notifications, abonnement et désabonnement sur téléphone. Un titre principal et aucun débordement horizontal à 390 px, aucune erreur JavaScript observée. Les données et le client de recette sont fictifs ; aucun contrôle de réception distante ni aucune compilation native n’est revendiqué.
+Validation finale : 150/150 tests Vitest, contrôle des types et compilation réussis. Le build conserve l’avertissement antérieur de clé transition dupliquée dans le prototype Furrix.jsx, inchangé par ce lot.
