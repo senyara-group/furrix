@@ -3,6 +3,7 @@ import {
   Alert, Button, Card, ChatLayout, ChatThread, Composer, EmptyState, Icon, Loading, MessageBubble, Note, PageHeader, Separator, Stack, StatusBadge,
   SystemMessage, Who,
 } from '../design-system';
+import { AppError } from '../services/errors';
 import type { FurrixClient } from '../services/supabaseClient';
 import { getSitter, listMySittings, listSittingThreads, loadSittingMessages, sendSittingMessage } from './service';
 import { clock, nameOf, period, phaseOf, shortPeriod, stamp, statusOf } from './format';
@@ -70,7 +71,7 @@ export function SittingChat({ client, me, owner, sitter }: { client: FurrixClien
     if (pending.current?.text !== value) pending.current = { text: value, id: crypto.randomUUID() };
     setSending(true); setError('');
     try { const saved = await sendSittingMessage(client, owner, sitter, value, pending.current.id); if (alive.current) { setMessages((v) => merge(v, [saved])); setText(''); pending.current = undefined; } }
-    catch { if (alive.current) setError('Envoi non confirmé. Tu peux réessayer avec le même texte sans le dupliquer.'); }
+    catch (e) { if (alive.current) setError(e instanceof AppError && e.code === 'rate_limited' ? e.message : 'Envoi non confirmé. Tu peux réessayer avec le même texte sans le dupliquer.'); }
     finally { if (alive.current) setSending(false); }
   };
 

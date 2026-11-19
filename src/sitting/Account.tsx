@@ -5,7 +5,8 @@ import {
 } from '../design-system';
 import type { FurrixClient } from '../services/supabaseClient';
 import { approximateLocation, locateTown, LocationError, locationMessage } from '../meetings/location';
-import { listMySittings, listSittingThreads, mySitterProfile, saveSitterProfile } from './service';
+import { listMySittings, listSittingThreads, mySitterProfile, saveSitterProfile, setSitterPhoto } from './service';
+import { usePetPhotoUrl } from '../meetings/usePetPhotoUrl';
 import { kindLabel, nameOf, outdoorLabel, phaseOf, SERVICES, serviceLabel, shortPeriod, speciesPlural, statusOf, unitLabel } from './format';
 import { chatHref, gardeHref } from './links';
 import type { MySitting, ServicePrice, SitterKind, SitterOutdoor, SittingService, SittingThread } from './types';
@@ -33,7 +34,8 @@ export function MySittings({ client }: { client: FurrixClient }) {
   const asSitter = state.sittings.filter((s) => s.role === 'sitter');
   const loose = state.threads.filter((t) => !t.sitting_id);
   return <section aria-label="Mes gardes">
-    <PageHeader back={{ label: 'Faire garder', onClick: () => { window.location.hash = gardeHref(); } }} title="Mes gardes" subtitle="Tes demandes de garde, et celles que l’on te confie si tu proposes des gardes." showTitleOnPhone />
+    <PageHeader back={{ label: 'Faire garder', onClick: () => { window.location.hash = gardeHref(); } }} title="Mes gardes" subtitle="Tes demandes de garde, et celles que l’on te confie si tu es gardien." showTitleOnPhone />
+    <Row className="gd-shortcuts"><Button as="a" href={gardeHref({ vue: 'profil' })} variant="quiet" size="sm" icon="homeDoor">Mon profil de gardien</Button></Row>
     {state.status === 'loading' ? <Loading label="Chargement de tes gardes…" />
       : state.status === 'error' ? <Alert tone="err" title="Tes gardes n’ont pas pu être chargées." actions={<Button variant="out" size="sm" icon="retry" onClick={() => setAttempt((a) => a + 1)}>Réessayer</Button>} />
       : !state.sittings.length && !loose.length ? <EmptyState icon="homeDoor" title="Pas encore de garde" action={<Button as="a" href={gardeHref()} variant="out" size="sm">Trouver un gardien</Button>}>
@@ -64,11 +66,16 @@ export function SitterProfileForm({ client, userId }: { client: FurrixClient; us
   const [result, setResult] = useState<'saved' | 'failed' | null>(null);
   const [locating, setLocating] = useState<'town' | 'device' | null>(null);
   const [locError, setLocError] = useState('');
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoMessage, setPhotoMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const photoUrl = usePetPhotoUrl(client, photo);
   useEffect(() => {
     let current = true;
     void mySitterProfile(client, userId).then((data) => {
       if (!current) return;
       setExists(!!data);
+      setPhoto(data?.profile.photo ?? null);
       setForm(data ? {
         kind: data.profile.kind, bio: data.profile.bio, city: data.profile.city, species: data.profile.species, outdoor: data.profile.outdoor, active: data.profile.active,
         place: { latitude: data.profile.latitude, longitude: data.profile.longitude, label: data.profile.city }, maxWeight: data.profile.max_weight_kg ? String(data.profile.max_weight_kg) : '',
@@ -87,6 +94,13 @@ export function SitterProfileForm({ client, userId }: { client: FurrixClient; us
       set({ place: { latitude: found.latitude, longitude: found.longitude, label: found.label }, city: form.city || found.label.split(' · ')[0] });
     } catch (e) { setLocError(e instanceof LocationError ? locationMessage[e.reason] : 'La zone n’a pas pu être trouvée. Réessaie.'); }
     finally { setLocating(null); }
+  };
+  const upload = async (file?: File) => {
+    if (!file) return;
+    setPhotoBusy(true); setPhotoMessage(null);
+    try { setPhoto(await setSitterPhoto(client, userId, file)); setPhotoMessage({ ok: true, text: 'Photo enregistrée : elle s’affiche sur ta fiche.' }); }
+    catch (e) { setPhotoMessage({ ok: false, text: e instanceof Error && e.message ? e.message : 'La photo n’a pas été enregistrée. Réessaie.' }); }
+    finally { setPhotoBusy(false); }
   };
   const save = async () => {
     const problems: typeof errors = {};
@@ -129,6 +143,16 @@ export function SitterProfileForm({ client, userId }: { client: FurrixClient; us
       {exists ? <Stack gap={2}><Text variant="label" as="p">Visibilité</Text>
         <Segmented aria-label="Visibilité" value={form.active ? 'on' : 'off'} onChange={(v) => set({ active: v === 'on' })} options={[{ value: 'on', label: 'Je reçois des demandes' }, { value: 'off', label: 'En pause' }]} /></Stack> : null}
       <Stack gap={5}>
+        <Stack gap={2}><Text variant="label" as="p">Photo de ta fiche</Text>
+          {exists ? <div className="gd-photoedit">
+            {photoUrl ? <img className="gd-photo" src={photoUrl} alt="Ta photo de gardien" /> : <div className="gd-photo gd-photo--empty" role="img" aria-label="Pas encore de photo"><Icon name="paw" size={40} /></div>}
+            <label className="gd-upload fx-btn fx-btn--out fx-btn--sm" aria-busy={photoBusy || undefined}>{photoBusy ? 'Envoi…' : photo ? 'Changer la photo' : 'Ajouter une photo'}
+              <input type="file" accept="image/jpeg,image/png,image/webp" aria-label="Photo de ta fiche de gardien" disabled={photoBusy}
+                onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; void upload(file); }} /></label>
+            <Text variant="body-sm">Toi, ton jardin, un animal que tu gardes… JPEG, PNG ou WebP, 5 Mo maximum. Visible seulement des membres connectés.</Text>
+            {photoMessage ? <p role="status" className={photoMessage.ok ? 'fx-hint' : 'fx-field__error'}>{photoMessage.text}</p> : null}
+          </div> : <Text variant="body-sm">Tu pourras ajouter ta photo juste après avoir publié ton profil.</Text>}
+        </Stack>
         <Stack gap={2}><Text variant="label" as="p">Tu es</Text>
           <OptionGroup aria-label="Statut" value={form.kind} onChange={(kind) => set({ kind })} options={(['particulier', 'professionnel'] as const).map((k) => ({ value: k, label: kindLabel[k] }))} />
           <Text variant="body-sm">« Professionnel » signifie déclaré comme tel : Furrix ne le vérifie pas encore.</Text></Stack>

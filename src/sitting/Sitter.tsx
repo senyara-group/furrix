@@ -1,25 +1,28 @@
 import { useEffect, useState } from 'react';
 import {
-  ActionBar, Alert, Button, Card, DetailLayout, Facts, Field, Icon, Monogram, Note, OptionGroup, PageHeader, Recap, RecapRow, Separator,
+  ActionBar, Alert, Button, Card, DetailLayout, Facts, Field, Icon, Note, PageHeader, Recap, RecapRow, Select, Separator,
   Stack, StatusBadge, Text, Textarea, Who,
 } from '../design-system';
 import type { PetRow } from '../types/database';
+import { AppError } from '../services/errors';
 import type { FurrixClient } from '../services/supabaseClient';
 import { SlotField } from '../meetings/SlotField';
+import { usePetPhotoUrl } from '../meetings/usePetPhotoUrl';
 import { createSittingRequest } from './service';
-import { countUnits, kindLabel, money, nameOf, outdoorLabel, period, price, SERVICES, serviceLabel, serviceShort, speciesPlural, unitLabel, units } from './format';
+import { countUnits, kindLabel, money, nameOf, outdoorLabel, period, price, serviceLabel, serviceShort, speciesPlural, unitLabel, units } from './format';
 import { isoOf, type Criteria } from './Search';
 import type { SitterResult, SittingRequest, SittingService } from './types';
 
-export const sitterSubtitle = (s: Pick<SitterResult, 'kind' | 'distance_km' | 'city'>, service?: SittingService) =>
+const sitterSubtitle = (s: Pick<SitterResult, 'kind' | 'distance_km' | 'city'>, service?: SittingService) =>
   [kindLabel[s.kind], service ? serviceShort[service] : null, s.distance_km !== null ? `≈ ${s.distance_km} km` : s.city].filter(Boolean).join(' · ');
 
 /** Carte latérale : le gardien, les dates, l'animal et le montant (frais encore à définir). */
-export function SummaryCard({ name, subtitle, service, starts, ends, petName, unitPrice, count, paid }: {
-  name: string; subtitle: string; service: SittingService; starts?: string; ends?: string; petName?: string; unitPrice?: number; count?: number; paid?: boolean;
+export function SummaryCard({ client, photo, name, subtitle, service, starts, ends, petName, unitPrice, count, paid }: {
+  client: FurrixClient; photo?: string | null; name: string; subtitle: string; service: SittingService; starts?: string; ends?: string; petName?: string; unitPrice?: number; count?: number; paid?: boolean;
 }) {
+  const url = usePetPhotoUrl(client, photo);
   return <Card calm><Stack gap={3}>
-    <Who initials={name.charAt(0).toUpperCase()} name={name} subtitle={subtitle} />
+    <Who photo={url ? { src: url, alt: '' } : undefined} initials={url ? undefined : name.charAt(0).toUpperCase()} name={name} subtitle={subtitle} />
     {starts && ends ? <><Separator />
       <p className="gd-ln"><Icon name="calendar" size={20} /><b className="fx-num">{period(starts, ends)}</b></p>
       <p className="fx-t-body-sm">{[count ? units(service, count) : null, serviceLabel[service].toLowerCase(), petName].filter(Boolean).join(' · ')}</p></> : null}
@@ -32,8 +35,9 @@ export function SummaryCard({ name, subtitle, service, starts, ends, petName, un
 }
 
 /** Fiche d'un gardien (planche « Fiche du gardien »). */
-export function SitterFiche({ sitter, service, onBack, onAsk, onWrite }: { sitter: SitterResult; service: SittingService; onBack: () => void; onAsk: () => void; onWrite: () => void }) {
+export function SitterFiche({ client, sitter, service, onBack, onAsk, onWrite }: { client: FurrixClient; sitter: SitterResult; service: SittingService; onBack: () => void; onAsk: () => void; onWrite: () => void }) {
   const name = nameOf(sitter.name);
+  const url = usePetPhotoUrl(client, sitter.photo);
   const offered = sitter.services.find((s) => s.service === service) ?? sitter.services[0];
   const accepts = sitter.species.map((s) => speciesPlural[s] ?? s).join(', ');
   return <section aria-label="Fiche du gardien">
@@ -52,8 +56,8 @@ export function SitterFiche({ sitter, service, onBack, onAsk, onWrite }: { sitte
         <Button icon="homeDoor" onClick={onAsk}>Demander une garde</Button>
         <Button variant="out" icon="message" onClick={onWrite}>Écrire à {name}</Button>
       </ActionBar>}>
-      <Card className="gd-hero"><Monogram initials={name.charAt(0).toUpperCase()} size={84} /><div>
-        <Text variant="h2">{name}</Text><p className="fx-t-body-sm">{[sitter.city, sitter.distance_km !== null ? `≈ ${sitter.distance_km} km` : null].filter(Boolean).join(' · ')}</p></div></Card>
+      {url ? <img className="gd-photo" src={url} alt={`Photo choisie par ${name}`} />
+        : <div className="gd-photo gd-photo--empty" role="img" aria-label={sitter.photo ? 'Photo en cours de chargement' : `${name} n’a pas encore ajouté de photo`}><Icon name="paw" size={40} /></div>}
       <Facts items={[
         { label: 'Formules', value: sitter.services.map((s) => serviceLabel[s.service]).join(', ') },
         { label: 'Accueille', value: sitter.max_weight_kg ? `${accepts} ≤ ${sitter.max_weight_kg} kg` : accepts },
@@ -67,6 +71,21 @@ export function SitterFiche({ sitter, service, onBack, onAsk, onWrite }: { sitte
   </section>;
 }
 
+/** Poids minimal probable selon le gabarit, quand le poids n'est pas renseigné. */
+const sizeMinKg: Record<string, number> = { petit: 0, moyen: 10, grand: 25 };
+/** Animaux acceptés par le gardien : espèce, puis poids maximum s'il en a fixé un (poids, ou à défaut gabarit). */
+function fits(pet: PetRow, sitter: Pick<SitterResult, 'species' | 'max_weight_kg'>) {
+  if (!sitter.species.includes(pet.species)) return false;
+  if (!sitter.max_weight_kg) return true;
+  const kg = pet.weight ? Number.parseFloat(pet.weight.replace(',', '.')) : NaN;
+  if (!Number.isNaN(kg)) return kg <= sitter.max_weight_kg;
+  return (sizeMinKg[pet.size ?? ''] ?? 0) <= sitter.max_weight_kg;
+}
+const acceptsLabel = (s: SitterResult) => {
+  const list = s.species.map((x) => (speciesPlural[x] ?? x).toLowerCase()).join(', ');
+  return s.max_weight_kg ? `${list} de ${s.max_weight_kg} kg au plus` : list;
+};
+
 type Draft = { pet: string | null; service: SittingService; starts: string; ends: string; message: string; request: string };
 
 /** Demande de garde (planches « Demande » et « Envoi impossible »). Aucun paiement à cette étape. */
@@ -79,22 +98,23 @@ export function RequestForm({ client, sitter, pets, criteria, onBack, onSent }: 
   const [draft, setDraft] = useState<Draft>(() => {
     try { const saved = sessionStorage.getItem(storage); if (saved) return JSON.parse(saved) as Draft; } catch { /* sans stockage local */ }
     const service = offered(criteria.service) ? criteria.service : sitter.services[0]?.service ?? 'chez_gardien';
-    const pet = pets.find((p) => p.id === criteria.pet && sitter.species.includes(p.species)) ?? pets.find((p) => sitter.species.includes(p.species));
+    const pet = pets.find((p) => p.id === criteria.pet && fits(p, sitter)) ?? pets.find((p) => fits(p, sitter));
     return { pet: pet?.id ?? null, service, starts: criteria.starts, ends: criteria.ends, message: '', request: crypto.randomUUID() };
   });
   const [errors, setErrors] = useState<{ pet?: string; dates?: string }>({});
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<false | true | string>(false);
   useEffect(() => { try { sessionStorage.setItem(storage, JSON.stringify(draft)); } catch { /* sans stockage local */ } }, [draft, storage]);
   const set = (next: Partial<Draft>) => setDraft((d) => ({ ...d, ...next }));
-  const pet = pets.find((p) => p.id === draft.pet);
+  const accepted = pets.filter((p) => fits(p, sitter));
+  const pet = accepted.find((p) => p.id === draft.pet);
   const unit = offered(draft.service)?.price_cents;
   const datesOk = !!draft.starts && !!draft.ends && new Date(draft.ends) > new Date(draft.starts);
   const count = datesOk ? countUnits(draft.service, isoOf(draft.starts), isoOf(draft.ends)) : undefined;
   const send = async () => {
     const problems: typeof errors = {};
-    if (!pet) problems.pet = `Choisis l’animal à faire garder (${sitter.species.map((s) => speciesPlural[s]?.toLowerCase() ?? s).join(', ')} acceptés).`;
-    if (!datesOk || new Date(draft.starts).getTime() <= Date.now()) problems.dates = 'Choisis une arrivée à venir et un départ après elle.';
+    if (!pet) problems.pet = 'Choisis l’animal à faire garder.';
+    if (!datesOk || new Date(draft.starts).getTime() <= Date.now()) problems.dates = 'Choisis un début de garde à venir et une fin après lui.';
     else if (new Date(draft.ends).getTime() - new Date(draft.starts).getTime() > 60 * 86400_000) problems.dates = 'Une garde dure 60 jours au plus.';
     setErrors(problems);
     if (Object.keys(problems).length) return;
@@ -103,30 +123,36 @@ export function RequestForm({ client, sitter, pets, criteria, onBack, onSent }: 
       const saved = await createSittingRequest(client, { sitter: sitter.sitter_id, pet: pet!.id, service: draft.service, starts: isoOf(draft.starts), ends: isoOf(draft.ends), message: draft.message }, draft.request);
       try { sessionStorage.removeItem(storage); } catch { /* sans stockage local */ }
       onSent(saved);
-    } catch { setFailed(true); } finally { setBusy(false); }
+    } catch (e) { setFailed(e instanceof AppError && e.code === 'rate_limited' ? e.message : true); } finally { setBusy(false); }
   };
   return <section aria-label="Demande">
     <PageHeader back={{ label: `Fiche de ${name}`, onClick: onBack }} title={`Demander une garde à ${name}`}
       status={failed ? <StatusBadge status="alert">Non envoyée</StatusBadge> : <StatusBadge status="draft">Brouillon</StatusBadge>} />
     <DetailLayout
-      aside={<SummaryCard name={name} subtitle={sitterSubtitle(sitter, draft.service)} service={draft.service} petName={pet?.name}
+      aside={<SummaryCard client={client} photo={sitter.photo} name={name} subtitle={sitterSubtitle(sitter, draft.service)} service={draft.service} petName={pet?.name}
         starts={datesOk ? isoOf(draft.starts) : undefined} ends={datesOk ? isoOf(draft.ends) : undefined} unitPrice={unit} count={count} />}
-      actions={<ActionBar><Button variant="ink" icon={failed ? 'retry' : 'send'} loading={busy} onClick={() => { void send(); }}>{failed ? 'Réessayer l’envoi' : 'Envoyer la demande'}</Button></ActionBar>}>
-      {failed ? <Alert tone="err" title="La demande n’est pas partie">Connexion interrompue, ou une demande est déjà en cours avec {name} pour cet animal. Tes informations sont conservées sur cet appareil ; rien n’a été envoyé ni facturé.</Alert> : null}
+      actions={<ActionBar><Button variant="ink" icon={failed ? 'retry' : 'send'} loading={busy} disabled={!accepted.length} onClick={() => { void send(); }}>{failed ? 'Réessayer l’envoi' : 'Envoyer la demande'}</Button></ActionBar>}>
+      {typeof failed === 'string' ? <Alert tone="err" title="La demande n’est pas partie">{failed}. Réessaie demain ; rien n’a été envoyé ni facturé.</Alert> : failed ? <Alert tone="err" title="La demande n’est pas partie">Connexion interrompue, ou une demande est déjà en cours avec {name} pour cet animal. Tes informations sont conservées sur cet appareil ; rien n’a été envoyé ni facturé.</Alert> : null}
       <Stack gap={5}>
-        <Stack gap={2}><Text variant="label" as="p">Animal</Text>
-          <OptionGroup aria-label="Animal" value={draft.pet} onChange={(p) => set({ pet: p })}
-            options={pets.map((p) => ({ value: p.id, label: sitter.species.includes(p.species) ? p.name : `${p.name} (non accepté)`, disabled: !sitter.species.includes(p.species) }))} />
-          {errors.pet ? <p className="fx-field__error" role="alert"><Icon name="warning" size={16} />{errors.pet}</p> : null}</Stack>
-        <Stack gap={2}><Text variant="label" as="p">Dates</Text>
-          <div className="gd-dates">
-            <SlotField label="Arrivée" value={draft.starts} onChange={(starts) => set({ starts, ends: draft.ends && new Date(draft.ends) > new Date(starts) ? draft.ends : '' })} />
-            <SlotField label="Départ" value={draft.ends} min={draft.starts} placeholder="Choisir le retour" onChange={(ends) => set({ ends })} />
-          </div>
-          {errors.dates ? <p className="fx-field__error" role="alert"><Icon name="warning" size={16} />{errors.dates}</p> : null}</Stack>
-        <Stack gap={2}><Text variant="label" as="p">Formule</Text>
-          <OptionGroup aria-label="Formule" value={draft.service} onChange={(service) => set({ service })}
-            options={SERVICES.map((s) => ({ value: s, label: offered(s) ? serviceLabel[s] : `${serviceLabel[s]} (non proposé)`, disabled: !offered(s) }))} /></Stack>
+        {accepted.length ? <Field label="Animal" error={errors.pet}
+          hint={accepted.length < pets.length ? `Seuls les animaux que ${name} accepte sont proposés (${acceptsLabel(sitter)}).` : undefined}>
+          <Select value={pet?.id ?? ''} onChange={(e) => set({ pet: e.target.value || null })}>
+            {!pet ? <option value="">Choisir un animal</option> : null}
+            {accepted.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </Select>
+        </Field> : <Alert tone="warn" title={`Aucun de tes animaux ne correspond à ${name}`}>{name} accepte : {acceptsLabel(sitter)}.</Alert>}
+        <div className="gd-dates">
+          <Stack gap={2}><Text variant="label" as="p">Début de la garde</Text>
+            <SlotField label="Début de la garde" value={draft.starts} onChange={(starts) => set({ starts, ends: draft.ends && new Date(draft.ends) > new Date(starts) ? draft.ends : '' })} /></Stack>
+          <Stack gap={2}><Text variant="label" as="p">Fin de la garde</Text>
+            <SlotField label="Fin de la garde" value={draft.ends} min={draft.starts} placeholder="Choisir la fin" onChange={(ends) => set({ ends })} /></Stack>
+        </div>
+        {errors.dates ? <p className="fx-field__error" role="alert"><Icon name="warning" size={16} />{errors.dates}</p> : null}
+        <Field label="Formule">
+          <Select value={draft.service} onChange={(e) => set({ service: e.target.value as SittingService })}>
+            {sitter.services.map((x) => <option key={x.service} value={x.service}>{serviceLabel[x.service]} · {price(x.price_cents)} / {unitLabel[x.service][0]}</option>)}
+          </Select>
+        </Field>
         <Field label={`Message à ${name}`} optional hint={`${name} voit le profil de ${pet?.name ?? 'ton animal'} et ce message avant de répondre.`}>
           <Textarea value={draft.message} maxLength={1000} rows={4} placeholder={`Habitudes, alimentation, ce qu’il faut savoir sur ${pet?.name ?? 'ton animal'}…`} onChange={(e) => set({ message: e.target.value })} />
         </Field>

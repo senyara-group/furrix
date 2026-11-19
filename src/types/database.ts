@@ -69,6 +69,8 @@ export type Database = {
           good_with?: string | null;
           usual_outings?: string | null;
           behaviour_traits?: string[];
+          /** Poids déclaré (texte libre, « 12 » ou « 12 kg »). */
+          weight?: string | null;
         };
         Insert: {
           id?: string;
@@ -138,6 +140,7 @@ export type Database = {
       add_sitting_update: { Args: { p_sitting: string; p_text: string }; Returns: SittingUpdate };
       report_sitting: { Args: { p_sitting: string; p_category: string; p_details: string }; Returns: SittingReport };
       block_sitting_contact: { Args: { p_other: string }; Returns: undefined };
+      set_sitter_photo: { Args: { p_path?: string | null }; Returns: string | null };
       mark_pet_match_seen: { Args: { p_match: string; p_pet: string }; Returns: undefined };
       swipe_and_match: { Args: { p_pet: string; p_target: string; p_dir: string }; Returns: string | null };
       set_pet_meeting_location: { Args: { p_pet: string; p_lat?: number; p_lng?: number }; Returns: undefined };

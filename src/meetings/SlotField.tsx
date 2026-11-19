@@ -8,7 +8,7 @@ export const longSlot = (iso: string) => cap(new Intl.DateTimeFormat('fr-FR', { 
 const day = (iso: string) => new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(iso));
 
 /* Créneaux : heure locale « AAAA-MM-JJTHH:MM », convertie en ISO à l'envoi. */
-export const pad = (n: number) => String(n).padStart(2, '0');
+const pad = (n: number) => String(n).padStart(2, '0');
 export const dayKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 export const nextSlotInput = () => `${dayKey(new Date(Date.now() + 2 * 86400_000))}T10:00`;
 const HOURS = Array.from({ length: 12 }, (_, i) => `${pad(8 + i)}:00`);

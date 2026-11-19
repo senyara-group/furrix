@@ -2,7 +2,7 @@
 export type SittingService = 'chez_gardien' | 'domicile' | 'visite' | 'promenade';
 export type SitterKind = 'particulier' | 'professionnel';
 export type SitterOutdoor = 'jardin_clos' | 'jardin' | 'sans_jardin';
-export type SittingStatus = 'pending' | 'withdrawn' | 'declined' | 'expired' | 'accepted' | 'confirmed' | 'cancelled';
+type SittingStatus = 'pending' | 'withdrawn' | 'declined' | 'expired' | 'accepted' | 'confirmed' | 'cancelled';
 export type SittingReportCategory = 'sante' | 'non_conforme' | 'comportement' | 'paiement';
 export type ServicePrice = { service: SittingService; price_cents: number };
 
@@ -10,11 +10,13 @@ export type ServicePrice = { service: SittingService; price_cents: number };
 export type SitterResult = {
   sitter_id: string; name: string | null; kind: SitterKind; city: string; bio: string; distance_km: number | null;
   species: string[]; max_weight_kg: number | null; outdoor: SitterOutdoor; services: ServicePrice[]; price_cents: number | null; busy: boolean;
+  /** Photo choisie par le gardien (stockage privé, lue avec la session). */
+  photo: string | null;
 };
 /** Mon profil de gardien, tel qu'enregistré. */
 export type SitterProfile = {
   user_id: string; kind: SitterKind; bio: string; city: string; latitude: number; longitude: number; species: string[];
-  max_weight_kg: number | null; outdoor: SitterOutdoor; active: boolean; created_at: string; updated_at: string;
+  max_weight_kg: number | null; outdoor: SitterOutdoor; active: boolean; photo: string | null; created_at: string; updated_at: string;
 };
 export type SitterProfileDraft = {
   kind: SitterKind; bio: string; city: string; latitude: number; longitude: number; species: string[];
@@ -31,7 +33,7 @@ export type MySitting = {
   pet_id: string; pet_name: string; pet_species: string; pet_breed: string | null; pet_age: string | null; pet_weight: string | null; pet_photo: string | null;
   service: SittingService; starts_at: string; ends_at: string; units: number; unit_price_cents: number; message: string | null; status: SittingStatus;
   cancelled_by: string | null; cancel_note: string | null; responded_at: string | null; paid_at: string | null; created_at: string; updated_at: string;
-  report_id: number | null; report_status: 'open' | 'reviewing' | 'closed' | null; report_at: string | null;
+  report_id: number | null; report_status: 'open' | 'reviewing' | 'closed' | null; report_at: string | null; sitter_photo: string | null;
 };
 export type SittingThread = {
   owner_id: string; sitter_id: string; role: 'owner' | 'sitter'; other_name: string | null; last_text: string | null; last_at: string | null;

@@ -1,5 +1,6 @@
 import type { FurrixClient } from '../services/supabaseClient';
-import { AppError, toDataError } from '../services/errors';
+import { AppError, toDataError, toStorageError } from '../services/errors';
+import { PET_PHOTO_BUCKET, PET_PHOTO_TYPES, validatePhotoFile, type PetPhotoMime } from '../services/petPhotos';
 import type {
   MySitting, SitterProfile, SitterProfileDraft, SitterResult, SitterSearch, SittingMessage, SittingReport, SittingReportCategory,
   SittingRequest, SittingService, SittingThread, SittingUpdate, ServicePrice,
@@ -37,11 +38,14 @@ export async function saveSitterProfile(client: FurrixClient, draft: SitterProfi
   });
   if (error) throw toDataError(error); return data;
 }
+/** Limites anti-spam du serveur (« Trop de … ») : message affichable tel quel ; sinon l'erreur habituelle. */
+const limitError = (error: { message?: string }) =>
+  /^Trop de /.test(error.message ?? '') ? new AppError('rate_limited', error.message!, error) : toDataError(error);
 export async function createSittingRequest(client: FurrixClient, input: { sitter: string; pet: string; service: SittingService; starts: string; ends: string; message: string }, requestId: string): Promise<SittingRequest> {
   const { data, error } = await client.rpc('create_sitting_request', {
     p_sitter: input.sitter, p_pet: input.pet, p_service: input.service, p_starts: input.starts, p_ends: input.ends, p_message: input.message.trim(), p_request: requestId,
   });
-  if (error) throw toDataError(error); return data;
+  if (error) throw limitError(error); return data;
 }
 export async function updateSittingRequest(client: FurrixClient, id: string, action: 'withdraw' | 'accept' | 'decline' | 'cancel', note?: string): Promise<SittingRequest> {
   const { data, error } = await client.rpc('update_sitting_request', { p_id: id, p_action: action, ...(note?.trim() ? { p_note: note.trim() } : {}) });
@@ -65,7 +69,7 @@ export async function loadSittingMessages(client: FurrixClient, owner: string, s
 export async function sendSittingMessage(client: FurrixClient, owner: string, sitter: string, text: string, requestId: string): Promise<SittingMessage> {
   if (!text.trim() || text.trim().length > 2000) throw new AppError('validation', 'Écris entre 1 et 2 000 caractères.');
   const { data, error } = await client.rpc('send_sitting_message', { p_owner: owner, p_sitter: sitter, p_text: text.trim(), p_request: requestId });
-  if (error) throw toDataError(error); return data;
+  if (error) throw limitError(error); return data;
 }
 export async function listSittingUpdates(client: FurrixClient, sittingId: string): Promise<SittingUpdate[]> {
   const { data, error } = await client.from('sitting_updates').select('*').eq('sitting_id', sittingId).order('id', { ascending: false }).limit(50);
@@ -82,4 +86,17 @@ export async function reportSitting(client: FurrixClient, sittingId: string, cat
 export async function blockSittingContact(client: FurrixClient, other: string) {
   const { error } = await client.rpc('block_sitting_contact', { p_other: other });
   if (error) throw toDataError(error);
+}
+
+/** Photo de gardien : déposée dans son dossier privé (<utilisateur>/gardien/), puis enregistrée ; l'ancienne est retirée. */
+export async function setSitterPhoto(client: FurrixClient, userId: string, file: File | Blob): Promise<string> {
+  const problem = validatePhotoFile(file);
+  if (problem) throw new AppError('validation', problem);
+  const path = `${userId}/gardien/${crypto.randomUUID()}.${PET_PHOTO_TYPES[file.type as PetPhotoMime]}`;
+  const upload = await client.storage.from(PET_PHOTO_BUCKET).upload(path, file, { contentType: file.type, upsert: false, cacheControl: '3600' });
+  if (upload.error) throw toStorageError(upload.error);
+  const { data: previous, error } = await client.rpc('set_sitter_photo', { p_path: path });
+  if (error) { await client.storage.from(PET_PHOTO_BUCKET).remove([path]); throw toDataError(error); }
+  if (previous) await client.storage.from(PET_PHOTO_BUCKET).remove([previous]);
+  return path;
 }

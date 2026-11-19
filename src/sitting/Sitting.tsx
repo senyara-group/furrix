@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import {
-  ActionBar, Alert, Button, Card, CheckList, ChatThread, DetailLayout, Field, Input, Log, LogItem, MessageBubble, Note, OptionGroup, PageHeader,
+  ActionBar, Alert, Button, Card, CheckList, Icon, ChatThread, DetailLayout, Field, Input, Log, LogItem, MessageBubble, Note, OptionGroup, PageHeader,
   Recap, RecapRow, Row, Separator, Stack, StatusBadge, Steps, SystemMessage, Text, Textarea, Who, type StepState,
 } from '../design-system';
 import type { FurrixClient } from '../services/supabaseClient';
@@ -18,11 +18,11 @@ const go = (href: string) => { window.location.hash = href; };
 const other = (s: MySitting) => nameOf(s.other_name, s.role === 'owner' ? 'Le gardien' : 'Le propriétaire');
 const petLine = (s: MySitting) => [speciesLabel[s.pet_species] ?? s.pet_species, s.pet_breed, s.pet_age, s.pet_weight ? `${s.pet_weight.replace(/\s*kg$/i, '')} kg` : null].filter(Boolean).join(' · ');
 
-export function Side({ s }: { s: MySitting }) {
+function Side({ client, s }: { client: FurrixClient; s: MySitting }) {
   const name = other(s);
   const subtitle = s.role === 'owner' ? [s.sitter_kind === 'professionnel' ? 'Professionnel' : 'Particulier', s.sitter_city].filter(Boolean).join(' · ') : `Propriétaire de ${s.pet_name}`;
   const paid = s.status === 'confirmed' || s.status === 'cancelled';
-  return <SummaryCard name={name} subtitle={subtitle} service={s.service} starts={s.starts_at} ends={s.ends_at} petName={s.pet_name} unitPrice={s.unit_price_cents} count={s.units} paid={paid} />;
+  return <SummaryCard client={client} photo={s.role === 'owner' ? s.sitter_photo : null} name={name} subtitle={subtitle} service={s.service} starts={s.starts_at} ends={s.ends_at} petName={s.pet_name} unitPrice={s.unit_price_cents} count={s.units} paid={paid} />;
 }
 
 function StepsCard({ phase, title = 'Où en est la garde' }: { phase: Phase; title?: string }) {
@@ -126,10 +126,9 @@ export function SittingView({ client, s, onChange }: { client: FurrixClient; s: 
   } else if (phase === 'accepted' && owner) {
     title = `${name} a accepté ta demande`;
     body = <><StepsCard phase={phase} />
-      <Card><Stack gap={3}><Row><StatusBadge status="todo">Ce n’est pas encore une réservation</StatusBadge></Row><Text variant="h2">Paie pour confirmer la garde</Text>
-        <Text variant="body">{name} est d’accord pour garder {s.pet_name}. La réservation sera confirmée seulement après ton paiement ; d’ici là, ces dates ne sont pas bloquées pour toi.</Text></Stack></Card></>;
+      <Alert tone="ok" title="Ce n’est pas encore une réservation">{name} est d’accord pour garder {s.pet_name}. La réservation sera confirmée après ton paiement ; d’ici là, ces dates ne sont pas bloquées pour toi.</Alert>
+      <PaymentPanel s={s} /></>;
     actions = <ActionBar>
-      <Button as="a" href={gardeHref({ vue: 'paiement', demande: s.id })} variant="ink" icon="card">Payer pour confirmer</Button>
       {write}
       <Button variant="quiet" loading={busy === 'withdraw'} onClick={() => { void run('withdraw'); }}>Ne pas donner suite</Button>
     </ActionBar>;
@@ -166,45 +165,54 @@ export function SittingView({ client, s, onChange }: { client: FurrixClient; s: 
   }
   return <section aria-label={title}>
     <PageHeader back={{ label: 'Mes gardes', onClick: () => go(gardeHref({ vue: 'mes-gardes' })) }} title={title} status={<StatusBadge status={badge.status}>{badge.label}</StatusBadge>} showTitleOnPhone />
-    <DetailLayout aside={<Side s={s} />} actions={actions}>
+    <DetailLayout aside={<Side client={client} s={s} />} actions={actions}>
       {error ? <Alert tone="err" title={error} /> : null}
       {body}
     </DetailLayout>
   </section>;
 }
 
-/** Paiement : écran de design seulement. Aucun prestataire n'est branché ; aucun numéro de carte n'est saisi ni envoyé. */
-export function PaymentView({ s }: { s: MySitting }) {
+/** Paiement (design seul) : aucun prestataire n'est branché ; aucun numéro de carte n'est saisi, enregistré ni envoyé. */
+function PaymentPanel({ s }: { s: MySitting }) {
+  const total = money(s.units * s.unit_price_cents);
+  return <Card className="gd-pay"><Stack gap={5}>
+    <div className="gd-pay__head"><Text variant="h2">Paiement</Text><span className="gd-pay__lock"><Icon name="info" size={16} />Bientôt disponible</span></div>
+    <Recap>
+      <RecapRow label={`${serviceLabel[s.service]} · ${units(s.service, s.units)} × ${price(s.unit_price_cents)}`} value={total} />
+      <RecapRow label="Frais de service Furrix" value="à définir" open />
+      <RecapRow label="À payer maintenant" value={`${total} + frais`} total />
+    </Recap>
+    <Stack gap={2}><Text variant="label" as="p">Moyen de paiement</Text>
+      <OptionGroup aria-label="Moyen de paiement" value="carte" onChange={() => {}} options={[{ value: 'carte', label: 'Carte bancaire' }, { value: 'autre', label: 'Autres moyens (bientôt)', disabled: true }]} /></Stack>
+    <div className="gd-paycard" aria-hidden="true">
+      <Icon name="card" size={26} />
+      <span className="gd-paycard__num fx-num">•••• •••• •••• ••••</span>
+      <span className="gd-paycard__row fx-num"><span>Titulaire de la carte</span><span>MM / AA</span></span>
+    </div>
+    <fieldset className="gd-card" disabled aria-describedby="gd-pay-soon">
+      <legend className="fx-vh">Carte bancaire (bientôt disponible)</legend>
+      <Field label="Numéro de carte"><Input className="fx-num" placeholder="1234 1234 1234 1234" inputMode="numeric" autoComplete="off" /></Field>
+      <div className="gd-card__row">
+        <Field label="Expiration"><Input className="fx-num" placeholder="MM / AA" autoComplete="off" /></Field>
+        <Field label="Code de sécurité"><Input className="fx-num" placeholder="123" autoComplete="off" /></Field>
+      </div>
+      <Field label="Nom sur la carte"><Input placeholder="Prénom Nom" autoComplete="off" /></Field>
+    </fieldset>
+    <Button variant="ink" icon="card" block disabled aria-describedby="gd-pay-soon">Payer {total} + frais</Button>
+    <p id="gd-pay-soon" className="gd-pay__soon">Le paiement en ligne arrive bientôt : rien ne peut être payé ni prélevé pour l’instant, et la garde n’est pas encore réservée. Ce formulaire sera celui du prestataire de paiement retenu ; Furrix ne verra jamais ton numéro de carte.</p>
+    <Note>Les conditions d’annulation, avec le montant remboursable selon la date, seront affichées ici avant le paiement.</Note>
+  </Stack></Card>;
+}
+
+/** Écran Paiement (lien direct) : le même formulaire que sur la demande acceptée. */
+export function PaymentView({ client, s }: { client: FurrixClient; s: MySitting }) {
   const name = other(s);
   return <section aria-label="Paiement">
     <PageHeader back={{ label: 'Demande acceptée', onClick: () => go(gardeHref({ vue: 'suivi', demande: s.id })) }} title="Payer pour confirmer" status={<StatusBadge status="todo">Acceptée · paiement à faire</StatusBadge>} showTitleOnPhone />
-    <DetailLayout
-      aside={<Card calm><Stack gap={3}>
-        <Who initials={name.charAt(0).toUpperCase()} name={name} subtitle={[s.sitter_kind === 'professionnel' ? 'Professionnel' : 'Particulier', s.sitter_city].filter(Boolean).join(' · ')} />
-        <Separator /><p className="gd-ln"><b className="fx-num">{period(s.starts_at, s.ends_at)}</b></p>
-        <p className="fx-t-body-sm">{units(s.service, s.units)} · {serviceLabel[s.service].toLowerCase()} · {s.pet_name}</p>
-        <Separator /><Recap>
-          <RecapRow label={`${serviceLabel[s.service]} · ${units(s.service, s.units)} × ${price(s.unit_price_cents)}`} value={money(s.units * s.unit_price_cents)} />
-          <RecapRow label="Frais de service Furrix" value="à définir" open />
-          <RecapRow label="À payer maintenant" value={`${money(s.units * s.unit_price_cents)} + frais`} total />
-        </Recap>
-        <p className="fx-t-body-sm">Le montant exact, frais compris, sera affiché ici avant que tu valides.</p>
-      </Stack></Card>}
-      actions={<ActionBar><Button variant="ink" icon="card" disabled aria-describedby="gd-pay-soon">Payer et confirmer</Button>
-        <Button as="a" href={chatHref(s.owner_id, s.sitter_id)} variant="out" icon="message">Écrire à {name}</Button></ActionBar>}>
+    <DetailLayout aside={<Side client={client} s={s} />}
+      actions={<ActionBar><Button as="a" href={chatHref(s.owner_id, s.sitter_id)} variant="out" icon="message">Écrire à {name}</Button></ActionBar>}>
       <StepsCard phase="accepted" />
-      <div id="gd-pay-soon"><Alert tone="info" title="Le paiement en ligne arrive bientôt">Le prestataire de paiement n’est pas encore choisi : rien ne peut être payé ni prélevé pour l’instant, et la garde n’est pas réservée. L’accord de {name} reste affiché ici.</Alert></div>
-      <Card calm><Stack gap={4}><Text variant="kicker">Moyen de paiement</Text>
-        <fieldset className="gd-card" disabled aria-label="Carte bancaire (bientôt disponible)">
-          <Field label="Carte bancaire"><Input className="fx-num" placeholder="1234 1234 1234 1234" inputMode="numeric" autoComplete="off" /></Field>
-          <div className="gd-card__row">
-            <Field label="Expiration"><Input className="fx-num" placeholder="MM / AA" autoComplete="off" /></Field>
-            <Field label="Code"><Input className="fx-num" placeholder="123" autoComplete="off" /></Field>
-          </div>
-        </fieldset>
-        <Text variant="body-sm">Ce formulaire sera celui du prestataire retenu : Furrix ne verra jamais le numéro de carte.</Text>
-      </Stack></Card>
-      <Note>Les conditions d’annulation, avec le montant remboursable selon la date, seront affichées ici avant le paiement.</Note>
+      <PaymentPanel s={s} />
     </DetailLayout>
   </section>;
 }
@@ -251,7 +259,7 @@ export function ProblemView({ client, s, onChange }: { client: FurrixClient; s: 
   const back = { label: 'Retour à la garde', onClick: () => go(gardeHref({ vue: 'suivi', demande: s.id })) };
   if (s.report_id) return <section aria-label="Litige ouvert">
     <PageHeader back={back} title="Litige ouvert" status={<StatusBadge status="alert">En cours d’examen</StatusBadge>} showTitleOnPhone />
-    <DetailLayout aside={<Side s={s} />} actions={<ActionBar><Button as="a" href={gardeHref({ vue: 'suivi', demande: s.id })} variant="out">Retour à la garde</Button></ActionBar>}>
+    <DetailLayout aside={<Side client={client} s={s} />} actions={<ActionBar><Button as="a" href={gardeHref({ vue: 'suivi', demande: s.id })} variant="out">Retour à la garde</Button></ActionBar>}>
       <Card calm><Stack gap={3}><Text variant="kicker">Traitement du litige</Text><Steps label="Étapes du litige" steps={disputeSteps()} /></Stack></Card>
       <Card><Stack gap={3}><Text variant="h2">Ton signalement est enregistré</Text>
         <Text variant="body">Dossier n° {s.report_id} ouvert le {stamp(s.report_at!)}. L’équipe Furrix l’examine et peut demander sa version à {name}.</Text>
@@ -276,7 +284,7 @@ export function ProblemView({ client, s, onChange }: { client: FurrixClient; s: 
   };
   return <section aria-label="Signaler un problème">
     <PageHeader back={back} title="Signaler un problème" showTitleOnPhone />
-    <DetailLayout aside={<Side s={s} />}
+    <DetailLayout aside={<Side client={client} s={s} />}
       actions={<ActionBar><Button variant="ink" icon="send" loading={busy === 'report'} disabled={busy === 'block'} onClick={() => { void send(); }}>Envoyer le signalement</Button>
         <Button as="a" href={gardeHref({ vue: 'suivi', demande: s.id })} variant="out">Annuler</Button></ActionBar>}>
       <Alert tone="warn" title={`Urgence pour ${s.pet_name} ?`}>Contacte d’abord un vétérinaire ou les secours. Ce formulaire ne remplace pas une aide immédiate.</Alert>

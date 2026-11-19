@@ -1,27 +1,29 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFakeSupabase, fakeSession } from '../test/fakeSupabase';
 import type { PetRow } from '../types/database';
 import GardeArea from './Garde';
 import MessagesArea from '../meetings/AfterMatch';
 import * as service from './service';
+import { AppError } from '../services/errors';
 import * as meetings from '../meetings/service';
 import { countUnits, phaseOf } from './format';
 import type { MySitting, SitterResult, SittingRequest } from './types';
 
 const me = fakeSession().user.id;
-const pets = [{ id: 'pepite', owner_id: me, name: 'Pépite', species: 'chien', weight: '12' }, { id: 'mimi', owner_id: me, name: 'Mimi', species: 'chat' }] as PetRow[];
+const pets = [{ id: 'pepite', owner_id: me, name: 'Pépite', species: 'chien', weight: '12' }, { id: 'mimi', owner_id: me, name: 'Mimi', species: 'chat' },
+  { id: 'rex', owner_id: me, name: 'Rex', species: 'chien', weight: '32 kg' }] as PetRow[];
 const local = (days: number, h: number) => { const d = new Date(Date.now() + days * 86400_000); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(h).padStart(2, '0')}:00`; };
 const iso = (days: number, h: number) => new Date(local(days, h)).toISOString();
 const sam: SitterResult = {
   sitter_id: 's1', name: 'Sam', kind: 'particulier', city: 'Lambersart', bio: 'Maison avec jardin, balades matin et soir le long de la Deûle.', distance_km: 3,
-  species: ['chien'], max_weight_kg: 15, outdoor: 'jardin_clos', services: [{ service: 'chez_gardien', price_cents: 2000 }, { service: 'visite', price_cents: 1200 }], price_cents: 2000, busy: false,
+  species: ['chien'], max_weight_kg: 15, outdoor: 'jardin_clos', services: [{ service: 'chez_gardien', price_cents: 2000 }, { service: 'visite', price_cents: 1200 }], price_cents: 2000, busy: false, photo: null,
 };
 const sitting = (over: Partial<MySitting> = {}): MySitting => ({
   id: 'g1', role: 'owner', owner_id: me, sitter_id: 's1', other_name: 'Sam', sitter_kind: 'particulier', sitter_city: 'Lambersart', pet_id: 'pepite', pet_name: 'Pépite',
   pet_species: 'chien', pet_breed: 'Croisée', pet_age: '4 ans', pet_weight: '12', pet_photo: null, service: 'chez_gardien', starts_at: iso(3, 18), ends_at: iso(5, 18),
   units: 2, unit_price_cents: 2000, message: 'Elle tire un peu en laisse.', status: 'pending', cancelled_by: null, cancel_note: null, responded_at: null, paid_at: null,
-  created_at: '2026-11-19T10:00:00Z', updated_at: '2026-11-19T10:00:00Z', report_id: null, report_status: null, report_at: null, ...over,
+  created_at: '2026-11-19T10:00:00Z', updated_at: '2026-11-19T10:00:00Z', report_id: null, report_status: null, report_at: null, sitter_photo: null, ...over,
 });
 const open = (hash: string) => {
   window.history.replaceState(null, '', `/${hash}`);
@@ -64,6 +66,28 @@ describe('garde', () => {
     expect(await screen.findByRole('button', { name: 'Demander une garde' })).toBeTruthy();
   });
 
+  it('filtres : type de gardien, prix maximum et tri, sans nouvelle recherche', async () => {
+    withPlace();
+    const pro: SitterResult = { ...sam, sitter_id: 's2', name: 'Pension des Oyats', kind: 'professionnel', price_cents: 2800, distance_km: 9, outdoor: 'jardin' };
+    const cheap: SitterResult = { ...sam, sitter_id: 's3', name: 'Inès', price_cents: 1200, distance_km: 2, outdoor: 'sans_jardin' };
+    const search = vi.spyOn(service, 'searchSitters').mockResolvedValue([cheap, sam, pro]);
+    open('#/garde');
+    await screen.findByText('3 gardiens disponibles');
+    expect(screen.queryByText(/Des voisins et des professionnels/)).toBeNull();
+    expect(screen.queryByRole('link', { name: /Proposer des gardes/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Filtres' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Professionnel' }));
+    await screen.findByText('1 gardien disponible');
+    expect(screen.getByRole('button', { name: /Pension des Oyats.*Professionnel/ })).toBeTruthy();
+    fireEvent.click(within(screen.getByRole('group', { name: 'Type de gardien' })).getByRole('button', { name: 'Tous' }));
+    fireEvent.click(screen.getByRole('button', { name: '20 €' }));
+    await screen.findByText('2 gardiens disponibles');
+    fireEvent.click(screen.getByRole('button', { name: 'Les moins chers' }));
+    const rows = screen.getAllByRole('button', { name: /Particulier.*Chez le gardien/ });
+    expect(rows[0]!.textContent).toContain('Inès');
+    expect(search).toHaveBeenCalledTimes(1);
+  });
+
   it('demande : aucun paiement, brouillon gardé et même identifiant après un échec', async () => {
     withPlace();
     vi.spyOn(service, 'getSitter').mockResolvedValue(sam);
@@ -73,7 +97,11 @@ describe('garde', () => {
     open('#/garde?vue=demander&gardien=s1');
     await screen.findByRole('heading', { name: 'Demander une garde à Sam' });
     expect(screen.getByText('Aucun paiement maintenant')).toBeTruthy();
-    expect((screen.getByRole('button', { name: 'Mimi (non accepté)' }) as HTMLButtonElement).disabled).toBe(true);
+    const animal = screen.getByLabelText('Animal') as HTMLSelectElement;
+    expect([...animal.options].map((o) => o.text)).toEqual(['Pépite']);
+    expect([...(screen.getByLabelText('Formule') as HTMLSelectElement).options].map((o) => o.value)).toEqual(['chez_gardien', 'visite']);
+    expect(screen.getByText('Début de la garde')).toBeTruthy();
+    expect(screen.getByText('Fin de la garde')).toBeTruthy();
     expect(screen.getAllByText(/^40,00\s€$/).length).toBeGreaterThan(0);
     fireEvent.change(screen.getByLabelText(/Message à Sam/), { target: { value: 'Elle mange deux fois par jour.' } });
     fireEvent.click(screen.getByRole('button', { name: 'Envoyer la demande' }));
@@ -82,6 +110,16 @@ describe('garde', () => {
     await waitFor(() => expect(window.location.hash).toBe('#/garde?vue=suivi&demande=g1'));
     expect(create.mock.calls[0]![2]).toBe(create.mock.calls[1]![2]);
     expect(create.mock.calls[1]![1]).toMatchObject({ sitter: 's1', pet: 'pepite', service: 'chez_gardien', message: 'Elle mange deux fois par jour.' });
+  });
+
+  it('demande : la limite du serveur est expliquée telle quelle', async () => {
+    withPlace();
+    vi.spyOn(service, 'getSitter').mockResolvedValue(sam);
+    vi.spyOn(service, 'createSittingRequest').mockRejectedValue(new AppError('rate_limited', 'Trop de demandes aujourd’hui'));
+    open('#/garde?vue=demander&gardien=s1');
+    await screen.findByRole('heading', { name: 'Demander une garde à Sam' });
+    fireEvent.click(screen.getByRole('button', { name: 'Envoyer la demande' }));
+    await screen.findByText(/Trop de demandes aujourd’hui\. Réessaie demain/);
   });
 
   it('gardien : voit l’animal, ce qu’il recevra, et accepte', async () => {
@@ -96,13 +134,21 @@ describe('garde', () => {
     expect(update).toHaveBeenCalledWith(expect.anything(), 'g1', 'accept');
   });
 
+  it('demande acceptée : le formulaire de paiement est sur la page', async () => {
+    vi.spyOn(service, 'listMySittings').mockResolvedValue([sitting({ status: 'accepted', responded_at: '2026-11-19T11:00:00Z' })]);
+    open('#/garde?demande=g1');
+    await screen.findByRole('heading', { name: 'Sam a accepté ta demande' });
+    expect(screen.getByLabelText('Numéro de carte')).toBeTruthy();
+    expect((screen.getByRole('button', { name: /^Payer 40,00/ }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it('paiement : design seul, aucun champ de carte saisissable et rien n’est envoyé', async () => {
     vi.spyOn(service, 'listMySittings').mockResolvedValue([sitting({ status: 'accepted', responded_at: '2026-11-19T11:00:00Z' })]);
     const fake = open('#/garde?vue=paiement&demande=g1');
     await screen.findByRole('heading', { name: 'Payer pour confirmer' });
-    expect((screen.getByRole('button', { name: 'Payer et confirmer' }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByLabelText('Carte bancaire') as HTMLInputElement).closest('fieldset')!.disabled).toBe(true);
-    expect(screen.getByText('Le paiement en ligne arrive bientôt')).toBeTruthy();
+    expect((screen.getByRole('button', { name: /^Payer 40,00/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByLabelText('Numéro de carte') as HTMLInputElement).closest('fieldset')!.disabled).toBe(true);
+    expect(screen.getByText(/Le paiement en ligne arrive bientôt/)).toBeTruthy();
     expect(fake.raw.rpc).not.toHaveBeenCalled();
   });
 

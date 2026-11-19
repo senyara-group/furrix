@@ -44,6 +44,16 @@ test('garde : profil, recherche, demande, accord, conversation, nouvelles, annul
   assert.equal((await search(A,{lat:null,lng:null,sitter:S}))[0].distance_km,null);
   await assert.rejects(search(A,{lat:null,lng:null}),/Recherche invalide/);
  });
+ await t.test('photo du gardien : son dossier seulement, visible des autres comptes bêta',async()=>{
+  await assert.rejects(as(A,'select set_sitter_photo($1)',[`${A}/gardien/photo.jpg`]),/Profil de gardien requis/);
+  await assert.rejects(as(S,'select set_sitter_photo($1)',[`${A}/gardien/photo.jpg`]),/Photo invalide/);
+  await assert.rejects(as(S,'select set_sitter_photo($1)',[`${S}/autre/photo.jpg`]),/Photo invalide/);
+  assert.equal((await as(S,'select set_sitter_photo($1) old',[`${S}/gardien/photo.jpg`]))[0].old,null);
+  assert.equal((await search(A))[0].photo,`${S}/gardien/photo.jpg`);
+  assert.equal((await as(A,'select sitter_photo_visible($1) ok',[`${S}/gardien/photo.jpg`]))[0].ok,true);
+  assert.equal((await as(A,'select sitter_photo_visible($1) ok',[`${S}/gardien/autre.jpg`]))[0].ok,false);
+  assert.equal((await as(T,'select sitter_photo_visible($1) ok',[`${S}/gardien/photo.jpg`]))[0].ok,false);
+ });
  await t.test('demande : animal à soi, espèce et formule du gardien, dates à venir, rejouable, une seule ouverte',async()=>{
   await assert.rejects(ask(A,PX,at(2),at(4),R(1)),/Animal non autorisé/);
   await assert.rejects(ask(A,PCAT,at(2),at(4),R(1)),/Gardien indisponible/);
@@ -112,6 +122,21 @@ test('garde : profil, recherche, demande, accord, conversation, nouvelles, annul
   assert.equal((await as(A,'select * from list_my_sittings($1)',[request.id])).length,1);
   const [cancelled]=await act(A,request.id,'cancel','Imprévu');
   assert.equal(cancelled.status,'cancelled');assert.equal(cancelled.cancelled_by,A);
+ });
+ await t.test('limites : 30 messages par 10 minutes, 20 demandes par jour, le rejeu passe toujours',async()=>{
+  const M=(n)=>`40000000-0000-0000-0000-${String(n).padStart(12,'0')}`;
+  const send=(n)=>as(X,'select * from send_sitting_message($1,$2,$3,$4)',[X,S,'Bonjour '+n,M(n)]);
+  const before=Number((await db.query(`select count(*) n from sitting_messages where sender_id='${X}'`)).rows[0].n);
+  for(let n=1;n<=30-before;n++)await send(n);
+  await assert.rejects(send(31),/Trop de messages/);
+  assert.equal((await send(1))[0].text,'Bonjour 1');
+  await db.exec(`insert into sitting_requests(owner_id,sitter_id,pet_id,service,starts_at,ends_at,units,unit_price_cents,status,request_id)
+   select '${X}','${S}','${PX}','chez_gardien',now()+interval '3 days',now()+interval '4 days',1,2000,'withdrawn',gen_random_uuid() from generate_series(1,20)`);
+  await assert.rejects(ask(X,PX,at(30),at(31),M(99)),/Trop de demandes/);
+ });
+ await t.test('recherche : le préfiltre par zone garde les gardiens au bord du rayon',async()=>{
+  assert.equal((await search(X,{radius:4}))[0]?.sitter_id,S);
+  assert.equal((await search(X,{radius:3})).length,0);
  });
  }finally{await db.close();}
 });

@@ -54,7 +54,7 @@ function SitterSpace({ client, pets, sitterId, vue, cached, criteria }: {
   </EmptyState>;
   if (vue === 'demander') return <RequestForm client={client} sitter={sitter} pets={pets} criteria={criteria} onBack={back}
     onSent={(r) => go({ vue: 'suivi', demande: r.id })} />;
-  return <SitterFiche sitter={sitter} service={criteria.service} onBack={back} onAsk={() => go({ vue: 'demander', gardien: sitterId })}
+  return <SitterFiche client={client} sitter={sitter} service={criteria.service} onBack={back} onAsk={() => go({ vue: 'demander', gardien: sitterId })}
     onWrite={() => go({ vue: 'conversation', gardien: sitterId, proprio: undefined })} />;
 }
 
@@ -81,7 +81,7 @@ function SittingSpace({ client, id, vue }: { client: FurrixClient; id: string; v
     Cette demande n’existe pas ou ne te concerne pas.
   </EmptyState>;
   const update = (next: MySitting) => setSitting(next);
-  if (vue === 'paiement' && sitting.role === 'owner' && sitting.status === 'accepted') return <PaymentView s={sitting} />;
+  if (vue === 'paiement' && sitting.role === 'owner' && sitting.status === 'accepted') return <PaymentView client={client} s={sitting} />;
   if (vue === 'annuler' && sitting.status === 'confirmed' && new Date(sitting.ends_at).getTime() > Date.now()) return <CancelView client={client} s={sitting} onChange={update} />;
   if (vue === 'probleme') return <ProblemView client={client} s={sitting} onChange={update} />;
   return <SittingView key={sitting.id + sitting.status} client={client} s={sitting} onChange={update} />;
@@ -92,13 +92,7 @@ export default function GardeArea({ client, ownerId, pets }: { client: FurrixCli
   const params = useGardeParams();
   const [criteria, setCriteria] = useCriteria(pets);
   const [opened, setOpened] = useState<SitterResult | null>(null);
-  const [isSitter, setIsSitter] = useState(false);
   useEffect(() => { window.scrollTo({ top: 0 }); }, [params.vue, params.gardien, params.demande]);
-  useEffect(() => {
-    let current = true;
-    void client.from('sitter_profiles').select('user_id').eq('user_id', ownerId).maybeSingle().then(({ data }) => { if (current) setIsSitter(!!data); });
-    return () => { current = false; };
-  }, [client, ownerId, params.vue]);
   const back = useCallback(() => go({}), []);
   const listTitle = params.vue === 'mes-gardes' ? 'Mes gardes' : params.vue === 'profil' ? 'Profil de gardien' : params.vue === 'conversation' ? 'Conversation' : null;
   usePhoneBar(useMemo(() => listTitle ? { title: listTitle, back: { label: 'Faire garder', onClick: back } } : null, [listTitle, back]));
@@ -109,7 +103,7 @@ export default function GardeArea({ client, ownerId, pets }: { client: FurrixCli
   else if (params.vue === 'conversation' && params.gardien) content = <SittingChat key={`${params.proprio ?? ownerId}:${params.gardien}`} client={client} me={ownerId} owner={params.proprio ?? ownerId} sitter={params.gardien} />;
   else if (params.demande) content = <SittingSpace key={params.demande} client={client} id={params.demande} vue={params.vue} />;
   else if (params.gardien) content = <SitterSpace key={params.gardien} client={client} pets={pets} sitterId={params.gardien} vue={params.vue} cached={opened} criteria={criteria} />;
-  else content = <SearchView client={client} pets={pets} criteria={criteria} setCriteria={setCriteria} sitterSince={isSitter}
+  else content = <SearchView client={client} pets={pets} criteria={criteria} setCriteria={setCriteria}
     onOpen={(s) => { setOpened(s); go({ vue: 'fiche', gardien: s.sitter_id }); }} />;
   return <FurrixScope className="gd-root"><Page>{content}</Page></FurrixScope>;
 }

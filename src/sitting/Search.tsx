@@ -8,9 +8,10 @@ import type { FurrixClient } from '../services/supabaseClient';
 import { approximateLocation, locateTown, LocationError, locationMessage } from '../meetings/location';
 import { dayKey, SlotField } from '../meetings/SlotField';
 import { searchSitters } from './service';
+import { usePetPhotoUrl } from '../meetings/usePetPhotoUrl';
 import { countUnits, initial, kindLabel, nameOf, price, SERVICES, serviceLabel, shortPeriod, unitLabel, units } from './format';
 import { gardeHref } from './links';
-import type { SitterResult, SittingService } from './types';
+import type { SitterKind, SitterResult, SittingService } from './types';
 
 /** Critères de recherche, gardés dans l'onglet (jamais envoyés ailleurs qu'à la recherche). */
 export type Criteria = { pet: string | null; service: SittingService; starts: string; ends: string; radius: number; place: { label: string; latitude: number; longitude: number } | null };
@@ -41,9 +42,10 @@ function spot(id: string, km: number | null, radius: number) {
   return { x: clamp(50 + r * Math.cos(angle)), y: clamp(48 + r * Math.sin(angle) * 0.8) };
 }
 
-export function SitterRow({ sitter, service, onOpen }: { sitter: SitterResult; service: SittingService; onOpen: () => void }) {
+function SitterRow({ client, sitter, service, onOpen }: { client: FurrixClient; sitter: SitterResult; service: SittingService; onOpen: () => void }) {
   const cents = sitter.price_cents ?? sitter.services.find((s) => s.service === service)?.price_cents;
-  return <li><ResultRow onClick={onOpen} initials={initial(sitter.name)} name={nameOf(sitter.name)}
+  const url = usePetPhotoUrl(client, sitter.photo);
+  return <li><ResultRow onClick={onOpen} photo={url ? { src: url, alt: '' } : undefined} initials={url ? undefined : initial(sitter.name)} name={nameOf(sitter.name)}
     tag={<Tag kind={sitter.kind === 'professionnel' ? 'pro' : undefined}>{kindLabel[sitter.kind]}</Tag>}
     meta={[serviceLabel[service], sitter.city, sitter.distance_km !== null ? `≈ ${sitter.distance_km} km` : null].filter(Boolean).join(' · ')}
     price={cents ? { value: price(cents), unit: `/ ${unitLabel[service][0]}` } : undefined} /></li>;
@@ -65,8 +67,8 @@ function CriteriaPanel({ pets, criteria, onApply, onClose }: { pets: PetRow[]; c
     finally { setLocating(null); }
   };
   const apply = () => {
-    if (!future(draft.starts)) { setDateError('Choisis une arrivée à venir.'); return; }
-    if (!draft.ends || new Date(draft.ends) <= new Date(draft.starts)) { setDateError('Le départ doit suivre l’arrivée.'); return; }
+    if (!future(draft.starts)) { setDateError('Choisis un début de garde à venir.'); return; }
+    if (!draft.ends || new Date(draft.ends) <= new Date(draft.starts)) { setDateError('La fin de la garde doit suivre son début.'); return; }
     if (new Date(draft.ends).getTime() - new Date(draft.starts).getTime() > 60 * 86400_000) { setDateError('Une garde dure 60 jours au plus.'); return; }
     if (!draft.place) { setError('Indique une ville ou utilise ta position.'); return; }
     setDateError(''); onApply(draft);
@@ -75,8 +77,8 @@ function CriteriaPanel({ pets, criteria, onApply, onClose }: { pets: PetRow[]; c
     {pets.length > 1 ? <Stack gap={2}><Text variant="label" as="p">Animal</Text>
       <OptionGroup aria-label="Animal" value={draft.pet} onChange={(pet) => set({ pet })} options={pets.map((p) => ({ value: p.id, label: p.name }))} /></Stack> : null}
     <div className="gd-dates">
-      <Stack gap={2}><Text variant="label" as="p">Arrivée</Text><SlotField label="Arrivée" value={draft.starts} onChange={(starts) => set({ starts, ends: draft.ends && new Date(draft.ends) > new Date(starts) ? draft.ends : '' })} /></Stack>
-      <Stack gap={2}><Text variant="label" as="p">Départ</Text><SlotField label="Départ" value={draft.ends} min={draft.starts} placeholder="Choisir le retour" onChange={(ends) => set({ ends })} /></Stack>
+      <Stack gap={2}><Text variant="label" as="p">Début de la garde</Text><SlotField label="Début de la garde" value={draft.starts} onChange={(starts) => set({ starts, ends: draft.ends && new Date(draft.ends) > new Date(starts) ? draft.ends : '' })} /></Stack>
+      <Stack gap={2}><Text variant="label" as="p">Fin de la garde</Text><SlotField label="Fin de la garde" value={draft.ends} min={draft.starts} placeholder="Choisir la fin" onChange={(ends) => set({ ends })} /></Stack>
     </div>
     {dateError ? <p className="fx-field__error" role="alert">{dateError}</p> : null}
     <Stack gap={2}>
@@ -99,15 +101,51 @@ function CriteriaPanel({ pets, criteria, onApply, onClose }: { pets: PetRow[]; c
   </Stack></Card>;
 }
 
+/* Filtres des résultats : appliqués sur la liste déjà chargée (statut, tarif, extérieur, tri). */
+type Filters = { kind: '' | SitterKind; max: string; outdoor: '' | 'jardin' | 'jardin_clos'; sort: 'distance' | 'prix' };
+const noFilters: Filters = { kind: '', max: '', outdoor: '', sort: 'distance' };
+const activeFilters = (f: Filters) => [f.kind, f.max, f.outdoor, f.sort !== 'distance' ? f.sort : ''].filter(Boolean).length;
+const priceFor = (s: SitterResult, service: SittingService) => s.price_cents ?? s.services.find((x) => x.service === service)?.price_cents ?? null;
+function applyFilters(list: SitterResult[], f: Filters, service: SittingService) {
+  const kept = list.filter((s) => (!f.kind || s.kind === f.kind)
+    && (!f.max || (priceFor(s, service) ?? Infinity) <= Number(f.max) * 100)
+    && (!f.outdoor || (f.outdoor === 'jardin_clos' ? s.outdoor === 'jardin_clos' : s.outdoor !== 'sans_jardin')));
+  return f.sort === 'prix' ? [...kept].sort((a, b) => (priceFor(a, service) ?? Infinity) - (priceFor(b, service) ?? Infinity)) : kept;
+}
+
+function FilterPanel({ filters, onChange, onClose }: { filters: Filters; onChange: (f: Filters) => void; onClose: () => void }) {
+  const set = (next: Partial<Filters>) => onChange({ ...filters, ...next });
+  return <Card calm className="gd-filters"><Stack gap={4}>
+    <Stack gap={2}><Text variant="label" as="p">Gardien</Text>
+      <OptionGroup aria-label="Type de gardien" value={filters.kind} onChange={(kind) => set({ kind })}
+        options={[{ value: '', label: 'Tous' }, { value: 'particulier', label: 'Particulier' }, { value: 'professionnel', label: 'Professionnel' }]} /></Stack>
+    <Stack gap={2}><Text variant="label" as="p">Prix maximum</Text>
+      <OptionGroup aria-label="Prix maximum" value={filters.max} onChange={(max) => set({ max })}
+        options={[{ value: '', label: 'Tous' }, ...['15', '20', '30', '50'].map((v) => ({ value: v, label: `${v} €` }))]} /></Stack>
+    <Stack gap={2}><Text variant="label" as="p">Extérieur</Text>
+      <OptionGroup aria-label="Extérieur" value={filters.outdoor} onChange={(outdoor) => set({ outdoor })}
+        options={[{ value: '', label: 'Peu importe' }, { value: 'jardin', label: 'Avec jardin' }, { value: 'jardin_clos', label: 'Jardin clos' }]} /></Stack>
+    <Stack gap={2}><Text variant="label" as="p">Trier par</Text>
+      <OptionGroup aria-label="Trier par" value={filters.sort} onChange={(sort) => set({ sort })}
+        options={[{ value: 'distance', label: 'Les plus proches' }, { value: 'prix', label: 'Les moins chers' }]} /></Stack>
+    <Row className="gd-criteria__acts">
+      <Button variant="ink" size="sm" onClick={onClose}>Voir les résultats</Button>
+      {activeFilters(filters) ? <Button variant="quiet" size="sm" onClick={() => onChange(noFilters)}>Tout effacer</Button> : null}
+    </Row>
+  </Stack></Card>;
+}
+
 /** Recherche de garde : dates et lieu, formule, résultats et carte illustrative (planche « Recherche »). */
-export function SearchView({ client, pets, criteria, setCriteria, onOpen, sitterSince }: {
-  client: FurrixClient; pets: PetRow[]; criteria: Criteria; setCriteria: (c: Criteria) => void; onOpen: (s: SitterResult) => void; sitterSince: boolean;
+export function SearchView({ client, pets, criteria, setCriteria, onOpen }: {
+  client: FurrixClient; pets: PetRow[]; criteria: Criteria; setCriteria: (c: Criteria) => void; onOpen: (s: SitterResult) => void;
 }) {
   const pet = pets.find((p) => p.id === criteria.pet) ?? pets[0];
   const [editing, setEditing] = useState(!criteria.place);
   const [state, setState] = useState<{ status: 'idle' | 'loading' | 'ready' | 'error'; data: SitterResult[] }>({ status: 'idle', data: [] });
   const [attempt, setAttempt] = useState(0);
   const [hot, setHot] = useState<string | null>(null);
+  const [filters, setFilters] = useState<Filters>(noFilters);
+  const [filtering, setFiltering] = useState(false);
   const ready = !!criteria.place && future(criteria.starts) && !!criteria.ends;
   const query = useMemo(() => ready ? { latitude: criteria.place!.latitude, longitude: criteria.place!.longitude, radius: criteria.radius, service: criteria.service,
     starts: isoOf(criteria.starts), ends: isoOf(criteria.ends), species: pet?.species } : null,
@@ -122,10 +160,9 @@ export function SearchView({ client, pets, criteria, setCriteria, onOpen, sitter
   }, [client, query, attempt]);
 
   const head = <>
-    <PageHeader title={pet ? `Faire garder ${pet.name}` : 'Faire garder ton animal'} subtitle="Des voisins et des professionnels, avec des tarifs affichés avant toute demande." showTitleOnPhone />
+    <PageHeader title={pet ? `Faire garder ${pet.name}` : 'Faire garder ton animal'} showTitleOnPhone />
     <Row className="gd-shortcuts">
       <Button as="a" href={gardeHref({ vue: 'mes-gardes' })} variant="out" size="sm" icon="calendar">Mes gardes</Button>
-      <Button as="a" href={gardeHref({ vue: 'profil' })} variant="quiet" size="sm" icon="homeDoor">{sitterSince ? 'Mon profil de gardien' : 'Proposer des gardes'}</Button>
     </Row>
   </>;
   if (!pets.length) return <section aria-label="Recherche">{head}
@@ -136,7 +173,8 @@ export function SearchView({ client, pets, criteria, setCriteria, onOpen, sitter
   const n = countUnits(criteria.service, criteria.starts, criteria.ends || criteria.starts);
   const whenTitle = criteria.ends ? shortPeriod(isoOf(criteria.starts), isoOf(criteria.ends)) : 'Choisis tes dates';
   const whenSub = [criteria.ends ? units(criteria.service, n) : null, criteria.place?.label.split(' · ')[0]].filter(Boolean).join(' · ') || 'Lieu à préciser';
-  const results = state.data;
+  const results = applyFilters(state.data, filters, criteria.service);
+  const active = activeFilters(filters);
   const map = <MapFrame className="gd-map" aria-label="Carte illustrative des gardiens">
     <MapMe x={50} y={48} />
     {results.map((s) => { const p = spot(s.sitter_id, s.distance_km, criteria.radius); return <MapMarker key={s.sitter_id} x={p.x} y={p.y} hot={hot === s.sitter_id}
@@ -163,8 +201,13 @@ export function SearchView({ client, pets, criteria, setCriteria, onOpen, sitter
           Personne ne propose encore « {serviceLabel[criteria.service].toLowerCase()} » dans un rayon de {criteria.radius} km pour ces dates.
         </EmptyState>
       : <div ref={list}><SearchLayout map={map} results={<>
-          <ListHeader title={`${results.length} gardien${results.length > 1 ? 's' : ''} disponible${results.length > 1 ? 's' : ''}`} />
-          <ResultList>{results.map((s) => <SitterRow key={s.sitter_id} sitter={s} service={criteria.service} onOpen={() => onOpen(s)} />)}</ResultList>
+          <ListHeader title={`${results.length} gardien${results.length > 1 ? 's' : ''} disponible${results.length > 1 ? 's' : ''}`}
+            action={<Button variant={active ? 'ink' : 'out'} size="sm" icon="sliders" aria-expanded={filtering} onClick={() => setFiltering((f) => !f)}>{active ? `Filtres (${active})` : 'Filtres'}</Button>} />
+          {filtering ? <FilterPanel filters={filters} onChange={setFilters} onClose={() => setFiltering(false)} /> : null}
+          {results.length ? <ResultList>{results.map((s) => <SitterRow key={s.sitter_id} client={client} sitter={s} service={criteria.service} onOpen={() => onOpen(s)} />)}</ResultList>
+            : <EmptyState icon="sliders" title="Aucun gardien avec ces filtres" action={<Button variant="out" size="sm" onClick={() => setFilters(noFilters)}>Retirer les filtres</Button>}>
+                {state.data.length} gardien{state.data.length > 1 ? 's sont disponibles' : ' est disponible'} à ces dates sans filtre.
+              </EmptyState>}
           <Note className="gd-note">Tarifs fixés par chaque gardien, hors frais de service. Les frais, encore à définir, seront affichés avant toute demande.</Note>
         </>} /></div>}
   </section>;
