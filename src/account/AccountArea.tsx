@@ -1,3 +1,4 @@
+import {AndroidPushSettings} from '../push/PushProvider';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Alert, Button, Card, Field, FurrixScope, Input, Note, Stack } from '../design-system';
 import type { FurrixClient } from '../services/supabaseClient';
@@ -48,7 +49,7 @@ export default function AccountArea({ client, owner, email, profile, onSaved, on
       <Button type="submit" loading={saving} disabled={leaving}>Enregistrer mon profil</Button>
     </Stack></form></Card>
     <Card><SectorSettings client={client} owner={owner} activationVariant="out" /></Card>
-    <Card><Stack gap={3}><h2>Cet appareil</h2><Note>La déconnexion ferme ta session sur cet appareil. Tes autres appareils restent connectés.</Note>
+    <AndroidPushSettings/><Card><Stack gap={3}><h2>Cet appareil</h2><Note>La déconnexion ferme ta session sur cet appareil. Tes autres appareils restent connectés.</Note>
       <Button variant="out" loading={leaving} disabled={saving} onClick={() => { void signOut(); }}>Déconnecter cet appareil</Button>
       {signOutError && <Alert tone="err" title={signOutError} />}
     </Stack></Card>

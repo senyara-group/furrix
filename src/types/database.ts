@@ -104,6 +104,9 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      register_android_push: { Args: { p_device: string; p_owner: string; p_token: string }; Returns: undefined };
+      remove_android_push: { Args: { p_device: string; p_owner: string }; Returns: undefined };
+      android_push_status: { Args: { p_device: string }; Returns: boolean };
       publish_lost_alert: { Args: PublishLostArgs; Returns: string };
       list_lost_alerts: { Args: { p_city?: string; p_after?: string; p_limit?: number; p_id?: string }; Returns: LostAlert[] };
       update_lost_alert: { Args: { p_id: string; p_description: string; p_instructions: string; p_status: string }; Returns: undefined };

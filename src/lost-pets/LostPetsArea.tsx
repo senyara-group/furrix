@@ -1009,9 +1009,11 @@ export default function LostPetsArea({
       if (!document.hidden) setNotificationAttempt((v) => v + 1);
     };
     window.addEventListener("focus", refresh);
+    window.addEventListener("furrix:notifications-updated", refresh);
     document.addEventListener("visibilitychange", refresh);
     return () => {
       window.removeEventListener("focus", refresh);
+      window.removeEventListener("furrix:notifications-updated", refresh);
       document.removeEventListener("visibilitychange", refresh);
     };
   }, [route.tab]);

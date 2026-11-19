@@ -10,6 +10,7 @@ import './shell.css';
 import { Avatar, FurrixScope, HeaderAction, IconButton, Logo, PhoneBar, SiteHeader, TabBar } from '../design-system';
 import PetsWorkspace from '../pets/PetsWorkspace';
 import AccountArea from '../account/AccountArea';
+import { AndroidPushProvider, useAndroidPush } from '../push/PushProvider';
 import type { ReactNode } from 'react';
 // Rencontres et Messages : chargées à part, pour alléger le démarrage de l'app (préchargées juste après).
 const loadRencontres = () => import('../meetings/Rencontres');
@@ -118,7 +119,9 @@ export function AppShellView({ overview, retry, email, onSignOut, preview = fals
   </div>;
 }
 
-export default function AppShell({ client, user, onSignOut }: { client: FurrixClient; user: User; onSignOut: () => Promise<boolean> }) {
+function AppShellContent({ client, user, onSignOut }: { client: FurrixClient; user: User; onSignOut: () => Promise<boolean> }) {
+  const push = useAndroidPush();
+  const signOut = async () => { try { await push?.disable(); } catch {} return onSignOut(); };
   const overview = useAccountOverview(client, user.id);
   const unread=useLocalAlertUnread(client,user.id);
   const petsContent = overview.status === 'ready' && overview.data
@@ -130,11 +133,16 @@ export default function AppShell({ client, user, onSignOut }: { client: FurrixCl
   const meetingsContent = overview.status === 'ready' && overview.data ? <Suspense fallback={pageLoading}><Rencontres key={user.id} client={client} ownerId={user.id} pets={overview.data.pets} /></Suspense> : undefined;
   const messagesContent = overview.status === 'ready' && overview.data ? <Suspense fallback={pageLoading}><MessagesArea key={user.id} client={client} ownerId={user.id} /></Suspense> : undefined;
   const accountContent = overview.status === 'ready' && overview.data
-    ? <AccountArea key={user.id} client={client} owner={user.id} email={user.email} profile={overview.data.profile} onSaved={overview.saveProfile} onSignOut={onSignOut} /> : undefined;
+    ? <AccountArea key={user.id} client={client} owner={user.id} email={user.email} profile={overview.data.profile} onSaved={overview.saveProfile} onSignOut={signOut} /> : undefined;
   const lostContent = <LostPetsArea key={`${user.id}:lost`} client={client} owner={user.id} pets={overview.data?.pets || []} />;
-  return <AppShellView overview={overview} retry={overview.retry} email={user.email} onSignOut={onSignOut} petsContent={petsContent} meetingsContent={meetingsContent} messagesContent={messagesContent} accountContent={accountContent} lostContent={lostContent} notificationUnread={unread} />;
+  return <AppShellView overview={overview} retry={overview.retry} email={user.email} onSignOut={signOut} petsContent={petsContent} meetingsContent={meetingsContent} messagesContent={messagesContent} accountContent={accountContent} lostContent={lostContent} notificationUnread={unread} />;
 }
 
 export function AppPreview() {
   return <AppShellView overview={{ status: 'ready', data: { profile: { name: null, city: null }, pets: [] } }} retry={() => {}} preview />;
+}
+
+/** Les push Android restent liés à la durée de la session, indépendamment de l’écran ouvert. */
+export default function AppShell({client,user,onSignOut}:{client:FurrixClient;user:User;onSignOut:()=>Promise<boolean>}) {
+  return <AndroidPushProvider key={user.id} client={client} owner={user.id}><AppShellContent client={client} user={user} onSignOut={onSignOut}/></AndroidPushProvider>;
 }
