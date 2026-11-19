@@ -20,11 +20,11 @@ export function fakeSession(userId = '11111111-1111-4111-8111-111111111111'): Se
 export function createFakeSupabase() {
   const calls: Call[] = [];
   const queue: (Result | (() => Result))[] = [];
-  let authListener: ((event: string, session: Session | null) => void) | null = null;
+  const authListeners = new Set<(event: string, session: Session | null) => void>();
 
   const builder = (table: string) => {
     const b: Record<string, unknown> = {};
-    for (const op of ['select', 'insert', 'update', 'delete', 'eq', 'is', 'lt', 'order', 'limit']) {
+    for (const op of ['select', 'insert', 'update', 'delete', 'eq', 'is', 'lt', 'gt', 'order', 'limit']) {
       b[op] = (...args: unknown[]) => {
         calls.push({ table, op, args });
         return b;
@@ -59,8 +59,8 @@ export function createFakeSupabase() {
     verifyOtp: vi.fn(async (_input: unknown) => ({ data: { session: fakeSession() as Session | null, user: null }, error: null as unknown })),
     unsubscribe: vi.fn(),
     onAuthStateChange: vi.fn((cb: (event: string, session: Session | null) => void) => {
-      authListener = cb;
-      return { data: { subscription: { unsubscribe: auth.unsubscribe } } };
+      authListeners.add(cb);
+      return { data: { subscription: { unsubscribe: () => { authListeners.delete(cb); auth.unsubscribe(); } } } };
     }),
   };
 
@@ -87,7 +87,7 @@ export function createFakeSupabase() {
       return calls[calls.length - 1]?.[0];
     },
     emitAuth(event: string, session: Session | null) {
-      authListener?.(event, session);
+      authListeners.forEach(listener => listener(event, session));
     },
   };
 }

@@ -34,15 +34,17 @@ export interface SiteHeaderProps {
   items: NavItem[];
   current?: string;
   right?: ReactNode;
+  /** Lien du logo (accueil de l'app). */
+  homeHref?: string;
   className?: string;
 }
 
 /** En-tête ordinateur (72 px). */
-export function SiteHeader({ items, current, right, className }: SiteHeaderProps) {
+export function SiteHeader({ items, current, right, homeHref, className }: SiteHeaderProps) {
   const { linkComponent: Link } = useFurrix();
   return (
     <header className={cx('fx-site', className)}>
-      <Logo />
+      <Logo href={homeHref} />
       <nav className="fx-nav" aria-label="Navigation principale">
         {items.map((it) => (
           <Link key={it.id} className="fx-nav__link" aria-current={it.id === current ? 'page' : undefined} {...linkProps(Link, it.href)}>

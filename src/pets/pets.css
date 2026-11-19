@@ -21,3 +21,5 @@
 .pet-fields{display:grid;grid-template-columns:1fr 1fr;gap:22px}.pet-fields .fx-field{min-width:0}.pet-full{grid-column:1/-1}
 .pet-editor .fx-alert{margin-top:16px}
 @media(max-width:700px){.pet-heading{align-items:flex-start;flex-direction:column}.pet-grid,.pet-fields{grid-template-columns:1fr}.pet-editor{padding:12px 0}.pet-card-body{padding:20px}.pet-heading>.fx-btn{width:100%}}
+
+.pet-checks{display:flex;flex-wrap:wrap;gap:var(--fx-space-3) var(--fx-space-5)}.pet-checks label{display:flex;align-items:center;gap:var(--fx-space-2);min-height:var(--fx-size-touch)}.pet-checks input{width:var(--fx-space-5);height:var(--fx-space-5)}

@@ -1,4 +1,4 @@
-/* Contenu des pages ; l'en-tête, les onglets et la zone qui défile viennent du design system (AppShell). */
+body:has(.furrix-shell) { margin: 0; }
 .furrix-shell {
   --app-ink: #16213a;
   --app-muted: #526079;
@@ -6,25 +6,24 @@
   --app-line: #dce0df;
   color: var(--app-ink);
   background: #fbfaf7;
+  min-height: 100dvh;
   font: 16px/1.6 'Figtree', system-ui, sans-serif;
 }
 .furrix-shell * { box-sizing: border-box; }
-.furrix-shell a { color: inherit; text-decoration: none; }
-.furrix-shell button { font: inherit; cursor: pointer; }
-.furrix-shell h1, .furrix-shell h2, .furrix-shell h3 { font-family: 'Bricolage Grotesque', system-ui, sans-serif; }
-.furrix-shell h1 { font-size: clamp(36px, 4vw, 56px); line-height: 1.08; letter-spacing: -1.8px; margin: 18px 0 22px; }
-.furrix-shell h2 { font-size: 27px; letter-spacing: -.7px; line-height: 1.2; margin: 6px 0 18px; }
-.furrix-shell h3 { line-height: 1.25; }
-.furrix-shell h1, .furrix-shell h2, .furrix-shell h3 { overflow-wrap: anywhere; }
-.furrix-shell :focus-visible { outline: 3px solid var(--app-ink); outline-offset: 3px; }
-.furrix-shell:focus-visible { outline: none; }
-.app-skip { position: fixed; left: 12px; top: -90px; z-index: 12; background: white; padding: 12px; min-height: 44px; }
+/* :where() : ces remises à zéro ne passent jamais devant les composants du design system (en-tête). */
+:where(.furrix-shell) a { color: inherit; text-decoration: none; }
+:where(.furrix-shell) button { font: inherit; cursor: pointer; }
+:where(.furrix-shell h1:not(.fx-scope *)), :where(.furrix-shell h2:not(.fx-scope *)), :where(.furrix-shell h3:not(.fx-scope *)) { font-family: 'Bricolage Grotesque', system-ui, sans-serif; }
+:where(.furrix-shell h1:not(.fx-scope *)) { font-size: clamp(36px, 4vw, 56px); line-height: 1.08; letter-spacing: -1.8px; margin: 18px 0 22px; }
+:where(.furrix-shell h2:not(.fx-scope *)) { font-size: 27px; letter-spacing: -.7px; line-height: 1.2; margin: 6px 0 18px; }
+:where(.furrix-shell h3:not(.fx-scope *)) { line-height: 1.25; }
+:where(.furrix-shell h1:not(.fx-scope *)), :where(.furrix-shell h2:not(.fx-scope *)), :where(.furrix-shell h3:not(.fx-scope *)) { overflow-wrap: anywhere; }
+.furrix-shell :focus-visible:not(.fx-scope *) { outline: 3px solid #2346d6; outline-offset: 4px; }
+.furrix-shell main:focus-visible { outline: none; }
+.app-skip { position: fixed; left: 12px; top: -90px; z-index: 12; background: white; padding: 12px; }
 .app-skip:focus { top: 8px; }
 .app-preview { background: #16213a; color: white; padding: 9px 20px; font-size: 13px; text-align: center; }
-.app-greeting { font-size: 12px; color: var(--app-muted); white-space: nowrap; }
-.app-content { max-width: 1280px; padding: 36px 28px 0; margin: auto; }
-.app-more-menu { display: flex; flex-direction: column; padding: 8px 20px 16px; background: #f0eee8; }
-.app-more-menu a { display: flex; align-items: center; padding: 12px; min-height: 48px; font-weight: 600; }
+.furrix-shell main { max-width: 1280px; padding: 36px 28px 0; margin: auto; outline: none; }
 .app-hero { display: grid; grid-template-columns: 1.3fr 1fr; background: #f0eee8; border-radius: 28px; overflow: hidden; }
 .app-hero > div:first-child { padding: 40px; }
 .app-eyebrow { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; margin: 0; }
@@ -82,14 +81,15 @@
 .app-page dt { font-size: 12px; text-transform: uppercase; color: var(--app-muted); margin-top: 16px; }
 .app-page dt:first-child { margin-top: 0; }
 .app-page dd { margin: 3px 0 0; overflow-wrap: anywhere; }
-.app-load-error { margin-bottom: 24px; }
-@media(max-width: 1260px) {
-  .app-greeting { display: none; }
-}
+.app-load-error { padding: 16px 20px; background: #fff0eb; border-left: 4px solid #a12620; margin-bottom: 24px; }
+.app-load-error button { background: transparent; color: inherit; border: 0; text-decoration: underline; min-height: 44px; }
+/* Téléphone : barre du haut et onglets du design system (PhoneBar, TabBar), cachés par lui sur ordinateur. */
+.app-phonebar { position: sticky; top: 0; z-index: 5; }
+.app-tabbar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 5; }
 @media(max-width: 900px) {
-  .furrix-shell h1 { font-size: 36px; letter-spacing: -1.2px; }
-  .furrix-shell h2 { font-size: 24px; }
-  .app-content { padding: 20px 18px 24px; }
+  :where(.furrix-shell h1:not(.fx-scope *)) { font-size: 36px; letter-spacing: -1.2px; }
+  :where(.furrix-shell h2:not(.fx-scope *)) { font-size: 24px; }
+  .furrix-shell main { padding: 20px 18px calc(90px + env(safe-area-inset-bottom)); }
   .app-hero { grid-template-columns: 1fr; border-radius: 22px; }
   .app-hero > div:first-child { padding: 26px; }
   .app-hero p:not(.app-eyebrow) { font-size: 15px; }
@@ -111,3 +111,5 @@
   .app-page { padding: 14px 0; }
 }
 @media(prefers-reduced-motion: reduce) { .app-pillar { transition: none; } }
+
+.app-account-menu{position:absolute;z-index:50;right:var(--fx-space-4);background:var(--fx-color-surface-white);border:1px solid var(--fx-color-line-strong);border-radius:var(--fx-radius-lg);padding:var(--fx-space-3);display:flex;flex-direction:column;gap:var(--fx-space-2);min-width:14rem}.app-account-menu a{display:flex;align-items:center;min-height:var(--fx-size-touch);padding:var(--fx-space-2)}.app-notification-unread{position:relative}.app-notification-unread::after{content:"";position:absolute;right:var(--fx-space-2);top:var(--fx-space-2);width:var(--fx-space-2);height:var(--fx-space-2);border-radius:var(--fx-radius-pill);background:var(--fx-color-poppy)}

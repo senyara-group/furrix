@@ -12,7 +12,7 @@ const ownerId = fakeSession().user.id;
 const id = '22222222-2222-4222-8222-222222222222';
 const path = `${ownerId}/${id}/portrait.jpg`;
 const pet: PetRow = { id, owner_id: ownerId, name: 'Luna', species: 'chien', breed: 'Croisée', age: '3 ans', gender: '♀', purpose: 'balade', city: 'Lille', bio: null, photos: [], verified: false, created_at: '' };
-const input: PetInput = { name: pet.name, species: 'chien', breed: 'Croisée', age: pet.age, gender: '♀', purpose: 'balade', city: 'Lille', bio: null };
+const input: PetInput = { name: pet.name, species: 'chien', breed: 'Croisée', age: pet.age, gender: '♀', purpose: 'balade', city: 'Lille', bio: null, meeting_goals: [], size: null, temperament: null, good_with: null, usual_outings: null, behaviour_traits: [] };
 const fill = () => {
   for (const [label, value] of [['Son nom *', 'Luna'], ['Espèce *', 'chien'], ['Race ou type *', 'Croisée'], ['Sexe *', '♀'], ['Ville *', 'Lille'], ['Objectif *', 'balade']] as const) fireEvent.change(screen.getByLabelText((text) => text.startsWith(label)), { target: { value } });
 };

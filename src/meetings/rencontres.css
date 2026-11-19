@@ -1,0 +1,360 @@
+/* Rencontres (maquette « Plein air », planche Cartes) : seulement ce que le design system n'a pas. */
+.meet-root {
+  background: var(--fx-color-surface-page);
+}
+.meet-root .fx-page {
+  padding-top: var(--fx-space-1);
+}
+
+/* Barre : animal, vues, filtres */
+.meet-vbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  margin-bottom: 14px;
+}
+.meet-views {
+  flex: 1;
+}
+.meet-views .fx-seg__btn {
+  flex: 1;
+  justify-content: center;
+}
+.meet-chips {
+  order: 3;
+  width: calc(100% + 2 * var(--fx-layout-page-x));
+  margin: 0 calc(var(--fx-layout-page-x) * -1);
+  padding: 0 var(--fx-layout-page-x) 2px;
+}
+.meet-petsel {
+  display: none;
+}
+.meet-petchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 6px;
+  background: var(--fx-color-surface-white);
+  box-shadow: inset 0 0 0 1.5px var(--fx-color-ink);
+}
+.meet-empty-actions {
+  justify-content: center;
+}
+
+/* Cartes */
+.meet-swcol {
+  position: relative;
+}
+.meet-swcol .fx-toast {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  z-index: 5;
+  max-width: none;
+}
+.meet-swcol .fx-swipe-actions {
+  margin-top: var(--fx-space-3);
+}
+.meet-swside {
+  display: none;
+}
+.meet-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: rule;
+}
+.meet-rules li {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  column-gap: 10px;
+  counter-increment: rule;
+}
+.meet-rules li::before {
+  content: counter(rule);
+  grid-row: span 2;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--fx-color-ink);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font: 700 13px var(--fx-font-body);
+}
+.meet-rules b {
+  font: 700 15px/1.3 var(--fx-font-body);
+}
+.meet-rules span {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--fx-color-ink-soft);
+}
+.meet-list-note {
+  margin-top: 18px;
+}
+
+/* Fiche */
+.meet-hero-empty {
+  height: 230px;
+  border-radius: 22px;
+  background: var(--fx-color-illustration-sky);
+}
+.meet-bio {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Match */
+.meet-match {
+  padding: var(--fx-space-2) 0 0;
+}
+.meet-match__cap {
+  margin-top: -8px;
+}
+.meet-match__steps,
+.meet-match__note {
+  width: 100%;
+  max-width: 520px;
+  text-align: left;
+}
+
+@media (min-width: 900px) {
+  .meet-root .fx-page {
+    padding-top: 28px;
+  }
+  .meet-vbar {
+    margin-bottom: 22px;
+  }
+  .meet-views {
+    flex: none;
+  }
+  /* Filtres sur leur propre ligne, sous l'animal, les vues et le bouton de filtres. */
+  .meet-chips {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  .meet-petsel {
+    display: inline-flex;
+  }
+  .meet-petchip {
+    display: none;
+  }
+  .meet-fbtn {
+    margin-left: auto;
+  }
+  .meet-swlay {
+    display: grid;
+    grid-template-columns: 440px minmax(0, 1fr);
+    gap: 48px;
+    align-items: start;
+  }
+  .meet-swside {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .meet-hero-empty {
+    height: 360px;
+    border-radius: 28px;
+  }
+  .meet-match {
+    padding-top: var(--fx-space-6);
+  }
+}
+
+/* L'ancienne coque pose ses propres marges sur <main> : la page du design system gère les siennes. */
+.furrix-shell main:has(> .meet-root) {
+  max-width: none;
+  padding: 0 0 calc(90px + env(safe-area-inset-bottom));
+}
+@media (min-width: 900px) {
+  .furrix-shell main:has(> .meet-root) {
+    padding-bottom: 0;
+  }
+}
+.furrix-shell main:has(> .meet-root) > .app-footer {
+  margin-inline: 18px;
+}
+@media (min-width: 900px) {
+  .furrix-shell main:has(> .meet-root) > .app-footer {
+    max-width: 1224px;
+    margin-inline: auto;
+    padding-inline: 28px;
+  }
+}
+
+/* Choix de l'animal : petite liste sous le sélecteur. */
+.meet-vbar {
+  position: relative;
+}
+.meet-petwrap {
+  position: relative;
+}
+.meet-petmenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 10;
+  min-width: 220px;
+  padding: 6px;
+  border-radius: var(--fx-radius-xl, 18px);
+  background: var(--fx-color-surface-white);
+  box-shadow: 0 0 0 1px var(--fx-color-line-subtle), 0 10px 30px -12px rgba(22, 33, 58, .4);
+}
+.meet-petmenu ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.meet-petmenu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 4px 10px 4px 6px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--fx-color-ink);
+  font: 600 15px var(--fx-font-body);
+  text-align: left;
+  cursor: pointer;
+}
+.meet-petmenu__item span:not(.fx-mono) {
+  flex: 1;
+}
+.meet-petmenu__item:hover,
+.meet-petmenu__item[aria-current] {
+  background: var(--fx-color-surface-stone);
+}
+.meet-petmenu__add {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 10px;
+  margin-top: 2px;
+  border-top: 1px solid var(--fx-color-line-subtle);
+  font: 600 14.5px var(--fx-font-body);
+  color: var(--fx-color-ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Réglages des filtres : même principe, sous le bouton, aligné à droite. */
+.meet-fwrap {
+  position: relative;
+}
+.meet-filtermenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 10;
+  width: 400px;
+  max-width: calc(100vw - 2 * var(--fx-layout-page-x));
+  padding: 16px;
+  border-radius: var(--fx-radius-xl, 18px);
+  background: var(--fx-color-surface-white);
+  box-shadow: 0 0 0 1px var(--fx-color-line-subtle), 0 10px 30px -12px rgba(22, 33, 58, .4);
+}
+/* Une seule ligne de choix par réglage ; seul le texte d'explication passe à la ligne. */
+.meet-filtermenu .fx-opts {
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+.meet-filtermenu .fx-opt {
+  flex: 1 1 auto;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 8px;
+  white-space: nowrap;
+  font-size: 14px;
+}
+@media (min-width: 900px) {
+  .meet-filtermenu .fx-opt {
+    padding: 0 12px;
+    font-size: 15px;
+  }
+}
+
+/* Respiration (Rencontres et Messages) : alertes et notes ne collent ni au-dessus ni au-dessous. */
+.meet-root .fx-page > .fx-alert,
+.meet-root .fx-page > .fx-loading,
+.meet-root .fx-chatlay__main > .fx-alert {
+  margin-block: var(--fx-space-4);
+}
+.meet-root .fx-page > .fx-alert:first-child {
+  margin-top: 0;
+}
+/* Alerte d'une seule ligne : le texte est centré sur l'icône. */
+.meet-root .fx-alert:not(:has(.fx-alert__text)):not(:has(.fx-alert__actions)) {
+  align-items: center;
+}
+.meet-root .fx-alert:not(:has(.fx-alert__text)):not(:has(.fx-alert__actions)) .fx-alert__title {
+  margin: 0;
+}
+
+/* Écran de match : texte centré, comme la maquette. */
+.meet-match .fx-match__text {
+  max-width: 44ch;
+  text-align: center;
+}
+.meet-match__cap {
+  text-align: center;
+}
+
+/* Zone : saisie de la ville en secours, dans le menu des filtres. */
+.meet-town {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--fx-space-2);
+}
+.meet-town .fx-field {
+  width: 100%;
+}
+.meet-locok {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--fx-color-ok-fg, #1F4D24);
+}
+.meet-locok svg,
+.meet-filtermenu .fx-field__error svg {
+  flex: none;
+  margin-top: 2px;
+}
+.meet-filtermenu {
+  max-height: min(78vh, 640px);
+  overflow-y: auto;
+}
+
+/* Vue Carte (maquette) */
+.meet-map-notes {
+  margin-top: var(--fx-space-4);
+}
+.meet-map .fx-marker[aria-pressed="true"] {
+  z-index: 2;
+}
+@media (min-width: 900px) {
+  .meet-map.fx-map--big {
+    height: 620px;
+  }
+  .meet-map .fx-map__note {
+    display: block;
+  }
+}
+.meet-map .fx-marker {
+  white-space: nowrap;
+}

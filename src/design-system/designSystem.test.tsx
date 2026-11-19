@@ -59,6 +59,6 @@ describe('design system Plein air', () => {
   it('expose tous les pictogrammes du design system', () => {
     expect(iconNames).toContain('paw');
     expect(iconNames).toContain('heartFill');
-    expect(iconNames).toHaveLength(33);
+    expect(iconNames).toHaveLength(34);
   });
 });

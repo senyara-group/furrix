@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowLeft, Plus } from 'lucide-react';
 import type { PetRow } from '../types/database';
 import type { PetFormValues } from '../types/pet';
-import { PET_SPECIES, PET_GENDERS, PET_PURPOSES } from '../types/pet';
-import { PET_LIMITS, validatePetForm } from '../validation/pet';
+import { PET_SPECIES, PET_GENDERS, PET_PURPOSES, PET_MEETING_GOALS, PET_SIZES } from '../types/pet';
+import { PET_LIMITS, PET_MEETING_LIMITS, validatePetForm } from '../validation/pet';
 import { createPet, updatePet } from '../services/pets';
 import { replacePetPhoto } from '../services/petPhotoFlow';
 import { validatePhotoFile } from '../services/petPhotos';
@@ -14,11 +14,16 @@ import { Alert, Button, EmptyState, Field, FurrixScope, Input, Select, Textarea 
 import './pets.css';
 
 const labels: Record<string, string> = { chien: 'Chien', chat: 'Chat', lapin: 'Lapin', oiseau: 'Oiseau', reptile: 'Reptile', rongeur: 'Rongeur', cheval: 'Cheval', ferme: 'Animal de ferme', balade: 'Balades', social: 'Socialisation', reproduction: 'Reproduction', show: 'Expositions', '♂': 'Mâle', '♀': 'Femelle' };
-const blank: PetFormValues = { name: '', species: '', breed: '', age: '', gender: '', city: '', bio: '', purpose: '' };
-const fromPet = (pet: PetRow): PetFormValues => Object.fromEntries(Object.keys(blank).map((key) => [key, pet[key as keyof PetFormValues] ?? ''])) as PetFormValues;
+const meetingLabels: Record<string, string> = { balade: 'Balade', jeu: 'Jeu au parc', socialisation: 'Socialisation', petit: 'Petit', moyen: 'Moyen', grand: 'Grand' };
+const blank: Required<PetFormValues> = { name: '', species: '', breed: '', age: '', gender: '', city: '', bio: '', purpose: '', goals: '', size: '', temperament: '', good_with: '', usual_outings: '', trait1: '', trait2: '', trait3: '' };
+const fromPet = (pet: PetRow): Required<PetFormValues> => ({
+  name: pet.name, species: pet.species, breed: pet.breed ?? '', age: pet.age ?? '', gender: pet.gender ?? '', city: pet.city ?? '', bio: pet.bio ?? '', purpose: pet.purpose ?? '',
+  goals: (pet.meeting_goals ?? []).join(','), size: pet.size ?? '', temperament: pet.temperament ?? '', good_with: pet.good_with ?? '', usual_outings: pet.usual_outings ?? '',
+  trait1: pet.behaviour_traits?.[0] ?? '', trait2: pet.behaviour_traits?.[1] ?? '', trait3: pet.behaviour_traits?.[2] ?? '',
+});
 
 function PetEditor({ client, ownerId, pet, onSaved, onCancel }: { client: FurrixClient; ownerId: string; pet: PetRow | null; onSaved: (pet: PetRow) => void; onCancel: () => void }) {
-  const [values, setValues] = useState<PetFormValues>(() => pet ? fromPet(pet) : { ...blank });
+  const [values, setValues] = useState<Required<PetFormValues>>(() => pet ? fromPet(pet) : { ...blank });
   const [errors, setErrors] = useState<Partial<Record<keyof PetFormValues, string>>>({});
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
   const [draftId] = useState(() => crypto.randomUUID());
@@ -46,7 +51,14 @@ function PetEditor({ client, ownerId, pet, onSaved, onCancel }: { client: Furrix
       <Field label="Ville *" error={errors.city}><Input {...field('city')} maxLength={PET_LIMITS.city} autoComplete="address-level2" required /></Field>
       <Field label="Objectif *" error={errors.purpose}><Select {...field('purpose')} required><option value="">Choisir un objectif</option>{PET_PURPOSES.map((v) => <option key={v} value={v}>{labels[v]}</option>)}</Select></Field>
       <Field className="pet-full" label="Quelques mots sur lui" error={errors.bio}><Textarea {...field('bio')} maxLength={PET_LIMITS.bio} rows={4} placeholder="Son caractère, ses habitudes…" /></Field>
-    </div><p className="app-small">* Champs requis. Les objectifs reprennent les valeurs actuelles de la base ; aucun service de rencontre ou de reproduction n’est ouvert.</p><div className="pet-actions"><Button type="submit" loading={busy}>Enregistrer le profil</Button><Button variant="out" onClick={onCancel}>Annuler</Button></div></fieldset>{error && <Alert tone="err" title={error} />}</form>
+    </div></fieldset><fieldset disabled={busy}><legend>Pour les rencontres</legend><p className="app-small">Facultatif. Ces informations sont affichées sur sa carte, telles que tu les déclares.</p><div className="pet-fields">
+<div className="pet-full" role="group" aria-labelledby="pet-goals-label"><span id="pet-goals-label">Il cherche</span><div className="pet-checks">{PET_MEETING_GOALS.map(goal=>{const list=values.goals?values.goals.split(','):[];const on=list.includes(goal);return <label key={goal}><input type="checkbox" checked={on} onChange={()=>setValues(v=>({...v,goals:(on?list.filter(g=>g!==goal):[...list,goal]).join(',')}))}/>{meetingLabels[goal]}</label>;})}</div>{errors.goals&&<p role="alert">{errors.goals}</p>}</div>
+<Field label="Gabarit" error={errors.size}><Select {...field('size')}><option value="">Non renseigné</option>{PET_SIZES.map(v=><option key={v} value={v}>{meetingLabels[v]}</option>)}</Select></Field>
+<Field label="Caractère" error={errors.temperament}><Input {...field('temperament')} maxLength={PET_MEETING_LIMITS.temperament}/></Field>
+<Field label="S’entend avec" error={errors.good_with}><Input {...field('good_with')} maxLength={PET_MEETING_LIMITS.good_with}/></Field>
+<Field label="Sorties habituelles" error={errors.usual_outings}><Input {...field('usual_outings')} maxLength={PET_MEETING_LIMITS.usual_outings}/></Field>
+{(['trait1','trait2','trait3'] as const).map((key,i)=><Field key={key} label={`Comportement ${i+1}`} error={errors[key]}><Input {...field(key)} maxLength={PET_MEETING_LIMITS.trait}/></Field>)}
+</div><p className="app-small">* Champs requis. Les objectifs reprennent les valeurs actuelles de la base ; aucun service de rencontre ou de reproduction n’est ouvert.</p><div className="pet-actions"><Button type="submit" loading={busy}>Enregistrer le profil</Button><Button variant="out" onClick={onCancel}>Annuler</Button></div></fieldset>{error && <Alert tone="err" title={error} />}</form>
   </FurrixScope>;
 }
 
