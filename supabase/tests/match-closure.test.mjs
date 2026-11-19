@@ -79,7 +79,7 @@ test('retour arrière et réapplication de la migration sur une base locale',asy
  try{
   await db.exec(await readFile(new URL('../rollbacks/meeting_match_closure.sql',import.meta.url),'utf8'));
   assert.equal((await db.query("select count(*)::int n from information_schema.columns where table_name='matches' and column_name='ended_at'")).rows[0].n,0);
-  await db.exec(await readFile(new URL('../migrations/20261119131309_meeting_match_closure.sql',import.meta.url),'utf8'));
+  await db.exec(await readFile(new URL('../migrations/20261119133628_meeting_match_closure.sql',import.meta.url),'utf8'));
   assert.equal((await db.query("select count(*)::int n from information_schema.columns where table_name='matches' and column_name='ended_at'")).rows[0].n,1);
  }finally{await db.close();}
 });
