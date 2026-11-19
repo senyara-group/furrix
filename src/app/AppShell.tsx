@@ -9,6 +9,7 @@ import '../design-system/styles';
 import './shell.css';
 import { Avatar, FurrixScope, HeaderAction, IconButton, Logo, PhoneBar, SiteHeader, TabBar } from '../design-system';
 import PetsWorkspace from '../pets/PetsWorkspace';
+import AccountArea from '../account/AccountArea';
 import type { ReactNode } from 'react';
 // Rencontres et Messages : chargées à part, pour alléger le démarrage de l'app (préchargées juste après).
 const loadRencontres = () => import('../meetings/Rencontres');
@@ -49,8 +50,8 @@ function Home({ overview }: { overview: OverviewState }) {
   </>;
 }
 
-export function AppShellView({ overview, retry, email, onSignOut, preview = false, petsContent, meetingsContent, messagesContent, lostContent, localNotice, notificationUnread = false }: {
-  overview: OverviewState; retry: () => void; email?: string; onSignOut?: () => Promise<boolean>; preview?: boolean; petsContent?: ReactNode; meetingsContent?: ReactNode; messagesContent?: ReactNode; lostContent?: ReactNode; localNotice?: ReactNode; notificationUnread?: boolean;
+export function AppShellView({ overview, retry, email, onSignOut, preview = false, petsContent, meetingsContent, messagesContent, accountContent, lostContent, localNotice, notificationUnread = false }: {
+  overview: OverviewState; retry: () => void; email?: string; onSignOut?: () => Promise<boolean>; preview?: boolean; petsContent?: ReactNode; meetingsContent?: ReactNode; messagesContent?: ReactNode; accountContent?: ReactNode; lostContent?: ReactNode; localNotice?: ReactNode; notificationUnread?: boolean;
 }) {
   const [route, setRoute] = useState(() => routeFromHash(window.location.hash));
   const [menuOpen,setMenuOpen]=useState(false);
@@ -103,8 +104,9 @@ export function AppShellView({ overview, retry, email, onSignOut, preview = fals
         : route === 'animaux-perdus' && lostContent ? lostContent
         : route === 'rencontres' && meetingsContent ? meetingsContent
         : route === 'messages' && messagesContent ? messagesContent
+        : route === 'compte' && accountContent ? accountContent
         : route === 'compte' ? <section className="app-page"><p className="app-eyebrow">Ton espace personnel</p><h1>Mon compte</h1><p>Un seul compte pour le web et les applications mobiles.</p><dl><dt>E-mail</dt><dd>{email || (preview ? 'Non affiché dans cet aperçu' : 'Non renseigné')}</dd><dt>Prénom</dt><dd>{overview.data?.profile.name || 'Non renseigné'}</dd><dt>Ville</dt><dd>{overview.data?.profile.city || 'Non renseignée'}</dd></dl>
-          <p className="app-small">L’édition du profil et la gestion des appareils seront ajoutées dans un prochain lot.</p><button className="app-outline" disabled={!onSignOut || leaving} onClick={() => { void signOut(); }}><LogOut size={18} aria-hidden />{leaving ? 'Déconnexion…' : 'Déconnecter cet appareil'}</button>{error && <p role="alert">{error}</p>}</section>
+          <p className="app-small">{preview ? 'Cet aperçu n’enregistre aucune modification.' : 'Ton profil sera disponible après le chargement de ton espace.'}</p><button className="app-outline" disabled={!onSignOut || leaving} onClick={() => { void signOut(); }}><LogOut size={18} aria-hidden />{leaving ? 'Déconnexion…' : 'Déconnecter cet appareil'}</button>{error && <p role="alert">{error}</p>}</section>
         : route === 'animaux' && petsContent ? petsContent : route === 'animaux' ? <section className="app-page"><p className="app-eyebrow">Ceux qui partagent ta vie</p><h1>Mes animaux</h1>{overview.status === 'loading' ? <p role="status">Chargement des profils…</p>
           : overview.status === 'error' ? <p>Réessaie le chargement de ton espace pour retrouver leurs profils.</p>
           : overview.data?.pets.length ? <div className="app-pet-list">{overview.data.pets.map((pet) => <article key={pet.id}><PawPrint size={26} aria-hidden /><h2>{pet.name}</h2><p>{pet.species}{pet.breed ? ` · ${pet.breed}` : ''}</p><p>{pet.city || 'Ville non renseignée'}</p></article>)}</div>
@@ -127,8 +129,10 @@ export default function AppShell({ client, user, onSignOut }: { client: FurrixCl
   }, []);
   const meetingsContent = overview.status === 'ready' && overview.data ? <Suspense fallback={pageLoading}><Rencontres key={user.id} client={client} ownerId={user.id} pets={overview.data.pets} /></Suspense> : undefined;
   const messagesContent = overview.status === 'ready' && overview.data ? <Suspense fallback={pageLoading}><MessagesArea key={user.id} client={client} ownerId={user.id} /></Suspense> : undefined;
+  const accountContent = overview.status === 'ready' && overview.data
+    ? <AccountArea key={user.id} client={client} owner={user.id} email={user.email} profile={overview.data.profile} onSaved={overview.saveProfile} onSignOut={onSignOut} /> : undefined;
   const lostContent = <LostPetsArea key={`${user.id}:lost`} client={client} owner={user.id} pets={overview.data?.pets || []} />;
-  return <AppShellView overview={overview} retry={overview.retry} email={user.email} onSignOut={onSignOut} petsContent={petsContent} meetingsContent={meetingsContent} messagesContent={messagesContent} lostContent={lostContent} notificationUnread={unread} />;
+  return <AppShellView overview={overview} retry={overview.retry} email={user.email} onSignOut={onSignOut} petsContent={petsContent} meetingsContent={meetingsContent} messagesContent={messagesContent} accountContent={accountContent} lostContent={lostContent} notificationUnread={unread} />;
 }
 
 export function AppPreview() {
