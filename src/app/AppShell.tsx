@@ -18,6 +18,8 @@ const loadRencontres = () => import('../meetings/Rencontres');
 const loadMessages = () => import('../meetings/AfterMatch');
 const Rencontres = lazy(loadRencontres);
 const MessagesArea = lazy(loadMessages);
+const loadGarde = () => import('../sitting/Garde');
+const GardeArea = lazy(loadGarde);
 const pageLoading = <p role="status" className="app-small">Chargement…</p>;
 import LostPetsArea from '../lost-pets/LostPetsArea';
 import LocalAlertNotice from '../lost-pets/LocalAlertNotice';
@@ -52,8 +54,8 @@ function Home({ overview }: { overview: OverviewState }) {
   </>;
 }
 
-export function AppShellView({ overview, retry, email, onSignOut, preview = false, petsContent, meetingsContent, messagesContent, lostContent, localNotice }: {
-  overview: OverviewState; retry: () => void; email?: string; onSignOut?: () => Promise<boolean>; preview?: boolean; petsContent?: ReactNode; meetingsContent?: ReactNode; messagesContent?: ReactNode; lostContent?: ReactNode; localNotice?: ReactNode;
+export function AppShellView({ overview, retry, email, onSignOut, preview = false, petsContent, meetingsContent, messagesContent, gardeContent, lostContent, localNotice }: {
+  overview: OverviewState; retry: () => void; email?: string; onSignOut?: () => Promise<boolean>; preview?: boolean; petsContent?: ReactNode; meetingsContent?: ReactNode; messagesContent?: ReactNode; gardeContent?: ReactNode; lostContent?: ReactNode; localNotice?: ReactNode;
 }) {
   const [route, setRoute] = useState(() => routeFromHash(window.location.hash));
   const [leaving, setLeaving] = useState(false);
@@ -96,6 +98,7 @@ export function AppShellView({ overview, retry, email, onSignOut, preview = fals
         : route === 'animaux-perdus' && lostContent ? lostContent
         : route === 'rencontres' && meetingsContent ? meetingsContent
         : route === 'messages' && messagesContent ? messagesContent
+        : route === 'garde' && gardeContent ? gardeContent
         : route === 'compte' ? <section className="app-page"><p className="app-eyebrow">Ton espace personnel</p><h1>Mon compte</h1><p>Un seul compte pour le web et les applications mobiles.</p><dl><dt>E-mail</dt><dd>{email || (preview ? 'Non affiché dans cet aperçu' : 'Non renseigné')}</dd><dt>Prénom</dt><dd>{overview.data?.profile.name || 'Non renseigné'}</dd><dt>Ville</dt><dd>{overview.data?.profile.city || 'Non renseignée'}</dd></dl>
           <p className="app-small">L’édition du profil et la gestion des appareils seront ajoutées dans un prochain lot.</p><button className="app-outline" disabled={!onSignOut || leaving} onClick={() => { void signOut(); }}><LogOut size={18} aria-hidden />{leaving ? 'Déconnexion…' : 'Déconnecter cet appareil'}</button>{error && <p role="alert">{error}</p>}</section>
         : route === 'animaux' && petsContent ? petsContent : route === 'animaux' ? <section className="app-page"><p className="app-eyebrow">Ceux qui partagent ta vie</p><h1>Mes animaux</h1>{overview.status === 'loading' ? <p role="status">Chargement des profils…</p>
@@ -114,13 +117,14 @@ export default function AppShell({ client, user, onSignOut }: { client: FurrixCl
   const petsContent = overview.status === 'ready' && overview.data
     ? <PetsWorkspace key={user.id} client={client} ownerId={user.id} pets={overview.data.pets} onSaved={overview.savePet} reload={overview.retry} /> : undefined;
   useEffect(() => {
-    const timer = window.setTimeout(() => { void loadRencontres().catch(() => {}); void loadMessages().catch(() => {}); }, 1500);
+    const timer = window.setTimeout(() => { void loadRencontres().catch(() => {}); void loadMessages().catch(() => {}); void loadGarde().catch(() => {}); }, 1500);
     return () => window.clearTimeout(timer);
   }, []);
   const meetingsContent = overview.status === 'ready' && overview.data ? <Suspense fallback={pageLoading}><Rencontres key={user.id} client={client} ownerId={user.id} pets={overview.data.pets} /></Suspense> : undefined;
   const messagesContent = overview.status === 'ready' && overview.data ? <Suspense fallback={pageLoading}><MessagesArea key={user.id} client={client} ownerId={user.id} /></Suspense> : undefined;
+  const gardeContent = overview.status === 'ready' && overview.data ? <Suspense fallback={pageLoading}><GardeArea key={user.id} client={client} ownerId={user.id} pets={overview.data.pets} /></Suspense> : undefined;
   const lostContent = <LostPetsArea key={`${user.id}:lost`} client={client} owner={user.id} pets={overview.data?.pets || []} />;
-  return <AppShellView overview={overview} retry={overview.retry} email={user.email} onSignOut={onSignOut} petsContent={petsContent} meetingsContent={meetingsContent} messagesContent={messagesContent} lostContent={lostContent} localNotice={<LocalAlertNotice key={`${user.id}:local-notice`} client={client} owner={user.id} />} />;
+  return <AppShellView overview={overview} retry={overview.retry} email={user.email} onSignOut={onSignOut} petsContent={petsContent} meetingsContent={meetingsContent} messagesContent={messagesContent} gardeContent={gardeContent} lostContent={lostContent} localNotice={<LocalAlertNotice key={`${user.id}:local-notice`} client={client} owner={user.id} />} />;
 }
 
 export function AppPreview() {

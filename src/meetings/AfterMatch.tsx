@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActionBar, Alert, Button, Card, ChatLayout, ChatThread, CheckList, Composer, DetailLayout, EmptyState, Field, FurrixScope, Icon,
-  Input, Loading, MessageBubble, Note, OptionGroup, Page, PageHeader, ResultList, ResultRow, Separator, SlotGrid, Stack, StatusBadge,
+  Input, ListHeader, Loading, MessageBubble, Note, OptionGroup, Page, PageHeader, ResultList, ResultRow, Separator, SlotGrid, Stack, StatusBadge,
   Steps, SystemMessage, Text, Textarea, Who, type StepState,
 } from '../design-system';
 import type { FurrixClient } from '../services/supabaseClient';
@@ -10,6 +10,10 @@ import { createProposal, latestProposal, listMyMatches, loadMessages, reportOrBl
 import type { MatchMessage, MeetingProposal, MyMatch, ProposalDraft, ReportReason } from './types';
 import { usePetPhotoUrl } from './usePetPhotoUrl';
 import { messagesHref, views, type View } from './links';
+import { cap, longSlot, nextSlotInput, SlotField } from './SlotField';
+import { listSittingThreads } from '../sitting/service';
+import { chatHref } from '../sitting/links';
+import type { SittingThread } from '../sitting/types';
 import './after-match.css';
 
 const activityLabel = { balade: 'Balade', jeu: 'Jeu au parc' } as const;
@@ -20,9 +24,6 @@ const reasons: Array<{ value: ReportReason; label: string }> = [
 const species: Record<string, [string, string]> = { chien: ['Chien', 'Chienne'], chat: ['Chat', 'Chatte'] };
 const STEP_LABELS = ['Match', 'Proposition', 'Réponse', 'Rencontre'];
 
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-/** « Sam. 22 nov., 10:00 » */
-export const longSlot = (iso: string) => cap(new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso)));
 /** « Sam. 22 · 10:00 » */
 const shortSlot = (iso: string) => {
   const d = new Date(iso);
@@ -75,17 +76,26 @@ function MatchRow({ client, match }: { client: FurrixClient; match: MyMatch }) {
 
 function MatchList({ client }: { client: FurrixClient }) {
   const [state, setState] = useState<{ status: 'loading' | 'ready' | 'error'; data: MyMatch[] }>({ status: 'loading', data: [] });
+  const [garde, setGarde] = useState<SittingThread[]>([]);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let current = true; setState((s) => ({ ...s, status: 'loading' }));
     void listMyMatches(client).then((data) => { if (current) setState({ status: 'ready', data }); }).catch(() => { if (current) setState({ status: 'error', data: [] }); });
+    // Conversations de garde : affichées en plus, sans bloquer la liste des matchs si elles échouent.
+    void listSittingThreads(client).then((data) => { if (current) setGarde(data); }).catch(() => { if (current) setGarde([]); });
     return () => { current = false; };
   }, [client, attempt]);
   return <>
-    <PageHeader title="Messages" subtitle="Une conversation s’ouvre gratuitement après chaque match." />
+    <PageHeader title="Messages" subtitle="Une conversation s’ouvre gratuitement après chaque match, et avec chaque gardien contacté." />
     {state.status === 'loading' ? <Loading label="Chargement de tes conversations…" />
       : state.status === 'error' ? <Alert tone="err" title="Tes conversations n’ont pas pu être chargées." actions={<Button variant="out" size="sm" icon="retry" onClick={() => setAttempt((a) => a + 1)}>Réessayer</Button>} />
-      : state.data.length ? <ResultList>{state.data.map((m) => <MatchRow key={m.match_id} client={client} match={m} />)}</ResultList>
+      : state.data.length || garde.length ? <Stack gap={8}>
+          {state.data.length ? <Stack gap={2}>{garde.length ? <ListHeader title="Rencontres" /> : null}<ResultList>{state.data.map((m) => <MatchRow key={m.match_id} client={client} match={m} />)}</ResultList></Stack> : null}
+          {garde.length ? <Stack gap={2}><ListHeader title="Garde" /><ResultList>{garde.map((t) => <li key={t.owner_id + t.sitter_id}><ResultRow as="a" href={chatHref(t.owner_id, t.sitter_id)}
+            initials={(t.other_name?.trim() || '?').charAt(0).toUpperCase()} name={t.other_name?.trim() || (t.role === 'owner' ? 'Le gardien' : 'Le propriétaire')}
+            tag={<StatusBadge status="draft">{t.role === 'owner' ? 'Ton gardien' : 'Te confie un animal'}</StatusBadge>}
+            meta={t.last_text ? `« ${t.last_text.length > 80 ? `${t.last_text.slice(0, 80)}…` : t.last_text} »` : 'Conversation de garde'} /></li>)}</ResultList></Stack> : null}
+        </Stack>
       : <EmptyState icon="message" title="Pas encore de conversation" action={<Button as="a" href="#/rencontres" variant="out" size="sm">Découvrir des compagnons</Button>}>
           Un j’aime de chaque côté, et la conversation s’ouvre ici.
         </EmptyState>}
@@ -110,76 +120,6 @@ function SideCard({ client, match, proposal, children }: { client: FurrixClient;
 
 function StepsCard({ reached, stopped }: { reached: number; stopped?: boolean }) {
   return <Card calm><Stack gap={3}><Text variant="kicker">Où en est la rencontre</Text><Steps label="Étapes" steps={steps(reached, stopped)} /></Stack></Card>;
-}
-
-/* Créneaux : heure locale « AAAA-MM-JJTHH:MM », convertie en ISO à l'envoi. */
-const pad = (n: number) => String(n).padStart(2, '0');
-const dayKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const nextSlotInput = () => `${dayKey(new Date(Date.now() + 2 * 86400_000))}T10:00`;
-const HOURS = Array.from({ length: 12 }, (_, i) => `${pad(8 + i)}:00`);
-const WEEKDAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
-const monthName = (d: Date) => cap(new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(d));
-const validSlot = (s: string) => !!s && !Number.isNaN(new Date(s).getTime());
-
-/** Un créneau : le champ ouvre un petit calendrier (jour puis heure) sous lui. */
-function SlotField({ value, onChange, label }: { value: string; onChange: (slot: string) => void; label: string }) {
-  const [open, setOpen] = useState(false);
-  const box = useRef<HTMLDivElement>(null);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const initial = validSlot(value) ? new Date(value) : new Date(today.getTime() + 2 * 86400_000);
-  const [month, setMonth] = useState(() => new Date(initial.getFullYear(), initial.getMonth(), 1));
-  const [picked, setPicked] = useState(() => dayKey(initial));
-  const [step, setStep] = useState<'day' | 'hour'>('day');
-  useEffect(() => {
-    if (!open) return;
-    const away = (e: Event) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('pointerdown', away); document.addEventListener('keydown', esc);
-    return () => { document.removeEventListener('pointerdown', away); document.removeEventListener('keydown', esc); };
-  }, [open]);
-  const toggle = () => {
-    if (!open && validSlot(value)) { const d = new Date(value); setMonth(new Date(d.getFullYear(), d.getMonth(), 1)); setPicked(dayKey(d)); }
-    setStep('day');
-    setOpen((o) => !o);
-  };
-  const lead = (month.getDay() + 6) % 7;
-  const count = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-  const cells = [...Array<null>(lead).fill(null), ...Array.from({ length: count }, (_, i) => new Date(month.getFullYear(), month.getMonth(), i + 1))];
-  const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  const now = Date.now();
-  const pickedDate = new Date(`${picked}T00:00`);
-  return <div className="am-slotfield" ref={box}>
-    <button type="button" className="fx-input am-slotbtn" aria-label={label} aria-expanded={open} aria-haspopup="dialog" onClick={toggle}>
-      <Icon name="calendar" size={18} />
-      <span className={validSlot(value) ? 'fx-num' : 'am-placeholder'}>{validSlot(value) ? longSlot(new Date(value).toISOString()) : 'Choisir un jour et une heure'}</span>
-    </button>
-    {open && step === 'hour' ? <div className="am-cal" role="dialog" aria-label={`${label} : heure`}>
-      <div className="am-cal__head">
-        <button type="button" className="am-cal__nav" aria-label="Changer de jour" onClick={() => setStep('day')}>‹</button>
-        <b>{cap(day(pickedDate.toISOString()))}</b>
-        <span className="am-cal__spacer" aria-hidden="true" />
-      </div>
-      <p className="am-cal__label">Choisis l’heure</p>
-      <div className="am-cal__hours" role="group" aria-label="Heure">
-        {HOURS.map((h) => { const slot = `${picked}T${h}`; return <button key={h} type="button" className="am-cal__hour fx-num"
-          aria-pressed={value === slot} disabled={new Date(slot).getTime() <= now} onClick={() => { onChange(slot); setOpen(false); }}>{h}</button>; })}
-      </div>
-    </div> : open ? <div className="am-cal" role="dialog" aria-label={`${label} : jour`}>
-      <div className="am-cal__head">
-        <button type="button" className="am-cal__nav" aria-label="Mois précédent" disabled={month <= thisMonth} onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}>‹</button>
-        <b>{monthName(month)}</b>
-        <button type="button" className="am-cal__nav" aria-label="Mois suivant" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}>›</button>
-      </div>
-      <div className="am-cal__grid" role="group" aria-label="Jour">
-        {WEEKDAYS.map((w, i) => <span key={i} className="am-cal__wd" aria-hidden="true">{w}</span>)}
-        {cells.map((d, i) => d ? <button key={i} type="button" className="am-cal__day fx-num" aria-pressed={dayKey(d) === picked}
-          aria-label={new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(d)}
-          data-today={dayKey(d) === dayKey(today) || undefined} disabled={d < today || HOURS.every((h) => new Date(`${dayKey(d)}T${h}`).getTime() <= now)}
-          onClick={() => { setPicked(dayKey(d)); setStep('hour'); }}>{d.getDate()}</button>
-          : <span key={i} />)}
-      </div>
-    </div> : null}
-  </div>;
 }
 
 function ProposalForm({ client, match, onSent }: { client: FurrixClient; match: MyMatch; onSent: (p: MeetingProposal) => void }) {

@@ -1,0 +1,174 @@
+/* Garde (parcours 2) : seulement ce que le design system n'a pas. */
+
+/* Raccourcis sous le titre (Mes gardes, profil de gardien). */
+.gd-shortcuts {
+  flex-wrap: wrap;
+  gap: var(--fx-space-2);
+  margin: calc(-1 * var(--fx-space-1)) 0 var(--fx-space-5);
+}
+
+/* Dates et formule, puis le panneau de critères. */
+.gd-qbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fx-space-3);
+  margin-bottom: var(--fx-space-5);
+}
+.gd-criteria {
+  margin-bottom: var(--fx-space-6);
+}
+.gd-dates {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--fx-space-3);
+}
+.gd-locate,
+.gd-criteria__acts,
+.gd-empty-acts {
+  flex-wrap: wrap;
+  gap: var(--fx-space-2);
+}
+.gd-empty-acts {
+  justify-content: center;
+}
+.gd-note {
+  margin-top: var(--fx-space-4);
+}
+.gd-map .fx-marker {
+  white-space: nowrap;
+}
+.gd-map .fx-marker:hover,
+.gd-map .fx-marker--hot {
+  z-index: 2;
+}
+
+/* Lignes d'information des cartes latérales. */
+.gd-ln {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.4;
+}
+.gd-ln svg {
+  flex: none;
+}
+.gd-ln b {
+  font-weight: 600;
+}
+
+/* Fiche : en-tête sans photo, tarif mis en avant, autres formules. */
+.gd-hero {
+  display: flex;
+  align-items: center;
+  gap: var(--fx-space-4);
+}
+.gd-hero p {
+  margin: 4px 0 0;
+}
+.gd-price {
+  margin: 0;
+}
+.gd-price__v {
+  font-family: var(--fx-font-display, 'Bricolage Grotesque', sans-serif);
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.gd-prices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 15px;
+}
+.gd-prices li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--fx-space-3);
+}
+.gd-prices b {
+  font-weight: 600;
+}
+
+/* Paiement (design seul) : champs de carte grisés, jamais saisissables. */
+.gd-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fx-space-4);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.gd-card[disabled] .fx-input {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.gd-card__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--fx-space-3);
+}
+
+/* Conversation : rappel compact (téléphone) et fil aéré. */
+.gd-ctx {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.gd-ctx > svg {
+  flex: none;
+}
+.gd-ctx__b {
+  flex: 1;
+  min-width: 0;
+}
+.gd-ctx__b p {
+  margin: 0;
+}
+.gd-ctx .fx-btn--quiet {
+  min-width: 44px;
+  padding: 0;
+}
+.gd-root .fx-chatlay__main > .fx-note {
+  margin-bottom: var(--fx-space-4);
+}
+.gd-chat {
+  gap: 12px;
+  margin-top: 0;
+  padding: var(--fx-space-2) 0;
+}
+.gd-root .fx-composer {
+  margin-top: var(--fx-space-5);
+}
+
+/* Listes : le badge passe sous le nom, lignes séparées. */
+.gd-root .fx-res__body {
+  align-items: flex-start;
+}
+.gd-root .fx-res + .fx-res,
+.gd-root .fx-reslist > li + li {
+  margin-top: 2px;
+}
+
+@media (min-width: 900px) {
+  .gd-qbar {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--fx-space-5);
+  }
+  .gd-qbar .fx-when {
+    flex: none;
+    min-width: 340px;
+  }
+  .gd-dates {
+    grid-template-columns: 1fr 1fr;
+  }
+  .gd-map .fx-map__note {
+    display: block;
+  }
+}

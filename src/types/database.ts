@@ -5,6 +5,7 @@
 // n'a pas le droit de les écrire (migration 0003) : les types Insert/Update ci-dessous l'expriment.
 
 import type { DiscoveryPet, PetMatch, MatchMessage, NewPetMatch, MyMatch, MeetingProposal } from '../meetings/types';
+import type { MySitting, SitterProfile, SitterResult, SittingMessage, SittingReport, SittingRequest, SittingThread, SittingUpdate, ServicePrice } from '../sitting/types';
 import type { LostAlert, LocalNotification, LostSector, LostSighting, PublishLostArgs } from '../lost-pets/types';
 export type Database = {
   __InternalSupabase: { PostgrestVersion: '14.18' };
@@ -18,6 +19,12 @@ export type Database = {
         Insert: never; Update: never; Relationships: [];
       };
       messages: { Row: MatchMessage; Insert: never; Update: never; Relationships: [] };
+      sitter_profiles: { Row: SitterProfile; Insert: never; Update: never; Relationships: [] };
+      sitter_services: { Row: ServicePrice & { sitter_id: string }; Insert: never; Update: never; Relationships: [] };
+      sitting_requests: { Row: SittingRequest; Insert: never; Update: never; Relationships: [] };
+      sitting_messages: { Row: SittingMessage; Insert: never; Update: never; Relationships: [] };
+      sitting_updates: { Row: SittingUpdate; Insert: never; Update: never; Relationships: [] };
+      sitting_reports: { Row: SittingReport; Insert: never; Update: never; Relationships: [] };
       meeting_proposals: { Row: MeetingProposal; Insert: never; Update: never; Relationships: [] };
       registration_consents: {
         Row: { user_id: string; terms_version: string; privacy_version: string; declared_adult: boolean; recorded_at: string; source: string };
@@ -116,6 +123,16 @@ export type Database = {
       create_meeting_proposal: { Args: { p_match: string; p_activity: string; p_place: string; p_slots: string[]; p_message: string; p_request: string }; Returns: MeetingProposal };
       update_meeting_proposal: { Args: { p_id: string; p_action: string; p_slot?: string; p_note?: string }; Returns: MeetingProposal };
       report_or_block_match: { Args: { p_match: string; p_reason: string; p_details: string; p_report: boolean }; Returns: undefined };
+      search_sitters: { Args: { p_lat?: number; p_lng?: number; p_radius?: number; p_service?: string; p_starts?: string; p_ends?: string; p_species?: string; p_sitter?: string }; Returns: SitterResult[] };
+      save_sitter_profile: { Args: { p_kind: string; p_bio: string; p_city: string; p_lat: number; p_lng: number; p_species: string[]; p_max_weight: number | null; p_outdoor: string; p_services: ServicePrice[]; p_active?: boolean }; Returns: SitterProfile };
+      create_sitting_request: { Args: { p_sitter: string; p_pet: string; p_service: string; p_starts: string; p_ends: string; p_message: string; p_request: string }; Returns: SittingRequest };
+      update_sitting_request: { Args: { p_id: string; p_action: string; p_note?: string }; Returns: SittingRequest };
+      list_my_sittings: { Args: { p_id?: string }; Returns: MySitting[] };
+      list_sitting_threads: { Args: Record<string, never>; Returns: SittingThread[] };
+      send_sitting_message: { Args: { p_owner: string; p_sitter: string; p_text: string; p_request: string }; Returns: SittingMessage };
+      add_sitting_update: { Args: { p_sitting: string; p_text: string }; Returns: SittingUpdate };
+      report_sitting: { Args: { p_sitting: string; p_category: string; p_details: string }; Returns: SittingReport };
+      block_sitting_contact: { Args: { p_other: string }; Returns: undefined };
       mark_pet_match_seen: { Args: { p_match: string; p_pet: string }; Returns: undefined };
       swipe_and_match: { Args: { p_pet: string; p_target: string; p_dir: string }; Returns: string | null };
       set_pet_meeting_location: { Args: { p_pet: string; p_lat?: number; p_lng?: number }; Returns: undefined };
