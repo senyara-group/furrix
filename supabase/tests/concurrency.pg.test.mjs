@@ -8,7 +8,8 @@ import { readFile, readdir } from 'node:fs/promises';
 import pg from 'pg';
 
 const url = process.env.FURRIX_TEST_PG_URL;
-const N = 100;
+const N = Number(process.env.FURRIX_TEST_PAIRS ?? 100);
+if (!Number.isInteger(N) || N < 10 || N > 100) throw Error('FURRIX_TEST_PAIRS doit être compris entre 10 et 100.');
 
 async function prepare() {
   const name = `furrix_concurrency_${process.pid}`;
@@ -97,6 +98,50 @@ test('rencontres : concurrence sur plusieurs sessions PostgreSQL', { skip: url ?
         assert.equal(new Set(out.map((r) => r[0].id)).size, 1);
       }
       assert.equal(await count('select count(*)::int n from messages'), rows.length);
+    });
+
+    await t.test('fermeture et blocage : les écritures concurrentes attendent puis sont refusées', async () => {
+      const { rows } = await admin.query('select m.id,a.owner_id,b.owner_id other,a.id pet_a,b.id pet_b from matches m join pets a on a.id=m.pet_a join pets b on b.id=m.pet_b order by m.id limit 2');
+      for (const [i, match] of rows.entries()) {
+        const waiting=[];
+        const slot=new Date(Date.now()+86400000*4).toISOString();
+        const [proposal]=await caller(target,match.owner_id)("select id from create_meeting_proposal($1,'balade','Parc',$2::timestamptz[],null,$3)",[match.id,[slot],uuid()]);
+        try {
+          await admin.query('begin');
+          await admin.query("select set_config('request.jwt.claim.sub',$1,true)",[match.owner_id]);
+          if(i===0) await admin.query('select end_pet_match($1)',[match.id]);
+          else await admin.query("select report_or_block_match($1,'','',false)",[match.id]);
+          const queries=[
+            ['select send_match_message($1,$2,$3)',[match.id,'Arrive trop tard',uuid()]],
+            ["select create_meeting_proposal($1,'balade','Parc',$2::timestamptz[],null,$3)",[match.id,[new Date(Date.now()+86400000*4).toISOString()],uuid()]],
+            ["select swipe_and_match($1,$2,'right')",[match.pet_b,match.pet_a]],
+            ["select update_meeting_proposal($1,'accept',$2,null)",[proposal.id,slot]],
+          ];
+          for (const [sql,params] of queries) {
+            const client=new pg.Client({connectionString:target});await client.connect();
+            await client.query('set statement_timeout=10000');await client.query('set role authenticated');
+            await client.query("select set_config('request.jwt.claim.sub',$1,false)",[match.other]);
+            const outcome=client.query(sql,params).then(()=>({ok:true}),error=>({ok:false,code:error.code}));
+            waiting.push({client,outcome});
+          }
+          // Observe les verrous du serveur : pas de simple temporisation supposée prouver une course.
+          const deadline=Date.now()+5000;
+          while(true) {
+            await admin.query('select pg_stat_clear_snapshot()');
+            const states=await admin.query("select count(*)::int n from pg_stat_activity where pid=any($1::int[]) and wait_event='advisory'",[waiting.map(w=>w.client.processID)]);
+            if(states.rows[0].n===waiting.length)break;
+            assert.ok(Date.now()<deadline,'les quatre écritures doivent attendre le verrou');
+            await new Promise(resolve=>setTimeout(resolve,20));
+          }
+          await admin.query('commit');
+          for(const item of waiting)assert.deepEqual(await item.outcome,{ok:false,code:'42501'});
+          assert.equal((await admin.query("select count(*)::int n from messages where text='Arrive trop tard'")).rows[0].n,0);
+          assert.equal((await caller(target,match.other)('select * from list_my_matches($1)',[match.id])).length,0);
+        } finally {
+          await admin.query('rollback');
+          for(const item of waiting){await item.outcome;await item.client.end();}
+        }
+      }
     });
   } finally { await drop(); }
 });

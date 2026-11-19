@@ -115,6 +115,7 @@ export type Database = {
       list_my_matches: { Args: { p_match?: string }; Returns: MyMatch[] };
       create_meeting_proposal: { Args: { p_match: string; p_activity: string; p_place: string; p_slots: string[]; p_message: string; p_request: string }; Returns: MeetingProposal };
       update_meeting_proposal: { Args: { p_id: string; p_action: string; p_slot?: string; p_note?: string }; Returns: MeetingProposal };
+      end_pet_match: { Args: { p_match: string }; Returns: undefined };
       report_or_block_match: { Args: { p_match: string; p_reason: string; p_details: string; p_report: boolean }; Returns: undefined };
       mark_pet_match_seen: { Args: { p_match: string; p_pet: string }; Returns: undefined };
       swipe_and_match: { Args: { p_pet: string; p_target: string; p_dir: string }; Returns: string | null };

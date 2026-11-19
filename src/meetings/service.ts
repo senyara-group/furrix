@@ -68,3 +68,9 @@ export async function reportOrBlock(client: FurrixClient, matchId: string, repor
   const { error } = await client.rpc('report_or_block_match', { p_match: matchId, p_reason: reason ?? '', p_details: details?.trim() ?? '', p_report: report });
   if (error) throw toDataError(error);
 }
+
+/** Ferme ce match pour les deux participants ; un nouvel essai conserve le même résultat. */
+export async function endMatch(client: FurrixClient, matchId: string) {
+  const { error } = await client.rpc('end_pet_match', { p_match: matchId });
+  if (error) throw toDataError(error);
+}
