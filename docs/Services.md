@@ -14,7 +14,7 @@ L’appellation « Activité déclarée » n’est pas un contrôle de diplôme 
 
 ## Base et confidentialité
 
-Migration locale à relire : `20261119165521_professional_directory.sql`. Elle crée professional_profiles (une ligne par titulaire), une lecture directe réservée au propriétaire via RLS et trois RPC : save_professional_profile, set_professional_active, search_professionals. Les écritures directes client sont révoquées. Les deux fonctions d’écriture ne prennent jamais d’identifiant de propriétaire : elles utilisent auth.uid(). Le JSON des prestations est validé, limité à vingt entrées et reconstruit avec les seules clés autorisées.
+Migration appliquée sur DEV après accord : `20261119171727_professional_directory.sql`. Elle crée professional_profiles (une ligne par titulaire), une lecture directe réservée au propriétaire via RLS et trois RPC : save_professional_profile, set_professional_active, search_professionals. Les écritures directes client sont révoquées. Les deux fonctions d’écriture ne prennent jamais d’identifiant de propriétaire : elles utilisent auth.uid(). Le JSON des prestations est validé, limité à vingt entrées et reconstruit avec les seules clés autorisées.
 
 La projection de découverte est explicite : identifiant professionnel, nom d’activité, catégorie, ville, présentation, animaux accueillis, horaires, accès, téléphone et site professionnels, prestations et distance arrondie. Elle ne contient ni latitude/longitude, ni e-mail personnel, ni données animales, ni rôle de compte. Une révocation bêta masque les fiches et interdit les opérations du compte révoqué.
 
@@ -36,4 +36,6 @@ La carte du prototype n’est pas reproduite sous une apparence géographique tr
 - Types et compilation web : réussis. Navigateur local simulé à 390 et 1280 px : recherche, fiche, formulaire enregistré, un h1, aucun débordement horizontal ni erreur JavaScript, cibles de boutons d’au moins 44 px.
 - Le composant Button accepte target/rel pour les liens externes ; le bouton Retour utilise le jeton de cible tactile 44 px.
 
-Pas encore réalisé : application de la migration sur DEV, essais avec les vrais comptes, compilation Android/iOS et recette sur appareils. Rien n’est déployé ni fusionné par ce lot.
+La PR 32 est fusionnée et la migration est appliquée sur DEV. Restent à réaliser : publication d’un profil depuis l’application avec les vrais comptes, compilation Android/iOS et recette sur appareils. Les sondes SQL d’activation ne remplacent pas cette recette.
+
+Activation DEV le 19 novembre 2026 après accord : migration distante 20261119171727, fichier local aligné sans modification du SQL. RLS active, accès anonyme et écritures directes client refusés ; lecture et recherche vérifiées sous le rôle authentifié du compte bêta, dans une transaction annulée. Aucun profil ajouté. Les conseillers signalent les trois RPC authentifiées prévues ; aucun accès anonyme à ces fonctions. La recette via l’application et les appareils reste à réaliser.
