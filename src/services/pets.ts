@@ -3,7 +3,7 @@ import type { PetInput } from '../types/pet';
 import { toDataError } from './errors';
 import type { FurrixClient } from './supabaseClient';
 
-export const PET_COLUMNS = 'id, owner_id, name, species, breed, age, gender, purpose, city, bio, photos, verified, created_at';
+export const PET_COLUMNS = 'id, owner_id, name, species, breed, age, gender, purpose, city, bio, photos, verified, created_at, meeting_goals, size, temperament, good_with, usual_outings, behaviour_traits';
 
 /** Liste blanche explicite : jamais d'étalement d'objet arbitraire vers la base (verified, owner_id…). */
 function toWritable(input: PetInput): Required<Omit<PetUpdate, 'photos'>> {
@@ -16,6 +16,12 @@ function toWritable(input: PetInput): Required<Omit<PetUpdate, 'photos'>> {
     purpose: input.purpose,
     city: input.city,
     bio: input.bio,
+    meeting_goals: input.meeting_goals,
+    size: input.size,
+    temperament: input.temperament,
+    good_with: input.good_with,
+    usual_outings: input.usual_outings,
+    behaviour_traits: input.behaviour_traits,
   };
 }
 

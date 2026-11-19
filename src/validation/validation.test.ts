@@ -9,8 +9,15 @@ describe('validatePetForm', () => {
     const r = validatePetForm(valid);
     expect(r).toEqual({
       ok: true,
-      value: { name: 'Luna', species: 'chien', breed: 'Golden', age: null, gender: '♀', city: 'Lille', bio: null, purpose: 'balade' },
+      value: { name: 'Luna', species: 'chien', breed: 'Golden', age: null, gender: '♀', city: 'Lille', bio: null, purpose: 'balade', meeting_goals: [], size: null, temperament: null, good_with: null, usual_outings: null, behaviour_traits: [] },
     });
+  });
+
+  it('normalise le profil de rencontre et refuse les valeurs hors liste ou trop longues', () => {
+    const r = validatePetForm({ ...valid, goals: 'jeu,balade,jeu', size: 'moyen', temperament: ' Joueuse ', trait1: 'Sociable', trait2: ' ', trait3: 'Calme' });
+    expect(r.ok && r.value).toMatchObject({ meeting_goals: ['jeu', 'balade'], size: 'moyen', temperament: 'Joueuse', behaviour_traits: ['Sociable', 'Calme'] });
+    const bad = validatePetForm({ ...valid, goals: 'reproduction', size: 'géant', good_with: 'x'.repeat(41), trait1: 'x'.repeat(81) });
+    expect(!bad.ok && Object.keys(bad.errors).sort()).toEqual(['goals', 'good_with', 'size', 'trait1']);
   });
 
   it('ignore les champs inattendus (verified, owner_id)', () => {

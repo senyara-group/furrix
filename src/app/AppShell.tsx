@@ -1,24 +1,30 @@
-import { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, ArrowRight, Sun, Dog, LogOut, Menu, X, CalendarDays, PawPrint, Heart, HandHeart, Stethoscope } from 'lucide-react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { ArrowUpRight, ArrowRight, Sun, Dog, LogOut, CalendarDays, PawPrint, Heart, HandHeart, Stethoscope } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
 import type { FurrixClient } from '../services/supabaseClient';
-import { destinations, routeFromHash } from './navigation';
+import { destinations, headerNav, routeFromHash, tabNav } from './navigation';
 import { useAccountOverview, type OverviewState } from './useAccountOverview';
-import '@fontsource/bricolage-grotesque/latin-700.css';
-import '@fontsource/figtree/latin-400.css';
-import '@fontsource/figtree/latin-600.css';
+import { PhoneBarContext, type PhoneBarOverride } from './phoneBar';
+import '../design-system/styles';
 import './shell.css';
+import { Avatar, FurrixScope, HeaderAction, IconButton, PhoneBar, SiteHeader, TabBar } from '../design-system';
 import PetsWorkspace from '../pets/PetsWorkspace';
 import type { ReactNode } from 'react';
-import MeetingsArea from '../meetings/MeetingsArea';
+// Rencontres et Messages : chargées à part, pour alléger le démarrage de l'app (préchargées juste après).
+const loadRencontres = () => import('../meetings/Rencontres');
+const loadMessages = () => import('../meetings/AfterMatch');
+const Rencontres = lazy(loadRencontres);
+const MessagesArea = lazy(loadMessages);
+const pageLoading = <p role="status" className="app-small">Chargement…</p>;
 import LostPetsArea from '../lost-pets/LostPetsArea';
-import LocalAlertNotice from '../lost-pets/LocalAlertNotice';
+import { useLocalAlertUnread } from '../lost-pets/useLocalAlertUnread';
 
 const pillars = [
   { route: 'rencontres', label: 'Faire des rencontres', tag: 'Un peu de compagnie', text: 'Des compagnons de balade et de nouveaux amis, pour eux comme pour toi.', icon: Heart, color: 'sky' },
   { route: 'garde', label: 'Trouver une garde', tag: 'Entre de bonnes mains', text: 'Pour une promenade, une visite ou quelques jours loin de la maison.', icon: HandHeart, color: 'park' },
   { route: 'services', label: 'Les bons professionnels', tag: 'Bien les entourer', text: 'Des professionnels pour accompagner la vie de tes animaux.', icon: Stethoscope, color: 'sun' },
 ] as const;
+const lostPets = { label: 'Animaux perdus', text: 'Tu pourras signaler un animal perdu ou trouvé près de chez toi, et aider à le ramener à la maison.' };
 
 function Home({ overview }: { overview: OverviewState }) {
   const name = overview.data?.profile.name?.trim().split(/\s+/)[0];
@@ -43,16 +49,18 @@ function Home({ overview }: { overview: OverviewState }) {
   </>;
 }
 
-export function AppShellView({ overview, retry, email, onSignOut, preview = false, petsContent, meetingsContent, messagesContent, lostContent, localNotice }: {
-  overview: OverviewState; retry: () => void; email?: string; onSignOut?: () => Promise<boolean>; preview?: boolean; petsContent?: ReactNode; meetingsContent?: ReactNode; messagesContent?: ReactNode; lostContent?: ReactNode; localNotice?: ReactNode;
+export function AppShellView({ overview, retry, email, onSignOut, preview = false, petsContent, meetingsContent, messagesContent, lostContent, localNotice, notificationUnread = false }: {
+  overview: OverviewState; retry: () => void; email?: string; onSignOut?: () => Promise<boolean>; preview?: boolean; petsContent?: ReactNode; meetingsContent?: ReactNode; messagesContent?: ReactNode; lostContent?: ReactNode; localNotice?: ReactNode; notificationUnread?: boolean;
 }) {
   const [route, setRoute] = useState(() => routeFromHash(window.location.hash));
-  const [mobileMenu, setMobileMenu] = useState(false);
+  const [menuOpen,setMenuOpen]=useState(false);
+  const menuToggle=useRef<HTMLElement|null>(null);
   const [leaving, setLeaving] = useState(false);
   const [error, setError] = useState('');
+  const [phoneBar, setPhoneBar] = useState<PhoneBarOverride | null>(null);
   const title = useRef<HTMLElement>(null);
   useEffect(() => {
-    const readRoute = () => { setRoute(routeFromHash(window.location.hash)); setMobileMenu(false); };
+    const readRoute = () => { setRoute(routeFromHash(window.location.hash)); setMenuOpen(false); };
     window.addEventListener('hashchange', readRoute);
     return () => window.removeEventListener('hashchange', readRoute);
   }, []);
@@ -67,18 +75,26 @@ export function AppShellView({ overview, retry, email, onSignOut, preview = fals
     catch { setError('La déconnexion n’a pas abouti. Réessaie.'); }
     finally { setLeaving(false); }
   };
-  const navigation = (kind: 'desktop' | 'mobile') => <nav aria-label={kind === 'desktop' ? 'Navigation principale' : 'Navigation téléphone'} className={`app-nav-${kind}`}>
-    {destinations.slice(0, kind === 'mobile' ? 5 : destinations.length).map(({ id, label, icon: Icon }) => <a href={`#/${id}`} key={id} aria-current={route === id ? 'page' : undefined}><Icon size={21} strokeWidth={1.7} aria-hidden /><span>{label}</span></a>)}
-  </nav>;
-  const pending = pillars.find((item) => item.route === route);
+  const go = (to: string) => { setMenuOpen(false); window.location.hash = `#/${to}`; };
+  const toggleMenu=()=>{menuToggle.current=document.activeElement as HTMLElement;setMenuOpen(v=>!v);};
+  useEffect(()=>{if(!menuOpen)return;const escape=(e:KeyboardEvent)=>{if(e.key==='Escape'){setMenuOpen(false);menuToggle.current?.focus();}};const outside=(e:PointerEvent)=>{if(!(e.target as HTMLElement).closest('#app-account-menu,[data-account-toggle]'))setMenuOpen(false);};document.addEventListener('keydown',escape);document.addEventListener('pointerdown',outside);return()=>{document.removeEventListener('keydown',escape);document.removeEventListener('pointerdown',outside);};},[menuOpen]);
+  const notificationLabel=notificationUnread?'Notifications animaux perdus : non lues':'Notifications animaux perdus';
+  const notifications=<IconButton icon="bell" label={notificationLabel} className={notificationUnread?'app-notification-unread':undefined} onClick={()=>go('animaux-perdus?notifications')}/>;
+  const menuAction=<span data-account-toggle><IconButton icon="user" label={menuOpen?'Fermer le menu du compte':'Ouvrir le menu du compte'} aria-expanded={menuOpen} aria-controls="app-account-menu" onClick={toggleMenu}/></span>;
+  const initial = (overview.data?.profile.name?.trim() || email || '').charAt(0).toUpperCase();
+  const isTab = tabNav.some((item) => item.id === route);
+  const pending = route === 'animaux-perdus' ? lostPets : pillars.find((item) => item.route === route);
   return <div className="furrix-shell">
     {preview && <div className="app-preview" role="status">Aperçu local de l’interface · sans connexion, sans données de compte</div>}
     <a className="app-skip" href="#app-content" onClick={(event) => { event.preventDefault(); title.current?.focus(); title.current?.scrollIntoView({ block: 'start' }); }}>Aller au contenu</a>
-    <header className="app-header"><a className="app-brand" href="#/accueil" aria-label="Furrix, accueil">furrix<span>●</span></a>{navigation('desktop')}
-      <div className="app-header-end"><span className="app-greeting">À leurs côtés, chaque jour.</span><button className="app-menu-toggle" aria-expanded={mobileMenu} aria-controls="app-mobile-menu" onClick={() => setMobileMenu(!mobileMenu)} aria-label={mobileMenu ? 'Fermer le menu' : 'Ouvrir le menu'}>{mobileMenu ? <X aria-hidden /> : <Menu aria-hidden />}</button></div>
-    </header>
-    {mobileMenu && <nav id="app-mobile-menu" className="app-more-menu" aria-label="Menu du compte"><a href="#/animaux">Mes animaux</a><a href="#/compte">Mon compte</a></nav>}
-    <main id="app-content" tabIndex={-1} ref={title}>
+    <FurrixScope><SiteHeader items={headerNav} current={route} homeHref="#/accueil" right={<>
+      {notifications}<HeaderAction icon="message" onClick={() => go('messages')}>Messages</HeaderAction>
+      <span data-account-toggle>{initial ? <Avatar initials={initial} label="Ouvrir le menu du compte" onClick={toggleMenu}/> : <IconButton icon="user" label="Ouvrir le menu du compte" aria-expanded={menuOpen} aria-controls="app-account-menu" onClick={toggleMenu}/>}</span>
+    </>} /></FurrixScope>
+    <FurrixScope className="app-phonebar"><PhoneBar titleAs="p" actions={<>{notifications}{menuAction}</>} title={phoneBar?.title ?? destinations.find((item) => item.id === route)?.label}
+      back={phoneBar?.back ?? (isTab ? undefined : { label: 'Retour à l’accueil', onClick: () => go('accueil') })} /></FurrixScope>
+    {menuOpen&&<FurrixScope><nav onClick={(event) => { if ((event.target as HTMLElement).closest('a')) setMenuOpen(false); }} id="app-account-menu" className="app-account-menu" aria-label="Menu du compte"><a href="#/animaux" aria-current={route==='animaux'?'page':undefined}>Mes animaux</a><a href="#/compte" aria-current={route==='compte'?'page':undefined}>Mon compte</a><a href="#/animaux-perdus" aria-current={route==='animaux-perdus'?'page':undefined}>Animaux perdus</a><a href="#/animaux-perdus?notifications">Notifications animaux perdus</a></nav></FurrixScope>}
+    <PhoneBarContext.Provider value={setPhoneBar}><main id="app-content" tabIndex={-1} ref={title}>
       {overview.status === 'error' && <div className="app-load-error" role="alert">Ton espace n’a pas pu être chargé. <button onClick={retry}>Réessayer</button></div>}
       {localNotice}
       {route === 'accueil' ? <Home overview={overview} />
@@ -93,19 +109,24 @@ export function AppShellView({ overview, retry, email, onSignOut, preview = fals
           : <div className="app-empty"><PawPrint size={42} strokeWidth={1.3} aria-hidden /><h2>Chaque aventure commence avec eux.</h2><p>Aucun animal n’est encore associé à cet espace. La création et l’édition des profils arrivent au prochain lot.</p></div>}</section>
         : <section className="app-page app-pending"><p className="app-eyebrow">Bientôt dans ton quartier</p><h1>{pending?.label || 'Tes conversations'}</h1><span className="app-stage">En préparation</span><p>{pending?.text || 'Tu retrouveras ici les conversations liées à tes matchs, demandes de garde et rendez-vous.'}</p><p>{route === 'rencontres' ? 'Un j’aime, puis un match réciproque : vous pourrez discuter et proposer une rencontre.' : 'Ce service n’est pas encore disponible. Aucune recherche, demande ou réservation n’est envoyée.'}</p><a className="app-outline" href="#/accueil">Revenir à l’accueil <ArrowRight size={18} aria-hidden /></a></section>}
       <footer className="app-footer"><span>furrix · Bien ensemble, tout simplement.</span><a href="#/compte">Mon compte</a></footer>
-    </main>
-    {navigation('mobile')}
+    </main></PhoneBarContext.Provider>
+    <FurrixScope className="app-tabbar"><TabBar items={tabNav} current={route} /></FurrixScope>
   </div>;
 }
 
 export default function AppShell({ client, user, onSignOut }: { client: FurrixClient; user: User; onSignOut: () => Promise<boolean> }) {
   const overview = useAccountOverview(client, user.id);
+  const unread=useLocalAlertUnread(client,user.id);
   const petsContent = overview.status === 'ready' && overview.data
     ? <PetsWorkspace key={user.id} client={client} ownerId={user.id} pets={overview.data.pets} onSaved={overview.savePet} reload={overview.retry} /> : undefined;
-  const meetingsContent = overview.status === 'ready' && overview.data ? <MeetingsArea key={`${user.id}:discover`} client={client} ownerId={user.id} pets={overview.data.pets} /> : undefined;
-  const messagesContent = overview.status === 'ready' && overview.data ? <MeetingsArea key={`${user.id}:matches`} client={client} ownerId={user.id} pets={overview.data.pets} initialTab="matches" /> : undefined;
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void loadRencontres().catch(() => {}); void loadMessages().catch(() => {}); }, 1500);
+    return () => window.clearTimeout(timer);
+  }, []);
+  const meetingsContent = overview.status === 'ready' && overview.data ? <Suspense fallback={pageLoading}><Rencontres key={user.id} client={client} ownerId={user.id} pets={overview.data.pets} /></Suspense> : undefined;
+  const messagesContent = overview.status === 'ready' && overview.data ? <Suspense fallback={pageLoading}><MessagesArea key={user.id} client={client} ownerId={user.id} /></Suspense> : undefined;
   const lostContent = <LostPetsArea key={`${user.id}:lost`} client={client} owner={user.id} pets={overview.data?.pets || []} />;
-  return <AppShellView overview={overview} retry={overview.retry} email={user.email} onSignOut={onSignOut} petsContent={petsContent} meetingsContent={meetingsContent} messagesContent={messagesContent} lostContent={lostContent} localNotice={<LocalAlertNotice key={`${user.id}:local-notice`} client={client} owner={user.id} />} />;
+  return <AppShellView overview={overview} retry={overview.retry} email={user.email} onSignOut={onSignOut} petsContent={petsContent} meetingsContent={meetingsContent} messagesContent={messagesContent} lostContent={lostContent} notificationUnread={unread} />;
 }
 
 export function AppPreview() {
