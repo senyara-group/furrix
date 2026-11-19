@@ -31,8 +31,13 @@ export async function setLocation(client: FurrixClient, petId: string, location?
 export async function loadMessages(client: FurrixClient, matchId: string, after?: number): Promise<MatchMessage[]> {
   let query = client.from('messages').select('id,match_id,sender_id,text,read,created_at,request_id').eq('match_id', matchId);
   if (after !== undefined) query = query.gt('id', after);
-  const { data, error } = await query.order('id', { ascending: false }).limit(50);
-  if (error) throw toDataError(error); return (data ?? []).reverse();
+  const { data, error } = await query.order('id', { ascending: after !== undefined }).limit(50);
+  if (error) throw toDataError(error); return after === undefined ? (data ?? []).reverse() : data ?? [];
+}
+export async function loadOlderMessages(client: FurrixClient, matchId: string, before: number): Promise<MatchMessage[]> {
+  const { data, error } = await client.from('messages').select('id,match_id,sender_id,text,read,created_at,request_id').eq('match_id', matchId).lt('id', before).order('id', { ascending: false }).limit(50);
+  if (error) throw toDataError(error);
+  return (data ?? []).reverse();
 }
 export async function sendMessage(client: FurrixClient, matchId: string, text: string, requestId: string) {
   if (!text.trim() || text.trim().length > 2000) throw new AppError('validation', 'Écris entre 1 et 2 000 caractères.');
@@ -61,5 +66,11 @@ export async function updateProposal(client: FurrixClient, id: string, action: '
 }
 export async function reportOrBlock(client: FurrixClient, matchId: string, report: boolean, reason?: ReportReason, details?: string) {
   const { error } = await client.rpc('report_or_block_match', { p_match: matchId, p_reason: reason ?? '', p_details: details?.trim() ?? '', p_report: report });
+  if (error) throw toDataError(error);
+}
+
+/** Ferme ce match pour les deux participants ; un nouvel essai conserve le même résultat. */
+export async function endMatch(client: FurrixClient, matchId: string) {
+  const { error } = await client.rpc('end_pet_match', { p_match: matchId });
   if (error) throw toDataError(error);
 }

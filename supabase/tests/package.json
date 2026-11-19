@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test beta-access-duration.test.mjs security-boundaries.test.mjs auth-profile-storage.test.mjs registration-consent.test.mjs private-beta.test.mjs animal-meetings.test.mjs meetings-privacy.test.mjs lost-pets.test.mjs meeting-profile.test.mjs after-match.test.mjs pet-sitting.test.mjs",
+    "test": "node --test --test-concurrency=2 beta-access-duration.test.mjs security-boundaries.test.mjs auth-profile-storage.test.mjs registration-consent.test.mjs private-beta.test.mjs animal-meetings.test.mjs meetings-privacy.test.mjs lost-pets.test.mjs meeting-profile.test.mjs after-match.test.mjs match-closure.test.mjs android-push.test.mjs pet-sitting.test.mjs",
     "test:pg": "node --test concurrency.pg.test.mjs"
   },
   "devDependencies": {

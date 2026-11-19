@@ -228,3 +228,76 @@ describe("secteur, notifications et observations", () => {
     expect(fake.calls.some((c) => c.op === "insert")).toBe(false);
   });
 });
+
+it('choisit le centre de la commune pour la declaration sans lancer le GPS', async () => {
+  const fake = setup();
+  const town = vi.spyOn(geo, 'locateTown').mockResolvedValue({latitude:50.63,longitude:3.06,label:'Lille · 59000'});
+  const gps = vi.spyOn(geo, 'approximateLocation');
+  render(<LostPetsArea client={fake.client} owner={owner} pets={[pet]} />);
+  fireEvent.click(screen.getByRole('button',{name:'Déclarer une disparition'}));
+  expect(town).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button',{name:'Utiliser le centre de cette commune'}));
+  await waitFor(() => expect((screen.getByLabelText('Latitude de la zone') as HTMLInputElement).value).toBe('50.63'));
+  expect(gps).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText('Ville ou commune'),{target:{value:'Roubaix'}});
+  expect((screen.getByLabelText('Latitude de la zone') as HTMLInputElement).value).toBe('');
+});
+it('active volontairement le secteur par commune et peut supprimer sa zone', async () => {
+  const fake = setup();
+  const sector = {user_id:owner,latitude:50.63,longitude:3.06,radius_km:25,created_at:''};
+  vi.spyOn(api,'getSector').mockResolvedValueOnce(null).mockResolvedValueOnce(sector).mockResolvedValueOnce(null);
+  const save = vi.spyOn(api,'setSector').mockResolvedValue();
+  const gps = vi.spyOn(geo,'approximateLocation');
+  vi.spyOn(geo,'locateTown').mockResolvedValue({latitude:50.63,longitude:3.06,label:'Lille'});
+  render(<LostPetsArea client={fake.client} owner={owner} pets={[pet]} />);
+  fireEvent.click(screen.getByRole('button',{name:'Mon secteur'}));
+  await waitFor(() => expect(screen.queryByText('Chargement de ton secteur')).toBeNull());
+  fireEvent.change(screen.getByLabelText('Commune de mon secteur'),{target:{value:'Lille'}});
+  fireEvent.click(screen.getByRole('button',{name:'Activer les alertes pour cette commune'}));
+  await screen.findByText('Ton secteur est enregistré pour les prochaines alertes.');
+  expect(save).toHaveBeenCalledWith(fake.client,true,50.63,3.06,25);
+  expect(gps).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button',{name:'Désactiver et supprimer ma zone'}));
+  await screen.findByText('Ton abonnement est désactivé et ta zone supprimée.');
+  expect(save).toHaveBeenLastCalledWith(fake.client,false,undefined,undefined,25);
+});
+it('demande confirmation avant de retirer une annonce', async () => {
+  const fake=setup(); vi.mocked(api.listLost).mockResolvedValue([{...alert,is_mine:true}]);
+  const update=vi.spyOn(api,'updateLost').mockResolvedValue();
+  render(<LostPetsArea client={fake.client} owner={owner} pets={[pet]} />);
+  fireEvent.click(await screen.findByRole('button',{name:'Voir l’alerte de mon animal'}));
+  fireEvent.click(await screen.findByRole('button',{name:'Clôturer sans retour'}));
+  expect(update).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button',{name:'Confirmer'}));
+  await waitFor(()=>expect(update).toHaveBeenCalledWith(fake.client,alert.id,alert.description,'','closed'));
+});
+it('marque une notification obsolete comme lue sans afficher une annonce retiree', async () => {
+  const fake=setup();
+  vi.mocked(api.listNotifications).mockResolvedValue([{id:'old',user_id:owner,alert_id:alert.id,kind:'lost_local',title:'Ancienne alerte',read_at:null,created_at:alert.last_seen_at}]);
+  vi.mocked(api.listLost).mockImplementation(async (_client,_city,_after,id)=>id?[]:[alert]);
+  const read=vi.spyOn(api,'readNotification').mockResolvedValue();
+  const refresh=vi.fn();window.addEventListener('furrix:notifications-read',refresh);
+  try {
+    render(<LostPetsArea client={fake.client} owner={owner} pets={[pet]} />);
+    fireEvent.click(screen.getByRole('button',{name:'Mes notifications'}));
+    fireEvent.click(await screen.findByRole('button',{name:'Consulter l’alerte'}));
+    await screen.findByText('Cette alerte a été retirée ou n’est plus disponible.');
+    expect(read).toHaveBeenCalledWith(fake.client,'old');expect(refresh).toHaveBeenCalledTimes(1);
+  } finally {window.removeEventListener('furrix:notifications-read',refresh);}
+});
+it('explique un service non installe et ne propose pas de publication', async () => {
+  const fake=setup();vi.mocked(api.listLost).mockRejectedValue({code:'PGRST202'});
+  render(<LostPetsArea client={fake.client} owner={owner} pets={[pet]} />);
+  await screen.findByText('Les alertes locales se préparent');
+  expect((screen.getByRole('button',{name:'Déclarer une disparition'}) as HTMLButtonElement).disabled).toBe(true);
+});
+
+it('ajoute la page suivante sans effacer les alertes deja consultees', async () => {
+  const fake=setup();const first=Array.from({length:30},(_,i)=>({...alert,id:'a'+i,display_name:'Animal '+i}));
+  vi.mocked(api.listLost).mockImplementation(async (_client,_city,after)=>after?[{...alert,id:'next',display_name:'Dernier animal'}]:first);
+  render(<LostPetsArea client={fake.client} owner={owner} pets={[pet]} />);
+  fireEvent.click(await screen.findByRole('button',{name:'Voir la suite'}));
+  await screen.findByRole('heading',{name:'Dernier animal'});
+  expect(screen.getByRole('heading',{name:'Animal 0'})).toBeTruthy();
+  expect(screen.queryByRole('button',{name:'Voir la suite'})).toBeNull();
+});

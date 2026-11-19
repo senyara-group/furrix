@@ -148,3 +148,11 @@ describe('zone et vue Carte', () => {
     expect(screen.getByRole('button', { name: 'Carte' })).toBeTruthy();
   });
 });
+
+it('actualise les matchs au retour dans la fenetre sans quitter la decouverte', async () => {
+  const fake = await start();
+  vi.mocked(service.listNewMatches).mockResolvedValue([{ match_id: 'late-match', pet_id: 'luna', name: 'Luna', owner_name: 'Camille', photo: null, created_at: '' }]);
+  fireEvent(window, new Event('focus'));
+  await waitFor(() => expect(service.markMatchSeen).toHaveBeenCalledWith(fake.client, 'late-match', mine.id));
+  expect(screen.getByRole('heading', { level: 1 }).textContent).toContain('match');
+});

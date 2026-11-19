@@ -142,3 +142,46 @@ describe('après le match', () => {
     expect(call).toHaveBeenCalledWith(expect.anything(), 'm1', true, 'message_deplace', '');
   });
 });
+
+it('retrouve les anciens messages au-dela de la premiere page', async () => {
+  const fake = open('#/messages?match=m1');
+  const make = (id: number): MatchMessage => ({ id, match_id: 'm1', sender_id: me, text: 'Message '+id, read: false, created_at: '2026-11-19T09:00:00Z', request_id: 'r'+id });
+  vi.mocked(service.loadMessages).mockResolvedValue(Array.from({length:50},(_,i)=>make(i+51)));
+  const older = vi.spyOn(service, 'loadOlderMessages').mockResolvedValue([make(50)]);
+  const button = await screen.findByRole('button', { name: 'Charger les anciens messages' });
+  fireEvent.click(button);
+  await screen.findByText('Message 50');
+  expect(older).toHaveBeenCalledWith(fake.client, 'm1', 51);
+  expect(screen.queryByRole('button', { name: 'Charger les anciens messages' })).toBeNull();
+});
+
+it('fin de match : confirmation explicite, aucun appel en choisissant de garder le match', async () => {
+  const end = vi.spyOn(service, 'endMatch').mockResolvedValue();
+  open('#/messages?match=m1');
+  const link = await screen.findByRole('link', { name: 'Mettre fin au match' });
+  expect(link.getAttribute('href')).toBe('#/messages?match=m1&vue=terminer');
+  fireEvent.click(link);
+  await screen.findByRole('button', { name: 'Confirmer la fin du match' });
+  expect(screen.getByText(/Cette action est définitive/)).toBeTruthy();
+  expect(end).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('link', { name: 'Garder le match' }));
+  await screen.findByText('Le premier bonjour est à toi.');
+  expect(end).not.toHaveBeenCalled();
+});
+
+it('fin de match : erreur récupérable, double envoi ignoré et succès après confirmation serveur', async () => {
+  let finish!: () => void;
+  const end = vi.spyOn(service, 'endMatch').mockRejectedValueOnce(new Error('réseau')).mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
+  open('#/messages?match=m1&vue=terminer');
+  let confirm = await screen.findByRole('button', { name: 'Confirmer la fin du match' });
+  fireEvent.click(confirm);
+  await screen.findByText('La fin du match n’a pas été confirmée. Réessaie.');
+  expect(screen.queryByText('Match terminé')).toBeNull();
+  confirm = screen.getByRole('button', { name: 'Confirmer la fin du match' });
+  fireEvent.click(confirm); fireEvent.click(confirm);
+  expect(end).toHaveBeenCalledTimes(2);
+  expect(end.mock.calls[1]![1]).toBe('m1');
+  finish();
+  await screen.findByRole('heading', { name: 'Match terminé' });
+  expect(screen.queryByRole('button', { name: 'Confirmer la fin du match' })).toBeNull();
+});

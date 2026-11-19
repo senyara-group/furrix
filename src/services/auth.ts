@@ -3,7 +3,7 @@ import type { Credentials } from '../validation/auth';
 import { toAuthError } from './errors';
 import type { FurrixClient } from './supabaseClient';
 import { Capacitor } from '@capacitor/core';
-import { getAuthRedirect } from '../platform/authRedirect';
+import { getAuthRedirect, getPasswordResetRedirect } from '../platform/authRedirect';
 import type { RegistrationConsent } from '../auth/registration';
 
 export function authRedirect(): string {
@@ -41,7 +41,7 @@ export async function signOut(client: FurrixClient): Promise<void> {
 
 /** Même réponse UI pour un e-mail connu ou inconnu, afin de limiter l'énumération. */
 export async function requestPasswordReset(client: FurrixClient, email: string): Promise<void> {
-  const { error } = await client.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: authRedirect() });
+  const { error } = await client.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: getPasswordResetRedirect(Capacitor.isNativePlatform(), window.location.origin) });
   if (error) throw toAuthError(error);
 }
 

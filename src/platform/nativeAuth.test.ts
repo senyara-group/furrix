@@ -50,4 +50,16 @@ describe('cycle de vie natif et liens PKCE', () => {
     await vi.waitFor(() => expect(auth.exchangeCodeForSession).toHaveBeenCalledWith('test-code', { flowId: '0123456789abcdef0123456789abcdef' }));
     stop();
   });
+
+  it('ouvre le formulaire natif apres un echange de recuperation reussi',async()=>{
+    const recovery=vi.fn();const stop=await startNativeAuth(client,vi.fn(),recovery);
+    callbacks.get('appUrlOpen')!({url:'fr.furrix.app://auth/reset?code=reset-code'});
+    await vi.waitFor(()=>expect(recovery).toHaveBeenCalledTimes(1));stop();
+  });
+  it('ne transforme pas un retour de recuperation invalide en formulaire autorise',async()=>{
+    const recovery=vi.fn(),error=vi.fn();auth.exchangeCodeForSession.mockResolvedValueOnce({data:{},error:{message:'expired'}});
+    const stop=await startNativeAuth(client,error,recovery);
+    callbacks.get('appUrlOpen')!({url:'fr.furrix.app://auth/reset?code=bad-code'});
+    await vi.waitFor(()=>expect(error).toHaveBeenCalled());expect(recovery).not.toHaveBeenCalled();stop();
+  });
 });

@@ -1,3 +1,5 @@
+> Pour les applications de bêta actuelles, suivre [Beta_Android_iOS.md](Beta_Android_iOS.md). Les commandes platform:* de ce document concernent le banc technique historique, pas le produit à installer.
+
 # Socle web, Android et iOS — 17 novembre 2026
 
 ## Décision de travail et limites de validation

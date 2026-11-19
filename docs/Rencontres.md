@@ -67,7 +67,7 @@ Corrections apportées à la migration, qui n'était encore appliquée nulle par
 Points relevés, non traités dans ce lot :
 
 1. **Table `pets` lisible en entier par tout testeur** (règle « pets visibles » de 0001, venue de `main`) : corrigé par `20261117152050_meetings_privacy.sql`, voir ci-dessus.
-2. **Ni blocage, ni signalement, ni annulation de match.** À planifier avant d'inviter des personnes extérieures à l'équipe.
+2. **Blocage et signalement** intégrés dans le lot après-match. La fermeture définitive d’un match est préparée dans le lot [Fin de match](Fin_Match.md), avec une migration supplémentaire à valider avant application DEV.
 3. **Pas de limite de fréquence** sur les décisions et les messages. Même échéance.
 4. **Version de la notice bêta répétée en dur** (`2026-11-17`) dans plusieurs fonctions. Changer de notice demandera une migration qui les met toutes à jour.
 

@@ -95,7 +95,7 @@ function MatchView({ client, active, match, onContinue }: { client: FurrixClient
   return <section aria-label="Match réciproque" className="fx-match meet-match">
     <MatchPair left={{ initials: initialOf(active.name) }} right={url ? { photo: { src: url, alt: '' } } : { initials: initialOf(match.name) }} />
     <StatusBadge status="ok">Match</StatusBadge>
-    <Text variant="match-title">C’est un match</Text>
+    <Text as="h1" variant="match-title">C’est un match</Text>
     <Text variant="body-sm" className="meet-match__cap">{active.name} et {match.name} ({owner})</Text>
     <Text variant="body" className="fx-match__text">{owner} a aussi aimé le profil de {active.name}. La conversation est ouverte gratuitement ; pour vous retrouver, proposez ensuite une activité, un lieu et un créneau.</Text>
     <Steps className="meet-match__steps" label="Où vous en êtes" steps={[{ label: 'J’aime', state: 'done' }, { label: 'Match', state: 'done' }, { label: 'Proposition' }, { label: 'Rencontre' }]} />
@@ -261,18 +261,32 @@ function Discovery({ client, active, pets, select }: { client: FurrixClient; act
     return () => { current = false; };
   }, [client, active.id]);
 
-  // Matchs créés pendant l'absence : l'autre a aimé en second.
+  // Les matchs créés par l'autre personne arrivent aussi pendant la visite.
   useEffect(() => {
-    let current = true;
-    void listNewMatches(client, active.id).then((list) => {
-      if (current) setUnseen(list.map((m) => ({ kind: 'match', matchId: m.match_id, name: m.name, owner: m.owner_name, photo: m.photo })));
-    }).catch(() => { /* Annonce différée à la prochaine visite. */ });
-    return () => { current = false; };
+    let current = true, running = false;
+    const announced = new Set<string>();
+    const refresh = async () => {
+      if (running || document.hidden) return;
+      running = true;
+      try {
+        const list = await listNewMatches(client, active.id);
+        if (!current) return;
+        const fresh = list.filter(m => !announced.has(m.match_id));
+        fresh.forEach(m => announced.add(m.match_id));
+        if (fresh.length) setUnseen(old => [...old, ...fresh.map(m => ({ kind: 'match' as const, matchId: m.match_id, name: m.name, owner: m.owner_name, photo: m.photo }))]);
+      } catch { /* Une prochaine actualisation réessaiera. */ }
+      finally { running = false; }
+    };
+    void refresh();
+    const timer = window.setInterval(() => { void refresh(); }, 15_000);
+    const focus = () => { void refresh(); };
+    window.addEventListener('focus', focus);
+    return () => { current = false; window.clearInterval(timer); window.removeEventListener('focus', focus); };
   }, [client, active.id]);
   useEffect(() => {
     if (screen.kind !== 'cards' && screen.kind !== 'list') return;
     const next = unseen[0]; if (!next) return;
-    setUnseen((list) => list.slice(1)); setScreen(next);
+    setUnseen(list => list.slice(1)); setScreen(next);
   }, [unseen, screen.kind]);
   useEffect(() => {
     if (screen.kind === 'match') void markMatchSeen(client, screen.matchId, active.id).catch(() => { /* Réannoncé à la prochaine visite. */ });

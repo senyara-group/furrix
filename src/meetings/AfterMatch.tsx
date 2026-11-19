@@ -6,7 +6,7 @@ import {
 } from '../design-system';
 import type { FurrixClient } from '../services/supabaseClient';
 import { usePhoneBar } from '../app/phoneBar';
-import { createProposal, latestProposal, listMyMatches, loadMessages, reportOrBlock, sendMessage, updateProposal } from './service';
+import { createProposal, endMatch, latestProposal, listMyMatches, loadMessages, loadOlderMessages, reportOrBlock, sendMessage, updateProposal } from './service';
 import type { MatchMessage, MeetingProposal, MyMatch, ProposalDraft, ReportReason } from './types';
 import { usePetPhotoUrl } from './usePetPhotoUrl';
 import { messagesHref, views, type View } from './links';
@@ -79,11 +79,19 @@ function MatchList({ client }: { client: FurrixClient }) {
   const [garde, setGarde] = useState<SittingThread[]>([]);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    let current = true; setState((s) => ({ ...s, status: 'loading' }));
-    void listMyMatches(client).then((data) => { if (current) setState({ status: 'ready', data }); }).catch(() => { if (current) setState({ status: 'error', data: [] }); });
-    // Conversations de garde : affichées en plus, sans bloquer la liste des matchs si elles échouent.
-    void listSittingThreads(client).then((data) => { if (current) setGarde(data); }).catch(() => { if (current) setGarde([]); });
-    return () => { current = false; };
+    let current = true, running = false;
+    setState((s) => ({ ...s, status: 'loading' }));
+    const load = async () => {
+      if (running) return;
+      running = true;
+      // Conversations de garde : affichées en plus, sans bloquer la liste des matchs si elles échouent.
+      void listSittingThreads(client).then((data) => { if (current) setGarde(data); }).catch(() => {});
+      try { const data = await listMyMatches(client); if (current) setState({ status: 'ready', data }); }
+      catch { if (current) setState({ status: 'error', data: [] }); }
+      finally { running = false; }
+    };
+    void load();
+    return poll(load, 15_000, () => { current = false; });
   }, [client, attempt]);
   return <>
     <PageHeader title="Messages" subtitle="Une conversation s’ouvre gratuitement après chaque match, et avec chaque gardien contacté." />
@@ -273,6 +281,29 @@ function CancelView({ client, match, proposal, onChange }: { client: FurrixClien
   </section>;
 }
 
+/** Confirmation distincte du blocage : seul ce match est fermé. */
+function EndMatchView({ client, match, onEnded }: { client: FurrixClient; match: MyMatch; onEnded: () => void }) {
+  const [busy, setBusy] = useState(false), [error, setError] = useState('');
+  const running = useRef(false), alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  const confirm = async () => {
+    if (running.current) return;
+    running.current = true; setBusy(true); setError('');
+    try { await endMatch(client, match.match_id); if (alive.current) onEnded(); }
+    catch { if (alive.current) setError('La fin du match n’a pas été confirmée. Réessaie.'); }
+    finally { running.current = false; if (alive.current) setBusy(false); }
+  };
+  return <section aria-label="Mettre fin au match">
+    <PageHeader title="Mettre fin au match" back={{ label: 'Conversation', onClick: () => go(match.match_id) }} />
+    <DetailLayout aside={<SideCard client={client} match={match} />}
+      actions={<ActionBar><Button as="a" href={messagesHref(match.match_id)} variant="out">Garder le match</Button><Button variant="danger" loading={busy} onClick={() => { void confirm(); }}>Confirmer la fin du match</Button></ActionBar>}>
+      <Alert tone="info" title="Cette action est définitive">La conversation entre {match.my_pet_name} et {match.name} sera retirée pour vous deux. Les propositions et la rencontre prévue seront annulées. Vous ne pourrez plus échanger pour ce match.</Alert>
+      <Note>Les autres matchs restent ouverts. Pour empêcher tout échange avec ce propriétaire, utilise « Signaler ou bloquer ».</Note>
+      {error && <Alert tone="err" title={error} />}
+    </DetailLayout>
+  </section>;
+}
+
 function ReportView({ client, match }: { client: FurrixClient; match: MyMatch }) {
   const owner = ownerOf(match);
   const [reason, setReason] = useState<ReportReason | null>(null);
@@ -314,8 +345,11 @@ function Conversation({ client, match, proposal, ownerId }: { client: FurrixClie
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [olderLoading, setOlderLoading] = useState(false);
+  const [hasOlder, setHasOlder] = useState(false);
   const [error, setError] = useState('');
   const pending = useRef<{ text: string; id: string }>();
+  const sendInProgress = useRef(false);
   const alive = useRef(true);
   const merge = (old: MatchMessage[], incoming: MatchMessage[]) => [...new Map([...old, ...incoming].map((m) => [m.id, m])).values()].sort((a, b) => a.id - b.id);
   // Dernier message reçu par actualisation (pas par envoi : un message de l'autre, plus ancien, pourrait sinon être sauté).
@@ -327,6 +361,7 @@ function Conversation({ client, match, proposal, ownerId }: { client: FurrixClie
       try {
         const data = await loadMessages(client, match.match_id, lastId.current);
         if (!alive.current) return;
+        if (lastId.current === undefined) setHasOlder(data.length === 50);
         if (data.length) { lastId.current = Math.max(lastId.current ?? 0, ...data.map((m) => m.id)); setMessages((v) => merge(v, data)); }
         setError('');
       }
@@ -336,13 +371,23 @@ function Conversation({ client, match, proposal, ownerId }: { client: FurrixClie
     void load();
     return poll(load, 10_000, () => { alive.current = false; });
   }, [client, match.match_id]);
+  const loadOlder = async () => {
+    if (olderLoading || !messages[0]) return;
+    setOlderLoading(true);
+    try {
+      const data = await loadOlderMessages(client, match.match_id, messages[0].id);
+      if (alive.current) { setMessages(v => merge(v, data)); setHasOlder(data.length === 50); }
+    } catch { if (alive.current) setError('Les anciens messages n’ont pas pu être chargés.'); }
+    finally { if (alive.current) setOlderLoading(false); }
+  };
   const send = async () => {
-    const value = text.trim(); if (!value) return;
+    const value = text.trim(); if (!value || sendInProgress.current) return;
+    sendInProgress.current = true;
     if (pending.current?.text !== value) pending.current = { text: value, id: crypto.randomUUID() };
     setSending(true); setError('');
     try { const saved = await sendMessage(client, match.match_id, value, pending.current.id); if (alive.current) { setMessages((v) => merge(v, [saved])); setText(''); pending.current = undefined; } }
     catch { if (alive.current) setError('Envoi non confirmé. Tu peux réessayer avec le même texte sans le dupliquer.'); }
-    finally { if (alive.current) setSending(false); }
+    finally { sendInProgress.current = false; if (alive.current) setSending(false); }
   };
   const open = proposal && (proposal.status === 'pending' || proposal.status === 'accepted');
   const ctxTitle = proposal?.status === 'accepted' ? longSlot(proposal.chosen_slot!) : proposal?.status === 'pending' ? (proposal.proposer_id === ownerId ? 'Proposition envoyée' : 'Proposition reçue') : 'Aucune rencontre prévue';
@@ -364,8 +409,10 @@ function Conversation({ client, match, proposal, ownerId }: { client: FurrixClie
           : <Button as="a" href={messagesHref(match.match_id, 'proposer')} size="sm" icon="calendar">Proposer une rencontre</Button>}
         <Button as="a" href={messagesHref(match.match_id, 'signaler')} variant="quiet" size="sm" icon="flag">Signaler ou bloquer</Button>
       </SideCard>}>
+      <Button as="a" href={messagesHref(match.match_id, 'terminer')} variant="quiet" size="sm" icon="xCircle">Mettre fin au match</Button>
       <Note icon="heart">Conversation ouverte gratuitement depuis le match de {match.my_pet_name} et {match.name}, le {day(match.matched_at)}</Note>
       <ChatThread className="am-chat">
+        {hasOlder && <Button variant="quiet" disabled={olderLoading} onClick={() => { void loadOlder(); }}>{olderLoading ? 'Chargement…' : 'Charger les anciens messages'}</Button>}
         <SystemMessage><Icon name="heartFill" size={16} />Match de {match.my_pet_name} et {match.name} · {day(match.matched_at)}, {time(match.matched_at)}</SystemMessage>
         {loading ? <SystemMessage>Chargement des messages…</SystemMessage> : !messages.length ? <SystemMessage>Le premier bonjour est à toi.</SystemMessage> : null}
         {messages.map((m) => <MessageBubble key={m.id} from={m.sender_id === ownerId ? 'me' : 'them'} time={time(m.created_at)}>{m.text}</MessageBubble>)}
@@ -378,10 +425,12 @@ function Conversation({ client, match, proposal, ownerId }: { client: FurrixClie
 
 function MatchSpace({ client, ownerId, matchId, view }: { client: FurrixClient; ownerId: string; matchId: string; view: View }) {
   const [match, setMatch] = useState<MyMatch | null>();
+  const [ended, setEnded] = useState(false);
   const [proposal, setProposal] = useState<MeetingProposal | null>(null);
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
+    if (ended) return;
     let current = true; setError(false);
     const load = () => Promise.all([listMyMatches(client, matchId), latestProposal(client, matchId)]).then(([list, p]) => {
       if (current) { setMatch(list[0] ?? null); setProposal(p); }
@@ -389,17 +438,18 @@ function MatchSpace({ client, ownerId, matchId, view }: { client: FurrixClient; 
     load().catch(() => { if (current) setError(true); });
     // La réponse de l'autre personne s'affiche sans recharger la page.
     return poll(() => load().catch(() => {}), 15_000, () => { current = false; });
-  }, [client, matchId, attempt]);
+  }, [client, matchId, attempt, ended]);
 
   const owner = match ? ownerOf(match) : '';
-  const titles: Record<View, string> = { conversation: owner, proposer: 'Proposer une rencontre', rencontre: 'Rencontre', annuler: 'Annuler', signaler: 'Signaler' };
+  const titles: Record<View, string> = { conversation: owner, proposer: 'Proposer une rencontre', rencontre: 'Rencontre', annuler: 'Annuler', signaler: 'Signaler', terminer: 'Terminer le match' };
   const back = useCallback(() => {
     if (view === 'conversation') go(); else if (view === 'annuler') go(matchId, 'rencontre'); else go(matchId);
   }, [view, matchId]);
-  usePhoneBar(useMemo(() => match ? { title: titles[view], back: { label: view === 'conversation' ? 'Retour aux messages' : 'Retour', onClick: back } } : null,
+  usePhoneBar(useMemo(() => ended ? { title: 'Match terminé', back: { label: 'Retour aux messages', onClick: () => go() } } : match ? { title: titles[view], back: { label: view === 'conversation' ? 'Retour aux messages' : 'Retour', onClick: back } } : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [match?.match_id, owner, view, back]));
+    [match?.match_id, owner, view, back, ended]));
 
+  if (ended) return <EmptyState icon="xCircle" title="Match terminé" action={<Button as="a" href="#/messages" variant="out">Retour aux messages</Button>}>La conversation et les propositions de ce match ne sont plus accessibles.</EmptyState>;
   if (error) return <Alert tone="err" title="Ce match n’a pas pu être chargé." actions={<Button variant="out" size="sm" icon="retry" onClick={() => setAttempt((a) => a + 1)}>Réessayer</Button>} />;
   if (match === undefined) return <Loading label="Chargement…" />;
   if (match === null) return <EmptyState icon="message" title="Conversation indisponible" action={<Button as="a" href="#/messages" variant="out" size="sm">Retour aux messages</Button>}>
@@ -407,6 +457,7 @@ function MatchSpace({ client, ownerId, matchId, view }: { client: FurrixClient; 
   </EmptyState>;
 
   const open = proposal && (proposal.status === 'pending' || proposal.status === 'accepted') ? proposal : null;
+  if (view === 'terminer') return <EndMatchView client={client} match={match} onEnded={() => setEnded(true)} />;
   if (view === 'signaler') return <ReportView client={client} match={match} />;
   if (view === 'proposer' && !open) return <ProposalForm client={client} match={match} onSent={(p) => { setProposal(p); go(matchId, 'rencontre'); }} />;
   if (view === 'annuler' && proposal?.status === 'accepted') return <CancelView client={client} match={match} proposal={proposal} onChange={setProposal} />;

@@ -63,6 +63,9 @@ test('après le match : proposition, réponse, annulation, blocage et signalemen
   assert.equal((await as(A,'select * from list_my_matches()')).length,0);assert.equal((await as(B,'select * from list_my_matches()')).length,0);
   await assert.rejects(as(B,'select * from send_match_message($1,$2,$3)',[match,'Coucou',R(7)]),/Conversation indisponible/);
   await assert.rejects(propose(B,match,[s1],R(8)),/Conversation indisponible/);
+  await assert.rejects(as(B,"select swipe_and_match($1,$2,'right')",[PB,PA]),/Profil indisponible/);
+  await db.query('update pets set photos=$1 where id=$2',[[A+'/'+PA+'/photo.jpg'],PA]);
+  assert.equal((await as(B,'select meeting_photo_visible($1) ok',[A+'/'+PA+'/photo.jpg']))[0].ok,false);
   assert.equal((await as(B,'select * from list_pet_matches($1)',[PB])).length,0);
   assert.equal((await as(B,'select * from discover_pets($1)',[PB])).some(p=>p.owner_id===A),false);
   assert.equal((await as(C,'select * from discover_pets($1)',[PC])).some(p=>p.owner_id===A),true);

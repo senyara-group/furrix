@@ -92,3 +92,28 @@ textarea.fx-input {
       var(--fx-layout-page-x) -1px 0 var(--fx-color-line-strong);
   }
 }
+/* Liste de choix : flèche dessinée, la flèche native varie trop d'un système à l'autre. */
+.fx-select {
+  appearance: none;
+  padding-right: 44px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%2316213A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+}
+/* Case à cocher et sa phrase : cible de 44 px, case agrandie. */
+.fx-check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--fx-space-3);
+  min-height: var(--fx-size-touch);
+  font: var(--fx-type-body);
+  color: var(--fx-color-ink);
+  cursor: pointer;
+}
+.fx-check input {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  margin: 1px 0 0;
+  accent-color: var(--fx-color-poppy);
+}

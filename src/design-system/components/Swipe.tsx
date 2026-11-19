@@ -33,6 +33,11 @@ export interface SwipeDeckProps<T> {
   onDecide: (item: T, decision: SwipeDecision) => SwipeDecisionResult;
   /** Informé quand une décision est en attente du serveur (pour désactiver `SwipeActions`). */
   onPendingChange?: (pending: boolean) => void;
+  /**
+   * Appelée une fois la carte sortie (après l'animation). Avec un `index` contrôlé, c'est le moment
+   * de retirer l'élément de `items` : le retirer plus tôt ferait sortir la carte suivante.
+   */
+  onLeave?: (item: T, decision: SwipeDecision) => void;
   /** Nom de la carte du dessus, lu par les lecteurs d'écran. */
   getLabel?: (item: T) => string;
   /** Index contrôlé ; sinon la pile avance seule. */
@@ -50,7 +55,7 @@ const prefersReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 function SwipeDeckImpl<T>(
-  { items, getKey, renderCard, onDecide, onPendingChange, getLabel, index, threshold = 70, likeLabel = "J'aime", passLabel = 'Passer', empty, className }: SwipeDeckProps<T>,
+  { items, getKey, renderCard, onDecide, onPendingChange, onLeave, getLabel, index, threshold = 70, likeLabel = "J'aime", passLabel = 'Passer', empty, className }: SwipeDeckProps<T>,
   ref: Ref<SwipeDeckHandle>,
 ) {
   const controlled = index !== undefined;
@@ -99,6 +104,7 @@ function SwipeDeckImpl<T>(
           if (!controlled) setInner((i) => i + 1);
           setLeaving(null);
           setDx(0);
+          onLeave?.(item, decision);
         };
         if (prefersReducedMotion()) return commit();
         setLeaving(decision);
@@ -119,7 +125,7 @@ function SwipeDeckImpl<T>(
         leave();
       }
     },
-    [items, idx, leaving, onDecide, controlled, markPending],
+    [items, idx, leaving, onDecide, onLeave, controlled, markPending],
   );
 
   useImperativeHandle(ref, () => ({
@@ -204,7 +210,12 @@ export const SwipeDeck = forwardRef(SwipeDeckImpl) as <T>(
 ) => ReactElement | null;
 
 export interface SwipeProfileProps {
-  photo: PhotoSource & { alt: string };
+  /** Photo publique. Pour une photo privée chargée à part, passer `media`. */
+  photo?: PhotoSource & { alt: string };
+  /** Remplace `photo` : contenu libre de la zone photo (image téléchargée, illustration). */
+  media?: ReactNode;
+  /** Balise du nom : un titre (`h2`, `h3`) quand la carte structure la page. */
+  nameAs?: 'p' | 'h2' | 'h3';
   distance?: ReactNode;
   name: ReactNode;
   description?: ReactNode;
@@ -215,15 +226,15 @@ export interface SwipeProfileProps {
 }
 
 /** Contenu d'une carte de la pile. */
-export function SwipeProfile({ photo, distance, name, description, goalsLabel = 'Cherche', goals, traits, owner }: SwipeProfileProps) {
+export function SwipeProfile({ photo, media, nameAs: Name = 'p', distance, name, description, goalsLabel = 'Cherche', goals, traits, owner }: SwipeProfileProps) {
   return (
     <>
       <div className="fx-profile__photo">
-        <img src={photo.src} alt={photo.alt} draggable={false} style={photo.position ? { objectPosition: photo.position } : undefined} />
+        {media ?? (photo ? <img src={photo.src} alt={photo.alt} draggable={false} style={photo.position ? { objectPosition: photo.position } : undefined} /> : null)}
         {distance ? <span className="fx-profile__dist"><Icon name="pin" size={14} strokeWidth={2.2} />{distance}</span> : null}
       </div>
       <div className="fx-profile__info">
-        <p className="fx-profile__name">{name}</p>
+        <Name className="fx-profile__name">{name}</Name>
         {description ? <p className="fx-profile__desc">{description}</p> : null}
         {goals?.length ? (
           <div className="fx-profile__goals">

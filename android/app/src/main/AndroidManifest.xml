@@ -9,11 +9,14 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
+        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_furrix" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="furrix-alertes" />
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:name=".MainActivity"
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:windowSoftInputMode="adjustResize"
             android:launchMode="singleTask"
             android:exported="true">
 
@@ -27,6 +30,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="fr.furrix.app" android:host="auth" android:path="/callback" />
+                <data android:scheme="fr.furrix.app" android:host="auth" android:path="/reset" />
             </intent-filter>
 
         </activity>

@@ -11,6 +11,7 @@ export type Database = {
   __InternalSupabase: { PostgrestVersion: '14.18' };
   public: {
     Tables: {
+      lost_pets: { Row: import('../lost-pets/types').OwnLostRow; Insert: never; Update: never; Relationships: [] };
       lost_alert_subscriptions: { Row: LostSector; Insert: never; Update: never; Relationships: [] };
       local_notifications: { Row: LocalNotification; Insert: never; Update: never; Relationships: [] };
       lost_sightings: { Row: LostSighting; Insert: never; Update: never; Relationships: [] };
@@ -110,6 +111,9 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      register_android_push: { Args: { p_device: string; p_owner: string; p_token: string }; Returns: undefined };
+      remove_android_push: { Args: { p_device: string; p_owner: string }; Returns: undefined };
+      android_push_status: { Args: { p_device: string }; Returns: boolean };
       publish_lost_alert: { Args: PublishLostArgs; Returns: string };
       list_lost_alerts: { Args: { p_city?: string; p_after?: string; p_limit?: number; p_id?: string }; Returns: LostAlert[] };
       update_lost_alert: { Args: { p_id: string; p_description: string; p_instructions: string; p_status: string }; Returns: undefined };
@@ -122,6 +126,7 @@ export type Database = {
       list_my_matches: { Args: { p_match?: string }; Returns: MyMatch[] };
       create_meeting_proposal: { Args: { p_match: string; p_activity: string; p_place: string; p_slots: string[]; p_message: string; p_request: string }; Returns: MeetingProposal };
       update_meeting_proposal: { Args: { p_id: string; p_action: string; p_slot?: string; p_note?: string }; Returns: MeetingProposal };
+      end_pet_match: { Args: { p_match: string }; Returns: undefined };
       report_or_block_match: { Args: { p_match: string; p_reason: string; p_details: string; p_report: boolean }; Returns: undefined };
       search_sitters: { Args: { p_lat?: number; p_lng?: number; p_radius?: number; p_service?: string; p_starts?: string; p_ends?: string; p_species?: string; p_sitter?: string }; Returns: SitterResult[] };
       save_sitter_profile: { Args: { p_kind: string; p_bio: string; p_city: string; p_lat: number; p_lng: number; p_species: string[]; p_max_weight: number | null; p_outdoor: string; p_services: ServicePrice[]; p_active?: boolean }; Returns: SitterProfile };

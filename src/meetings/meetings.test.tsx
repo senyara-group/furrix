@@ -56,7 +56,23 @@ describe('messages', () => {
     const fake = createFakeSupabase();
     await service.loadMessages(fake.client, 'match-1', 42);
     expect(fake.calls).toContainEqual({ table: 'messages', op: 'gt', args: ['id', 42] });
+    expect(fake.calls).toContainEqual({ table: 'messages', op: 'order', args: ['id', { ascending: true }] });
     await service.loadMessages(fake.client, 'match-1');
+    expect(fake.calls).toContainEqual({ table: 'messages', op: 'order', args: ['id', { ascending: false }] });
     expect(fake.calls.filter((c) => c.op === 'gt')).toHaveLength(1);
   });
+});
+
+it('libere les photos privees a la deconnexion et les recharge pour la session suivante', async () => {
+  const fake = createFakeSupabase();
+  Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:private'), revokeObjectURL: vi.fn() });
+  const download = vi.spyOn(photos, 'downloadPrivatePetPhoto').mockResolvedValue(new Blob(['photo']));
+  const first = renderHook(() => usePetPhotoUrl(fake.client, 'owner/pet/photo.jpg'));
+  await waitFor(() => expect(first.result.current).toBe('blob:private'));
+  first.unmount();
+  act(() => fake.emitAuth('SIGNED_OUT', null));
+  expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:private');
+  const second = renderHook(() => usePetPhotoUrl(fake.client, 'owner/pet/photo.jpg'));
+  expect(second.result.current).toBeUndefined();
+  await waitFor(() => expect(download).toHaveBeenCalledTimes(2));
 });

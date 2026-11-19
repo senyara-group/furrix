@@ -81,3 +81,8 @@ verify_jwt = true
 [functions.send-email]
 enabled = false
 verify_jwt = true
+
+# Ce worker de minuteur n’accepte pas les JWT des utilisateurs : secret serveur dédié,
+# comparaison constante et RPC de file réservées à service_role. Aucun autre endpoint modifié.
+[functions.android-push-worker]
+verify_jwt = false

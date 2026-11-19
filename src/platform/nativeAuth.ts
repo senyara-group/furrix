@@ -4,7 +4,7 @@ import type { FurrixClient } from '../services/supabaseClient';
 import { parseNativeAuthReturn } from './authRedirect';
 
 /** À monter une fois au niveau de l'application. Ne journalise jamais URL/code/session. */
-export async function startNativeAuth(client: FurrixClient, onError: (message: string) => void): Promise<() => void> {
+export async function startNativeAuth(client: FurrixClient, onError: (message: string) => void, onRecovery?: () => void): Promise<() => void> {
   if (!Capacitor.isNativePlatform()) return () => {};
   const handles: PluginListenerHandle[] = [];
   let active = true;
@@ -24,6 +24,7 @@ export async function startNativeAuth(client: FurrixClient, onError: (message: s
         ? await client.auth.exchangeCodeForSession(result.code, { flowId: result.flowId })
         : await client.auth.exchangeCodeForSession(result.code);
       if (error && active) onError('Impossible de valider ce lien sur cet appareil. Demande un nouveau lien depuis cette application.');
+      else if (!error && active && result.recovery) onRecovery?.();
     } catch {
       if (active) onError('Connexion interrompue. Demande un nouveau lien.');
     }

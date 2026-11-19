@@ -55,10 +55,10 @@ describe('garde', () => {
     const row = await screen.findByRole('button', { name: /Sam.*Particulier/ });
     expect(screen.getByText('1 gardien disponible')).toBeTruthy();
     expect(row.textContent).toMatch(/20\s€/);
-    const query = search.mock.calls.at(-1)![1];
+    const query = search.mock.calls[search.mock.calls.length - 1]![1];
     expect(query).toMatchObject({ species: 'chien', service: 'chez_gardien', radius: 10, starts: iso(3, 18), ends: iso(5, 18) });
     fireEvent.click(screen.getByRole('button', { name: 'Visites' }));
-    await waitFor(() => expect(search.mock.calls.at(-1)![1].service).toBe('visite'));
+    await waitFor(() => expect(search.mock.calls[search.mock.calls.length - 1]![1].service).toBe('visite'));
     fireEvent.click(await screen.findByRole('button', { name: /Sam.*Particulier/ }));
     expect(window.location.hash).toBe('#/garde?vue=fiche&gardien=s1');
     expect(await screen.findByRole('button', { name: 'Demander une garde' })).toBeTruthy();

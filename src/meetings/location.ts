@@ -33,16 +33,16 @@ export async function approximateLocation(): Promise<ApproximatePosition> {
  */
 export async function locateTown(query: string, signal?: AbortSignal): Promise<ApproximatePosition & { label: string }> {
   const q = query.trim();
-  if (q.length < 2) throw new LocationError('not_found');
+  if (q.length < 2 || q.length > 200) throw new LocationError('not_found');
   let response: Response;
   try {
-    response = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q)}&type=municipality&limit=1`, { signal });
+    response = await fetch(`https://data.geopf.fr/geocodage/search?index=address&q=${encodeURIComponent(q)}&type=municipality&limit=1`, { signal });
   } catch { throw new LocationError('network'); }
   if (!response.ok) throw new LocationError('network');
   const body = await response.json() as { features?: Array<{ geometry?: { coordinates?: [number, number] }; properties?: { label?: string; postcode?: string } }> };
   const found = body.features?.[0];
   const [lng, lat] = found?.geometry?.coordinates ?? [];
-  if (typeof lat !== 'number' || typeof lng !== 'number') throw new LocationError('not_found');
+  if (typeof lat !== 'number' || typeof lng !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) throw new LocationError('not_found');
   const label = [found?.properties?.label, found?.properties?.postcode].filter(Boolean).join(' · ');
   return { latitude: round(lat), longitude: round(lng), label: label || q };
 }

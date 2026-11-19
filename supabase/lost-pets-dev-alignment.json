@@ -1,0 +1,27 @@
+{
+  "project": "jemikzqgbpaivlujnfgl",
+  "date": "2026-11-19",
+  "migrations": [
+    {
+      "name": "lost_pets_local_alerts",
+      "oldVersion": "20261118122724",
+      "version": "20261119104650",
+      "sha256": "f8aa3d42a1815132d0a1bf7fac569c5bc58863c66c6172196974b2a7756cc25f",
+      "md5": "10050732be664381a7297896744d9275"
+    },
+    {
+      "name": "meeting_integration_safety",
+      "oldVersion": "20261119082707",
+      "version": "20261119104700",
+      "sha256": "6f4ecc246d4cf77e8886f83074e53d831c14fb18344bad78f2ff78514b9a192d",
+      "md5": "aaa7b040db8354044104a4fef5d92ce2"
+    },
+    {
+      "name": "lost_alerts_completion",
+      "oldVersion": "20261119094151",
+      "version": "20261119104712",
+      "sha256": "6c701939cbda04c20b06384d2e2d7f731d21442a04ca1b5ff2b5d046e5f674ec",
+      "md5": "f7855d265b3ed4118309304b3ef53973"
+    }
+  ]
+}

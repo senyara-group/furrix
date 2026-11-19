@@ -9,6 +9,21 @@ import { downloadPrivatePetPhoto } from '../pets/privatePhotos';
 type Entry = { url?: string; promise: Promise<string>; users: number; used: number };
 const cache = new WeakMap<FurrixClient, Map<string, Entry>>();
 const KEEP = 60;
+const watched = new WeakSet<FurrixClient>();
+function watchSession(client: FurrixClient) {
+  if (watched.has(client)) return;
+  watched.add(client);
+  let user: string | undefined;
+  client.auth.onAuthStateChange((event, session) => {
+    const next = session?.user.id;
+    if (event === 'SIGNED_OUT' || (user !== undefined && next !== user)) {
+      const map = cache.get(client);
+      map?.forEach(entry => { if (entry.url) URL.revokeObjectURL(entry.url); });
+      map?.clear();
+    }
+    user = next;
+  });
+}
 
 function entries(client: FurrixClient) {
   let map = cache.get(client);
@@ -22,11 +37,15 @@ function trim(map: Map<string, Entry>) {
 }
 
 function acquire(client: FurrixClient, path: string, owner: string, pet: string): Entry {
+  watchSession(client);
   const map = entries(client);
   let entry = map.get(path);
   if (!entry) {
     const created: Entry = { users: 0, used: Date.now(), promise: Promise.resolve('') };
-    created.promise = downloadPrivatePetPhoto(client, owner, pet, path).then((blob) => (created.url = URL.createObjectURL(blob)));
+    created.promise = downloadPrivatePetPhoto(client, owner, pet, path).then((blob) => {
+      if (map.get(path) !== created) throw new Error('Session terminée');
+      return (created.url = URL.createObjectURL(blob));
+    });
     created.promise.catch(() => { if (map.get(path) === created) map.delete(path); });
     map.set(path, created);
     entry = created;
