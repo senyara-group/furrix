@@ -1,0 +1,9 @@
+.app-account {
+  display: grid;
+  gap: var(--fx-space-4);
+}
+.app-account > h1, .app-account > p { margin: 0; }
+.app-account h2 { margin: 0; }
+.app-account { grid-template-columns: minmax(0, 1fr); min-width: 0; }
+.app-account > * { min-width: 0; }
+.app-account .fx-btn { white-space: normal; max-width: 100%; }

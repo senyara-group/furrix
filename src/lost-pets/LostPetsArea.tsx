@@ -303,15 +303,19 @@ function NewAlert({
 }
 
 /** Réglage volontaire : aucun suivi de position ni abonnement automatique. */
-function SectorSettings({
+/** Préférences de secteur partagées entre Mon compte et Animaux perdus. */
+export function SectorSettings({
   client,
   owner,
+  activationVariant = "main",
 }: {
   client: FurrixClient;
   owner: string;
+  activationVariant?: "main" | "out";
 }) {
   const [sector, setSector] = useState<LostSector | null>(),
     [radius, setRadius] = useState("25"),
+    [attempt, setAttempt] = useState(0),
     [town, setTown] = useState(""),
     [sectorLoading, setSectorLoading] = useState(true),
     [notice, setNotice] = useState(""),
@@ -321,7 +325,7 @@ function SectorSettings({
     running = useRef(false);
   useEffect(() => {
     let active = true;
-    setSectorLoading(true);
+    setSectorLoading(true); setError("");
     void api
       .getSector(client, owner)
       .then((s) => {
@@ -336,7 +340,7 @@ function SectorSettings({
     return () => {
       active = false;
     };
-  }, [client, owner]);
+  }, [client, owner, attempt]);
   const save = async (enabled: boolean, fromTown = false) => {
     if (running.current) return;
     running.current = true;
@@ -373,25 +377,27 @@ function SectorSettings({
         déplacements.
       </p>
       <p>
-        {sector
+        {sectorLoading ? "Vérification de ton abonnement…" : sector === undefined ? "Ton abonnement n’a pas pu être vérifié." : sector
           ? `Abonnement actif : rayon maximal ${sector.radius_km} km. Le rayon choisi par le propriétaire peut être plus petit.`
           : "Tu ne reçois pas encore les alertes de secteur."}
       </p>
       {sectorLoading && <Loading label="Chargement de ton secteur" />}
+      {!sectorLoading && sector === undefined && <Button variant="out" onClick={() => setAttempt(v => v + 1)}>Réessayer le chargement du secteur</Button>}
       <Field label="Rayon maximal">
-        <select value={radius} onChange={(e) => setRadius(e.target.value)}>
+        <Select value={radius} onChange={(e) => setRadius(e.target.value)}>
           {[5, 10, 25, 50].map((n) => (
             <option value={n} key={n}>
               {n} km
             </option>
           ))}
-        </select>
+        </Select>
       </Field>
       <Field label="Commune de mon secteur"><Input value={town} maxLength={80} onChange={e => setTown(e.target.value)} placeholder="Nom de commune ou code postal" /></Field>
       <p>Tu peux choisir le centre d’une commune sans autoriser le GPS. Seul le nom saisi est envoyé au service public de géocodage.</p>
-      <div className="app-lost-actions"><Button variant="out" loading={busy} disabled={sectorLoading || town.trim().length < 2} onClick={() => { void save(true, true); }}>Activer les alertes pour cette commune</Button>
+      <div className="app-lost-actions"><Button variant="out" loading={busy} disabled={sectorLoading || sector === undefined || town.trim().length < 2} onClick={() => { void save(true, true); }}>Activer les alertes pour cette commune</Button>
         <Button
-          disabled={sectorLoading}
+          variant={activationVariant}
+          disabled={sectorLoading || sector === undefined}
           loading={busy}
           onClick={() => {
             void save(true);
