@@ -1,3 +1,4 @@
+import {MessageDraftProvider} from '../meetings/messageDrafts';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, ArrowRight, Sun, Dog, LogOut, CalendarDays, PawPrint, Heart, HandHeart, Stethoscope } from 'lucide-react';
 import type { User } from '@supabase/supabase-js';
@@ -144,5 +145,5 @@ export function AppPreview() {
 
 /** Les push Android restent liés à la durée de la session, indépendamment de l’écran ouvert. */
 export default function AppShell({client,user,onSignOut}:{client:FurrixClient;user:User;onSignOut:()=>Promise<boolean>}) {
-  return <AndroidPushProvider key={user.id} client={client} owner={user.id}><AppShellContent client={client} user={user} onSignOut={onSignOut}/></AndroidPushProvider>;
+  return <AndroidPushProvider key={user.id} client={client} owner={user.id}><MessageDraftProvider><AppShellContent client={client} user={user} onSignOut={onSignOut}/></MessageDraftProvider></AndroidPushProvider>;
 }

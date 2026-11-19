@@ -33,6 +33,8 @@ async function prepare() {
     grant select,insert,update,delete on storage.objects to anon,authenticated,service_role;`);
   const dir = new URL('../migrations/', import.meta.url);
   for (const file of (await readdir(dir)).filter((f) => f.endsWith('.sql')).sort()) {
+ // pg_net, Vault et pg_cron : intégration contrôlée sur DEV, absente du PostgreSQL local.
+ if(file.endsWith('_android_push_scheduler.sql'))continue;
     let sql = await readFile(new URL(file, dir), 'utf8');
     if (file.includes('0002_rate')) sql = sql.replace(/create extension if not exists pg_cron;[\s\S]*?(?=-- ═══ IDEMPOTENCE)/, '');
     await admin.query(sql);

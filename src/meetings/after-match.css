@@ -186,3 +186,6 @@
 .am-cal__head + .am-cal__label {
   margin-top: 4px;
 }
+
+/* Recherche et actualisation de la boîte de conversations. */
+.app-message-tools { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--fx-space-3); margin-bottom: var(--fx-space-4); }
