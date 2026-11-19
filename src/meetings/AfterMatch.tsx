@@ -1,3 +1,5 @@
+import {AppError} from '../services/errors';
+import {useMessageDraft} from './messageDrafts';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActionBar, Alert, Button, Card, ChatLayout, ChatThread, CheckList, Composer, DetailLayout, EmptyState, Field, FurrixScope, Icon,
@@ -66,37 +68,44 @@ const statusOf: Record<string, { status: 'wait' | 'todo' | 'ok' | 'stop'; label:
 
 function MatchRow({ client, match }: { client: FurrixClient; match: MyMatch }) {
   const url = usePetPhotoUrl(client, match.photo);
+  const [draft]=useMessageDraft(match.match_id);
   const status = match.proposal_status ? statusOf[match.proposal_status] : undefined;
   return <ResultRow as="a" href={messagesHref(match.match_id)} photo={url ? { src: url, alt: '' } : undefined} initials={url ? undefined : match.name.charAt(0).toUpperCase()}
     name={`${match.name} et ${ownerOf(match)}`}
-    tag={status ? <StatusBadge status={status.status}>{status.label}</StatusBadge> : undefined}
-    meta={match.last_text ? `« ${match.last_text.length > 80 ? `${match.last_text.slice(0, 80)}…` : match.last_text} »` : `Match avec ${match.my_pet_name} · ${day(match.matched_at)}`} />;
+    tag={draft.trim()||status?<>{draft.trim()&&<StatusBadge status="todo">Brouillon</StatusBadge>}{status&&<StatusBadge status={status.status}>{status.label}</StatusBadge>}</>:undefined}
+    meta={draft.trim() ? `Brouillon : ${draft.trim().slice(0,80)}` : match.last_text ? `« ${match.last_text.length > 80 ? `${match.last_text.slice(0, 80)}…` : match.last_text} »` : `Match avec ${match.my_pet_name} · ${day(match.matched_at)}`} />;
 }
 
 function MatchList({ client }: { client: FurrixClient }) {
-  const [state, setState] = useState<{ status: 'loading' | 'ready' | 'error'; data: MyMatch[] }>({ status: 'loading', data: [] });
-  const [attempt, setAttempt] = useState(0);
-  useEffect(() => {
-    let current = true, running = false;
-    setState((s) => ({ ...s, status: 'loading' }));
-    const load = async () => {
-      if (running) return;
-      running = true;
-      try { const data = await listMyMatches(client); if (current) setState({ status: 'ready', data }); }
-      catch { if (current) setState({ status: 'error', data: [] }); }
-      finally { running = false; }
+  const [state,setState]=useState<{status:'loading'|'ready'|'error';data:MyMatch[]}>({status:'loading',data:[]});
+  const [attempt,setAttempt]=useState(0),[refreshing,setRefreshing]=useState(false),[query,setQuery]=useState('');
+  useEffect(()=>{
+    let current=true,running=false;
+    const load=async()=>{
+      if(running)return;running=true;if(current)setRefreshing(true);
+      try{const data=await listMyMatches(client);if(current)setState({status:'ready',data});}
+      catch(error){if(current)setState(previous=>({data:error instanceof AppError&&error.code==='network'?previous.data:[],status:'error'}));}
+      finally{running=false;if(current)setRefreshing(false);}
     };
-    void load();
-    return poll(load, 15_000, () => { current = false; });
-  }, [client, attempt]);
+    void load();return poll(load,15_000,()=>{current=false;});
+  },[client,attempt]);
+  const normalize=(text:string)=>text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('fr-FR');
+  const words=normalize(query).trim().split(/\s+/).filter(Boolean);
+  const filtered=state.data.filter(m=>{const text=normalize([m.name,m.owner_name,m.my_pet_name].filter(Boolean).join(' '));return words.every(word=>text.includes(word));});
+  const retry=<Button variant="out" size="sm" icon="retry" loading={refreshing} onClick={()=>setAttempt(a=>a+1)}>Actualiser</Button>;
   return <>
     <PageHeader title="Messages" subtitle="Une conversation s’ouvre gratuitement après chaque match." />
-    {state.status === 'loading' ? <Loading label="Chargement de tes conversations…" />
-      : state.status === 'error' ? <Alert tone="err" title="Tes conversations n’ont pas pu être chargées." actions={<Button variant="out" size="sm" icon="retry" onClick={() => setAttempt((a) => a + 1)}>Réessayer</Button>} />
-      : state.data.length ? <ResultList>{state.data.map((m) => <MatchRow key={m.match_id} client={client} match={m} />)}</ResultList>
-      : <EmptyState icon="message" title="Pas encore de conversation" action={<Button as="a" href="#/rencontres" variant="out" size="sm">Découvrir des compagnons</Button>}>
-          Un j’aime de chaque côté, et la conversation s’ouvre ici.
-        </EmptyState>}
+    {state.status==='error'&&<Alert tone="err" title={state.data.length?'Actualisation indisponible':'Tes conversations n’ont pas pu être chargées.'} actions={retry}>{state.data.length?'Les dernières conversations chargées restent affichées. Réessaie pour récupérer les nouveaux messages.':undefined}</Alert>}
+    {state.status==='loading'?<Loading label="Chargement de tes conversations…"/>:<>
+      {state.data.length>0&&<Stack gap={3}>
+        <Field label="Rechercher une conversation"><Input type="search" value={query} maxLength={100} placeholder="Animal ou propriétaire" onChange={e=>setQuery(e.target.value)}/></Field>
+        {state.data.length===100&&<Note>La recherche porte sur tes 100 conversations les plus récentes.</Note>}
+        <div className="app-message-tools"><Note>{filtered.length} conversation{filtered.length>1?'s':''}</Note>{state.status!=='error'&&retry}</div>
+      </Stack>}
+      {filtered.length?<ResultList>{filtered.map(m=><MatchRow key={m.match_id} client={client} match={m}/>)}</ResultList>:state.data.length?
+        <EmptyState icon="search" title="Aucune conversation trouvée" action={<Button variant="quiet" onClick={()=>setQuery('')}>Effacer la recherche</Button>}>Essaie le prénom du propriétaire ou le nom d’un des animaux.</EmptyState>:
+        state.status!=='error'&&<EmptyState icon="message" title="Pas encore de conversation" action={<Button as="a" href="#/rencontres" variant="out" size="sm">Découvrir des compagnons</Button>}>Un j’aime de chaque côté, et la conversation s’ouvre ici.</EmptyState>}
+    </>}
   </>;
 }
 
@@ -403,7 +412,7 @@ function Conversation({ client, match, proposal, ownerId }: { client: FurrixClie
   const owner = ownerOf(match);
   const [messages, setMessages] = useState<MatchMessage[]>([]);
   const [loading, setLoading] = useState(true);
-  const [text, setText] = useState('');
+  const [text, setText, draftRequest] = useMessageDraft(match.match_id);
   const [sending, setSending] = useState(false);
   const [olderLoading, setOlderLoading] = useState(false);
   const [hasOlder, setHasOlder] = useState(false);
@@ -443,7 +452,7 @@ function Conversation({ client, match, proposal, ownerId }: { client: FurrixClie
   const send = async () => {
     const value = text.trim(); if (!value || sendInProgress.current) return;
     sendInProgress.current = true;
-    if (pending.current?.text !== value) pending.current = { text: value, id: crypto.randomUUID() };
+    if (pending.current?.text !== value) pending.current = { text: value, id: draftRequest ?? crypto.randomUUID() };
     setSending(true); setError('');
     try { const saved = await sendMessage(client, match.match_id, value, pending.current.id); if (alive.current) { setMessages((v) => merge(v, [saved])); setText(''); pending.current = undefined; } }
     catch { if (alive.current) setError('Envoi non confirmé. Tu peux réessayer avec le même texte sans le dupliquer.'); }
@@ -478,6 +487,7 @@ function Conversation({ client, match, proposal, ownerId }: { client: FurrixClie
         {messages.map((m) => <MessageBubble key={m.id} from={m.sender_id === ownerId ? 'me' : 'them'} time={time(m.created_at)}>{m.text}</MessageBubble>)}
       </ChatThread>
       {error ? <Alert tone="err" title={error} /> : null}
+      {text.trim()&&<Note>Ton brouillon reste disponible pendant ta navigation. Il sera effacé à la déconnexion ou à la fermeture de l’application.</Note>}
       <Composer className="am-composer" value={text} onChange={setText} onSend={() => { void send(); }} sending={sending} placeholder={`Écrire à ${owner}…`} label="Ton message" />
     </ChatLayout>
   </section>;
