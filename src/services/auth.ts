@@ -41,7 +41,7 @@ export async function signOut(client: FurrixClient): Promise<void> {
 
 /** Même réponse UI pour un e-mail connu ou inconnu, afin de limiter l'énumération. */
 export async function requestPasswordReset(client: FurrixClient, email: string): Promise<void> {
-  const { error } = await client.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: authRedirect() });
+  const { error } = await client.auth.resetPasswordForEmail(email.trim().toLowerCase(), { redirectTo: Capacitor.isNativePlatform() ? authRedirect() : `${window.location.origin}/#/auth/reset` });
   if (error) throw toAuthError(error);
 }
 
