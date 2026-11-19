@@ -1,0 +1,10 @@
+import { spawnSync } from 'node:child_process';
+import { androidEnvironment } from './android-environment.mjs';
+const tools=androidEnvironment();
+if(!tools.ready) throw Error('Installe Android Studio, son JDK 21 et le SDK 36, puis relance npm run android:apk.');
+const prepare=spawnSync(process.execPath,['scripts/mobile.mjs','android'],{stdio:'inherit',env:tools.env,windowsHide:true});
+if(prepare.error || prepare.status!==0) process.exit(1);
+const win=process.platform==='win32';
+const result=spawnSync(win?'cmd.exe':'./gradlew',win?['/d','/c','gradlew.bat','assembleDebug']:['assembleDebug'],{cwd:'android',stdio:'inherit',env:tools.env,windowsHide:true});
+if(result.error || result.status!==0) process.exit(1);
+console.log('APK de test : android/app/build/outputs/apk/debug/app-debug.apk');

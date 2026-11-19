@@ -1,3 +1,4 @@
+import { tokens } from './src/design-system/tokens/tokens';
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
@@ -5,8 +6,10 @@ const config: CapacitorConfig = {
   appName: 'Furrix',
   webDir: 'dist',
   server: { androidScheme: 'https' },
+  backgroundColor: tokens.color.surface.page,
+  loggingBehavior: 'none',
   plugins: {
-    SplashScreen: { launchShowDuration: 1200, backgroundColor: '#1E2420' },
+    SplashScreen: { launchShowDuration: 1200, backgroundColor: tokens.color.surface.page },
   },
 };
 

@@ -138,3 +138,7 @@ restent à valider avant intégration. L'ancien principe « 100 % IAP » n'est p
 5. Le moteur de swipe initial est à évaluer ; le parcours validé ci-dessus reste la référence produit.
 6. Ne pas intégrer de paiement avant validation du circuit concerné ; aucun prestataire unique n'est imposé.
 7. Âge minimum 18 ans (voir doc juridique, Art. 3 des CGU) — à faire respecter dans l'onboarding.
+
+## Applications de bêta Android et iOS
+
+Préparation, compilation et installation privée : [guide Android/iOS](docs/Beta_Android_iOS.md). Utiliser les commandes mobile:* pour le produit ; platform:* reste le banc technique.

@@ -19,7 +19,13 @@
     "dev:auth": "vite --mode auth",
     "build:auth": "vite build --mode auth",
     "auth:sync": "npm run build:auth && cap sync",
-    "dev:home": "vite --mode home"
+    "dev:home": "vite --mode home",
+    "mobile:check": "node scripts/mobile.mjs check",
+    "mobile:build": "node scripts/mobile.mjs build",
+    "mobile:prepare:android": "node scripts/mobile.mjs android",
+    "mobile:prepare:ios": "node scripts/mobile.mjs ios",
+    "android:apk": "node scripts/android-apk.mjs",
+    "test:mobile": "node --test scripts/mobile-config.test.mjs"
   },
   "dependencies": {
     "@aparajita/capacitor-secure-storage": "8.0.1",
