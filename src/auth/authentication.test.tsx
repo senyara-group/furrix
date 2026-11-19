@@ -50,7 +50,7 @@ describe('parcours d’authentification', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mot de passe oublié ?' }));
     fill('Ton e-mail', 'A@B.fr');
     fireEvent.click(screen.getByRole('button', { name: 'Recevoir le lien' }));
-    await waitFor(() => expect(fake.auth.resetPasswordForEmail).toHaveBeenCalledWith('a@b.fr', expect.objectContaining({ redirectTo: expect.stringContaining('/#/auth/callback') })));
+    await waitFor(() => expect(fake.auth.resetPasswordForEmail).toHaveBeenCalledWith('a@b.fr', expect.objectContaining({ redirectTo: expect.stringContaining('/#/auth/reset') })));
     expect(screen.getByRole('status').textContent).toMatch(/Si un compte correspond/);
   });
   it('affiche la même confirmation si le serveur signale une adresse déjà utilisée', async () => {
@@ -121,4 +121,14 @@ describe('parcours d’authentification', () => {
     expect(document.body.textContent).not.toMatch(/secret/);
     expect(window.location.href).not.toMatch(/secret/);
   });
+});
+
+it('garde le formulaire de nouveau mot de passe avec une session deja ouverte', async () => {
+  window.history.replaceState(null, '', '/#/auth/reset');
+  const fake = createFakeSupabase();
+  fake.auth.getSession.mockResolvedValueOnce({ data: { session: fakeSession() }, error: null });
+  render(<AuthApplication client={fake.client} documents={null} privateBeta renderAuthenticated={() => <p>Espace connecte</p>} />);
+  const button = await screen.findByRole('button', { name: 'Enregistrer le mot de passe' });
+  await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
+  expect(screen.queryByText('Espace connecte')).toBeNull();
 });
