@@ -212,6 +212,16 @@ test("animaux perdus : diffusion de secteur, confidentialité et déduplication"
         }
       },
     );
+    await t.test('une alerte retiree ne reste pas accessible par un ancien lien', async () => {
+      const id = '30000000-0000-0000-0000-000000000002';
+      const photo = A+'/'+id+'/portrait.jpg';
+      await db.query('update lost_pets set photo_path=$1 where id=$2',[photo,id]);
+      await as(A,"select update_lost_alert($1,'Annonce retiree','','closed')",[id]);
+      assert.equal((await as(C,'select * from list_lost_alerts(p_id=>$1)',[id])).length,0);
+      assert.equal((await as(A,'select * from list_lost_alerts(p_id=>$1)',[id])).length,1);
+      assert.equal((await as(C,'select lost_photo_visible($1) ok',[photo]))[0].ok,false);
+      assert.equal((await as(C,'select * from list_lost_alerts(p_id=>$1)',[L]))[0].status,'found');
+    });
   } finally {
     await db.close();
   }

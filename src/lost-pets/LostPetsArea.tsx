@@ -8,12 +8,13 @@ import {
   Loading,
   StatusBadge,
   Textarea,
+  Select,
 } from "../design-system";
 import "../design-system/styles";
 import type { FurrixClient } from "../services/supabaseClient";
 import type { PetRow } from "../types/database";
 import { PetPhoto } from "../pets/PetPhoto";
-import { approximateLocation } from "../meetings/location";
+import { approximateLocation, locateTown } from "../meetings/location";
 import { toDataError } from "../services/errors";
 import * as api from "./service";
 import type {
@@ -102,6 +103,14 @@ function NewAlert({
       if (alive.current) setLocating(false);
     }
   };
+  const useTown = async () => {
+    setLocating(true); setError('');
+    try {
+      const point = await locateTown(values.city);
+      if (alive.current) setValues(v => ({ ...v, city: point.label.split(' · ')[0] || v.city, latitude: String(point.latitude), longitude: String(point.longitude) }));
+    } catch { if (alive.current) setError('Commune introuvable. Précise son nom ou utilise ta position.'); }
+    finally { if (alive.current) setLocating(false); }
+  };
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (running.current) return;
@@ -167,10 +176,10 @@ function NewAlert({
             void submit(e);
           }}
         >
-          <fieldset disabled={busy} className="app-lost-fields">
+          <fieldset disabled={busy || locating} className="app-lost-fields">
             <legend>Dernière zone connue</legend>
             <Field label="Animal">
-              <select
+              <Select
                 value={values.petId}
                 onChange={(e) => change("petId", e.target.value)}
               >
@@ -179,13 +188,13 @@ function NewAlert({
                     {pet.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
             <Field label="Ville ou commune">
               <Input
                 value={values.city}
                 maxLength={80}
-                onChange={(e) => change("city", e.target.value)}
+                onChange={(e) => { change("city", e.target.value); change("latitude", ""); change("longitude", ""); }}
                 required
               />
             </Field>
@@ -220,10 +229,11 @@ function NewAlert({
                 Utiliser ma position actuelle comme dernière zone connue
               </Button>
               <p>
-                Choisis une autre zone ci-dessous si ton animal a disparu
+                Choisis le centre de la commune ou une autre zone ci-dessous si ton animal a disparu
                 ailleurs. Les coordonnées sont arrondies avant envoi.
               </p>
             </div>
+            <div className="app-lost-wide"><Button variant="out" loading={locating} onClick={() => { void useTown(); }}>Utiliser le centre de cette commune</Button><p>Le nom de commune est envoyé au service public de géocodage. La zone publiée reste approximative.</p></div>
             <Field label="Latitude de la zone">
               <Input
                 inputMode="decimal"
@@ -302,12 +312,16 @@ function SectorSettings({
 }) {
   const [sector, setSector] = useState<LostSector | null>(),
     [radius, setRadius] = useState("25"),
+    [town, setTown] = useState(""),
+    [sectorLoading, setSectorLoading] = useState(true),
+    [notice, setNotice] = useState(""),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const alive = useAlive(),
     running = useRef(false);
   useEffect(() => {
     let active = true;
+    setSectorLoading(true);
     void api
       .getSector(client, owner)
       .then((s) => {
@@ -318,18 +332,18 @@ function SectorSettings({
       })
       .catch(() => {
         if (active) setError("Le secteur n’a pas pu être chargé.");
-      });
+      }).finally(() => { if (active) setSectorLoading(false); });
     return () => {
       active = false;
     };
   }, [client, owner]);
-  const save = async (enabled: boolean) => {
+  const save = async (enabled: boolean, fromTown = false) => {
     if (running.current) return;
     running.current = true;
     setBusy(true);
     setError("");
     try {
-      const location = enabled ? await approximateLocation() : undefined;
+      const location = enabled ? (fromTown ? await locateTown(town) : await approximateLocation()) : undefined;
       if (!alive.current) return;
       await api.setSector(
         client,
@@ -339,7 +353,7 @@ function SectorSettings({
         Number(radius),
       );
       const fresh = await api.getSector(client, owner);
-      if (alive.current) setSector(fresh);
+      if (alive.current) { setSector(fresh); setNotice(enabled ? "Ton secteur est enregistré pour les prochaines alertes." : "Ton abonnement est désactivé et ta zone supprimée."); }
     } catch {
       if (alive.current)
         setError(
@@ -363,6 +377,7 @@ function SectorSettings({
           ? `Abonnement actif : rayon maximal ${sector.radius_km} km. Le rayon choisi par le propriétaire peut être plus petit.`
           : "Tu ne reçois pas encore les alertes de secteur."}
       </p>
+      {sectorLoading && <Loading label="Chargement de ton secteur" />}
       <Field label="Rayon maximal">
         <select value={radius} onChange={(e) => setRadius(e.target.value)}>
           {[5, 10, 25, 50].map((n) => (
@@ -372,8 +387,11 @@ function SectorSettings({
           ))}
         </select>
       </Field>
-      <div className="app-lost-actions">
+      <Field label="Commune de mon secteur"><Input value={town} maxLength={80} onChange={e => setTown(e.target.value)} placeholder="Nom de commune ou code postal" /></Field>
+      <p>Tu peux choisir le centre d’une commune sans autoriser le GPS. Seul le nom saisi est envoyé au service public de géocodage.</p>
+      <div className="app-lost-actions"><Button variant="out" loading={busy} disabled={sectorLoading || town.trim().length < 2} onClick={() => { void save(true, true); }}>Activer les alertes pour cette commune</Button>
         <Button
+          disabled={sectorLoading}
           loading={busy}
           onClick={() => {
             void save(true);
@@ -399,6 +417,7 @@ function SectorSettings({
         Tu pourras les consulter dans « Mes notifications ». Aucun push, e-mail
         ou SMS n’est envoyé pour l’instant.
       </p>
+      {notice && <Alert tone="ok" title={notice} />}
       {error && (
         <Alert tone="err" title="Secteur non confirmé">
           {error}
@@ -459,6 +478,7 @@ function AlertDetail({
   const [observations, setObservations] = useState<LostSighting[]>([]),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
+    [pendingStatus, setPendingStatus] = useState<"found" | "closed">(),
     [busy, setBusy] = useState(false);
   const alive = useAlive(),
     running = useRef(false),
@@ -571,40 +591,15 @@ function AlertDetail({
               <>
                 <Button
                   loading={busy}
-                  onClick={() => {
-                    void execute(
-                      () =>
-                        api.updateLost(
-                          client,
-                          alert.id,
-                          description,
-                          instructions,
-                          "found",
-                        ),
-                      "Alerte marquée retrouvée.",
-                      true,
-                    );
-                  }}
+                  variant={pendingStatus ? "out" : "main"}
+                  onClick={() => setPendingStatus('found')}
                 >
                   Mon animal est retrouvé
                 </Button>
                 <Button
                   variant="quiet"
                   disabled={busy}
-                  onClick={() => {
-                    void execute(
-                      () =>
-                        api.updateLost(
-                          client,
-                          alert.id,
-                          description,
-                          instructions,
-                          "closed",
-                        ),
-                      "Alerte clôturée.",
-                      true,
-                    );
-                  }}
+                  onClick={() => setPendingStatus('closed')}
                 >
                   Clôturer sans retour
                 </Button>
@@ -674,6 +669,24 @@ function AlertDetail({
           </form>
         )
       )}
+      {pendingStatus && (
+        <Alert tone="warn"
+          title={pendingStatus === 'found' ? 'Confirmer que ton animal est retrouvé' : 'Clôturer cette alerte'}
+          actions={<>
+            <Button loading={busy} onClick={() => {
+              const status = pendingStatus;
+              void execute(async () => {
+                await api.updateLost(client, alert.id, description, instructions, status);
+                if (alive.current) setPendingStatus(undefined);
+              }, status === 'found' ? 'Alerte marquée retrouvée.' : 'Alerte clôturée.', true);
+            }}>Confirmer</Button>
+            <Button variant="quiet" disabled={busy} onClick={() => setPendingStatus(undefined)}>Annuler</Button>
+          </>}>
+          {pendingStatus === 'found'
+            ? 'Les personnes prévenues recevront une notification de retour. Les nouvelles observations seront fermées.'
+            : 'L’annonce ne sera plus visible des autres testeurs. Cette action ne pourra pas être annulée depuis ce parcours.'}
+        </Alert>
+      )}
       <h3>{alert.is_mine ? "Observations reçues" : "Mes observations"}</h3>
       {!observations.length ? (
         <p>Aucune observation pour le moment.</p>
@@ -742,6 +755,8 @@ export default function LostPetsArea({
     [filter, setFilter] = useState(""),
     [attempt, setAttempt] = useState(0),
     [loading, setLoading] = useState(true),
+    [more, setMore] = useState(false),
+    [unavailable, setUnavailable] = useState(false),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   const alive = useAlive(),
@@ -769,11 +784,13 @@ export default function LostPetsArea({
     ])
       .then(([a, n]) => {
         if (active) {
-          setAlerts(a);
+          setUnavailable(false); setAlerts(a); setMore(a.length === 30);
           setNotifications(n);
         }
       })
-      .catch(() => {
+      .catch((cause: unknown) => {
+        const error = cause as { code?: string; cause?: { code?: string } };
+        if (active) setUnavailable(['PGRST202', 'PGRST205', '42P01', '42883'].includes(error.cause?.code ?? error.code ?? ''));
         if (active)
           setError(
             "Les alertes ne sont pas disponibles pour le moment. Réessaie plus tard.",
@@ -793,8 +810,11 @@ export default function LostPetsArea({
     setError("");
     try {
       const rows = await api.listLost(client, "", undefined, id);
-      if (!rows[0]) throw new Error();
-      if (notification) await api.readNotification(client, notification);
+      if (notification) {
+        await api.readNotification(client, notification);
+        window.dispatchEvent(new Event('furrix:notifications-read'));
+      }
+      if (!rows[0]) { if (alive.current) { setError('Cette alerte a été retirée ou n’est plus disponible.'); setAttempt(v => v + 1); } return; }
       if (alive.current) {
         setDetail(rows[0]);
         setAttempt((v) => v + 1);
@@ -817,6 +837,7 @@ export default function LostPetsArea({
         {(["list", "new", "notifications", "sector"] as const).map((t) => (
           <Button
             key={t}
+            disabled={unavailable && t !== "list"}
             variant={tab === t ? "ink" : "quiet"}
             onClick={() => {
               setTab(t);
@@ -834,7 +855,7 @@ export default function LostPetsArea({
           </Button>
         ))}
       </div>
-      {error && (
+      {error && !unavailable && (
         <Alert
           tone="err"
           title="Chargement impossible"
@@ -847,7 +868,10 @@ export default function LostPetsArea({
           {error}
         </Alert>
       )}
-      {detail ? (
+      {unavailable ? <Alert tone="info" title="Les alertes locales se préparent"
+        actions={<Button variant="out" onClick={() => setAttempt(v => v + 1)}>Vérifier la disponibilité</Button>}>
+        Ce service n’est pas encore disponible sur cet environnement. Tes profils et tes rencontres restent accessibles.
+      </Alert> : detail ? (
         <AlertDetail
           key={detail.id + detail.status}
           client={client}
@@ -957,7 +981,7 @@ export default function LostPetsArea({
               ))}
             </div>
           )}
-          {alerts.length === 30 && (
+          {more && (
             <Button
               variant="out"
               loading={busy}
@@ -967,8 +991,10 @@ export default function LostPetsArea({
                 void api
                   .listLost(client, filter, alerts[alerts.length - 1]!.id)
                   .then((rows) => {
-                    if (alive.current && listingKey.current === key)
-                      setAlerts(rows);
+                    if (alive.current && listingKey.current === key) {
+                      setAlerts(previous => [...new Map([...previous, ...rows].map(a => [a.id, a])).values()]);
+                      setMore(rows.length === 30);
+                    }
                   })
                   .catch(() => {
                     if (alive.current)
