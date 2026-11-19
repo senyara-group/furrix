@@ -17,6 +17,8 @@ export async function meetingsFixture(){
       grant select,insert,update,delete on storage.objects to anon,authenticated,service_role;
     `);
  for(const name of (await readdir(new URL('../migrations/',import.meta.url))).filter(n=>n.endsWith('.sql')).sort()){
+ // pg_net, Vault et pg_cron : intégration contrôlée sur DEV, absente du PostgreSQL local.
+ if(name.endsWith('_android_push_scheduler.sql'))continue;
  let sql=await readFile(new URL('../migrations/'+name,import.meta.url),'utf8');
  if(name.includes('0002_rate'))sql=sql.replace(/create extension if not exists pg_cron;[\s\S]*?(?=-- ═══ IDEMPOTENCE)/,'');
  await db.exec(sql);

@@ -64,7 +64,7 @@ test('push Android : session, destinataires, file, reprise et déconnexion',asyn
  await t.test('retour arrière puis réapplication sans toucher aux alertes',async()=>{
  const before=(await db.query('select count(*)::int n from local_notifications')).rows[0].n;
  await db.exec(await readFile(new URL('../operations/rollback_android_push.sql',import.meta.url),'utf8'));
- await db.exec(await readFile(new URL('../migrations/20261119144304_android_push_delivery.sql',import.meta.url),'utf8'));
+ await db.exec(await readFile(new URL('../migrations/20261119150613_android_push_delivery.sql',import.meta.url),'utf8'));
  assert.equal((await db.query('select count(*)::int n from local_notifications')).rows[0].n,before);
  });
  }finally{await db.close();}
