@@ -32,6 +32,8 @@ import {
   type ApproximatePosition,
 } from "../meetings/location";
 import { getProfessional, searchProfessionals } from "./service";
+import { CityInput } from "../places/CityInput";
+import { cityLabel } from "../places/cities";
 import {
   categories,
   professionalHref,
@@ -340,13 +342,18 @@ function Directory({
           >
             <div className="app-pro-search">
               <Field label="Ville ou code postal">
-                <Input
+                <CityInput
                   value={town}
                   maxLength={100}
                   placeholder="Ex. Lille ou 59000"
-                  onChange={(e) => {
+                  onPick={(c) => {
                     request.current++;
-                    setTown(e.target.value);
+                    setLocationError("");
+                    onSearch((current) => ({ ...current, position: { latitude: c.latitude, longitude: c.longitude }, label: cityLabel(c) }));
+                  }}
+                  onChange={(value) => {
+                    request.current++;
+                    setTown(value);
                   }}
                 />
               </Field>

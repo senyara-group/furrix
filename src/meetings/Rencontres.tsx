@@ -10,6 +10,8 @@ import type { FurrixClient } from '../services/supabaseClient';
 import { usePhoneBar } from '../app/phoneBar';
 import { useActivePet } from './useActivePet';
 import { approximateLocation, locateTown, LocationError, locationMessage } from './location';
+import { CityInput } from '../places/CityInput';
+import { cityLabel, type City } from '../places/cities';
 import { decide, discoverPets, hasLocation, listNewMatches, markMatchSeen, setLocation } from './service';
 import type { DiscoveryFilters, DiscoveryPet } from './types';
 import { usePetPhotoUrl } from './usePetPhotoUrl';
@@ -232,6 +234,7 @@ function Discovery({ client, active, pets, select }: { client: FurrixClient; act
   const [pending, setPending] = useState(false);
   const [located, setLocated] = useState<boolean | null>(null);
   const [town, setTown] = useState(active.city ?? '');
+  const [pickedTown, setPickedTown] = useState<City | null>(null);
   const [locMessage, setLocMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [locating, setLocating] = useState(false);
   const [panel, setPanel] = useState<'filters' | 'pets' | null>(null);
@@ -347,10 +350,10 @@ function Discovery({ client, active, pets, select }: { client: FurrixClient; act
   // Un filtre inchangé (même option recliquée) ne relance pas la recherche.
   const change = (next: Partial<Filters>) => { setFilters((f) => (Object.keys(next) as Array<keyof Filters>).every((k) => f[k] === next[k]) ? f : { ...f, ...next }); setScreen((s) => s.kind === 'list' || s.kind === 'map' ? s : { kind: 'cards' }); };
   // Zone : position de l'appareil, ou ville saisie en secours. Les messages s'affichent dans le menu des filtres.
-  const locate = async (how: 'device' | 'town' | 'remove' = 'device') => {
+  const locate = async (how: 'device' | 'town' | 'remove' = 'device', picked: City | null = pickedTown) => {
     setLocating(true); setLocMessage(null);
     try {
-      const position = how === 'remove' ? undefined : how === 'town' ? await locateTown(town) : await approximateLocation();
+      const position = how === 'remove' ? undefined : how === 'town' ? (picked ? { latitude: picked.latitude, longitude: picked.longitude, label: cityLabel(picked) } : await locateTown(town)) : await approximateLocation();
       if (!alive.current) return;
       await setLocation(client, active.id, position && { latitude: position.latitude, longitude: position.longitude });
       if (!alive.current) return;
@@ -397,7 +400,7 @@ function Discovery({ client, active, pets, select }: { client: FurrixClient; act
         </Row>
         <form className="meet-town" onSubmit={(e) => { e.preventDefault(); void locate('town'); }}>
           <Field label="Ou indique ta ville" hint="Le centre de la commune sert de zone. Seul ce nom est envoyé au service public d’adresses.">
-            <Input value={town} maxLength={80} placeholder="Ex. Lille ou 59000" autoComplete="address-level2" onChange={(e) => setTown(e.target.value)} />
+            <CityInput value={town} placeholder="Ex. Lille ou 59000" onChange={(v) => { setTown(v); setPickedTown(null); }} onPick={(c) => { setPickedTown(c); void locate('town', c); }} />
           </Field>
           <Button type="submit" variant="ink" size="sm" disabled={locating || town.trim().length < 2}>Utiliser cette ville</Button>
         </form>

@@ -14,6 +14,7 @@ import type { FurrixClient } from '../services/supabaseClient';
 import { PetPhoto } from './PetPhoto';
 import { Alert, Button, EmptyState, Field, FurrixScope, Input, Select, Textarea } from '../design-system';
 import './pets.css';
+import { CityInput } from '../places/CityInput';
 
 const labels: Record<string, string> = { chien: 'Chien', chat: 'Chat', lapin: 'Lapin', oiseau: 'Oiseau', reptile: 'Reptile', rongeur: 'Rongeur', cheval: 'Cheval', ferme: 'Animal de ferme', balade: 'Balades', social: 'Socialisation', reproduction: 'Reproduction', show: 'Expositions', '♂': 'Mâle', '♀': 'Femelle' };
 const meetingLabels: Record<string, string> = { balade: 'Balade', jeu: 'Jeu au parc', socialisation: 'Socialisation', petit: 'Petit', moyen: 'Moyen', grand: 'Grand' };
@@ -50,7 +51,7 @@ function PetEditor({ client, ownerId, pet, onSaved, onCancel }: { client: Furrix
       <Field label="Race ou type *" error={errors.breed}><Input {...field('breed')} maxLength={PET_LIMITS.breed} placeholder="Ex. croisé, européen…" required /></Field>
       <Field label="Sexe *" error={errors.gender}><Select {...field('gender')} required><option value="">Choisir</option>{PET_GENDERS.map((v) => <option key={v} value={v}>{labels[v]}</option>)}</Select></Field>
       <Field label="Âge" error={errors.age}><Input {...field('age')} maxLength={PET_LIMITS.age} placeholder="Ex. 3 ans" /></Field>
-      <Field label="Ville *" error={errors.city}><Input {...field('city')} maxLength={PET_LIMITS.city} autoComplete="address-level2" required /></Field>
+      <Field label="Ville *" error={errors.city}><CityInput id="pet-city" name="city" value={values.city} onChange={(city) => setValues((v) => ({ ...v, city }))} maxLength={PET_LIMITS.city} placeholder="Ex. Lille" required /></Field>
       <Field label="Objectif *" error={errors.purpose}><Select {...field('purpose')} required><option value="">Choisir un objectif</option>{PET_PURPOSES.map((v) => <option key={v} value={v}>{labels[v]}</option>)}</Select></Field>
       <Field className="pet-full" label="Quelques mots sur lui" error={errors.bio}><Textarea {...field('bio')} maxLength={PET_LIMITS.bio} rows={4} placeholder="Son caractère, ses habitudes…" /></Field>
     </div></fieldset><fieldset disabled={busy}><legend>Pour les rencontres</legend><p className="app-small">Facultatif. Ces informations sont affichées sur sa carte, telles que tu les déclares.</p><div className="pet-fields">
