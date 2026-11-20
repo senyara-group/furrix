@@ -14,6 +14,8 @@ import {
   type PetSpecies,
   type ValidationResult,
 } from '../types/pet';
+import { petAgeError, petNameError } from './text';
+import { cityTextError } from '../places/cities';
 
 /** Limites identiques aux contraintes serveur (migration 0005). */
 export const PET_LIMITS = { name: 50, breed: 60, age: 30, city: 80, bio: 500 } as const;
@@ -36,14 +38,17 @@ export function validatePetForm(values: PetFormValues): ValidationResult<PetInpu
 
   if (!name) errors.name = 'Le nom est requis';
   else if (name.length > PET_LIMITS.name) errors.name = `${PET_LIMITS.name} caractères maximum`;
+  else if (petNameError(name)) errors.name = petNameError(name)!;
 
   if (!breed) errors.breed = 'La race est requise';
   else if (breed.length > PET_LIMITS.breed) errors.breed = `${PET_LIMITS.breed} caractères maximum`;
 
   if (age.length > PET_LIMITS.age) errors.age = `${PET_LIMITS.age} caractères maximum`;
+  else if (petAgeError(age)) errors.age = petAgeError(age)!;
 
   if (!city) errors.city = 'La ville est requise';
   else if (city.length > PET_LIMITS.city) errors.city = `${PET_LIMITS.city} caractères maximum`;
+  else if (cityTextError(city)) errors.city = cityTextError(city)!;
 
   if (bio.length > PET_LIMITS.bio) errors.bio = `${PET_LIMITS.bio} caractères maximum`;
 

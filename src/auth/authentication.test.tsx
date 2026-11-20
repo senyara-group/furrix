@@ -15,7 +15,7 @@ describe('activation de l’inscription', () => {
     expect(() => validateRegistration({ email: 'a@b.fr', password: 'password', confirmPassword: 'password', adult: true, terms: true, privacy: true }, null)).toThrow();
   });
   it('refuse un formulaire dont la déclaration est incomplète', () => {
-    const out = validateRegistration({ email: 'a@b.fr', password: 'password', confirmPassword: 'different', adult: false, terms: false, privacy: false }, documents);
+    const out = validateRegistration({ email: 'a@b.fr', password: 'chienLoup42', confirmPassword: 'different', adult: false, terms: false, privacy: false }, documents);
     expect(Object.keys(out.errors).sort()).toEqual(['adult', 'confirmPassword', 'privacy', 'terms']);
   });
 });
@@ -31,7 +31,7 @@ describe('parcours d’authentification', () => {
     render(<AuthApplication client={fake.client} documents={documents} />);
     await waitFor(() => expect(screen.queryByText('Nous retrouvons ta session…')).toBeNull());
     fireEvent.click(screen.getByRole('button', { name: 'Créer un compte' }));
-    fill('Ton e-mail', 'A@B.fr'); fill('Mot de passe', 'motdepasse'); fill('Confirmer le mot de passe', 'motdepasse');
+    fill('Ton e-mail', 'A@B.fr'); fill('Mot de passe', 'motdepasse42'); fill('Confirmer le mot de passe', 'motdepasse42');
     fireEvent.click(screen.getByRole('button', { name: 'Créer mon compte' }));
     await screen.findByRole('alert');
     expect(fake.auth.signUp).not.toHaveBeenCalled();
@@ -59,7 +59,7 @@ describe('parcours d’authentification', () => {
     render(<AuthApplication client={fake.client} documents={documents} />);
     await screen.findByRole('button', { name: 'Créer un compte' });
     fireEvent.click(screen.getByRole('button', { name: 'Créer un compte' }));
-    fill('Ton e-mail', 'a@b.fr'); fill('Mot de passe', 'motdepasse'); fill('Confirmer le mot de passe', 'motdepasse');
+    fill('Ton e-mail', 'a@b.fr'); fill('Mot de passe', 'motdepasse42'); fill('Confirmer le mot de passe', 'motdepasse42');
     for (const checkbox of screen.getAllByRole('checkbox')) fireEvent.click(checkbox);
     fireEvent.click(screen.getByRole('button', { name: 'Créer mon compte' }));
     await screen.findByRole('heading', { name: 'Consulte tes e-mails.' });
@@ -72,13 +72,13 @@ describe('parcours d’authentification', () => {
     act(() => fake.emitAuth('PASSWORD_RECOVERY', fakeSession()));
     await screen.findByLabelText('Nouveau mot de passe');
     expect(window.location.hash).toBe('#/auth/reset');
-    fill('Nouveau mot de passe', 'nouveauMot'); fill('Confirmer le mot de passe', 'different');
+    fill('Nouveau mot de passe', 'nouveauMot42'); fill('Confirmer le mot de passe', 'different');
     fireEvent.click(screen.getByRole('button', { name: 'Enregistrer le mot de passe' }));
     await screen.findByRole('alert');
     expect(fake.auth.updateUser).not.toHaveBeenCalled();
-    fill('Confirmer le mot de passe', 'nouveauMot');
+    fill('Confirmer le mot de passe', 'nouveauMot42');
     fireEvent.click(screen.getByRole('button', { name: 'Enregistrer le mot de passe' }));
-    await waitFor(() => expect(fake.auth.updateUser).toHaveBeenCalledWith({ password: 'nouveauMot' }));
+    await waitFor(() => expect(fake.auth.updateUser).toHaveBeenCalledWith({ password: 'nouveauMot42' }));
     await waitFor(() => expect(fake.auth.signOut).toHaveBeenCalledWith({ scope: 'local' }));
     act(() => fake.emitAuth('SIGNED_OUT', null));
     await screen.findByRole('button', { name: 'Se connecter' });

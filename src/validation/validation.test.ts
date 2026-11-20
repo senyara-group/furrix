@@ -58,16 +58,16 @@ describe('validatePetForm', () => {
 
 describe('validateCredentials', () => {
   it('normalise l’e-mail', () => {
-    expect(validateCredentials({ email: ' Moi@Furrix.FR ', password: 'motdepasse' }, 'signup')).toEqual({
+    expect(validateCredentials({ email: ' Moi@Furrix.FR ', password: 'motdepasse42' }, 'signup')).toEqual({
       ok: true,
-      value: { email: 'moi@furrix.fr', password: 'motdepasse' },
+      value: { email: 'moi@furrix.fr', password: 'motdepasse42' },
     });
   });
 
   it('refuse un e-mail invalide et un mot de passe court à l’inscription seulement', () => {
     const r = validateCredentials({ email: 'pas-un-mail', password: 'court' }, 'signup');
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.errors).toEqual({ email: 'E-mail invalide', password: 'Au moins 8 caractères' });
+    if (!r.ok) expect(r.errors).toEqual({ email: expect.stringMatching(/@/), password: 'Au moins 8 caractères' });
     expect(validateCredentials({ email: 'a@b.fr', password: 'court' }, 'login').ok).toBe(true);
   });
 

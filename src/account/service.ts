@@ -1,14 +1,18 @@
 import type { FurrixClient } from '../services/supabaseClient';
 import { AppError, toDataError } from '../services/errors';
 import type { AccountOverview } from '../app/accountOverview';
+import { personNameError } from '../validation/text';
+import { cityTextError } from '../places/cities';
 export type SavedProfile = AccountOverview['profile'] & { id: string };
 export type ProfileDraft = { name: string; city: string };
 
 /** Champs publics éditables uniquement ; aucune propagation à la ville des animaux ou au secteur. */
 export function profileValues(draft: ProfileDraft) {
   const name = draft.name.trim(), city = draft.city.trim();
-  if (!name || name.length > 80 || /[\u0000-\u001f\u007f-\u009f]/.test(name)) throw new AppError('validation', 'Renseigne un prénom de 1 à 80 caractères.');
-  if (city.length > 80 || /[\u0000-\u001f\u007f-\u009f]/.test(city)) throw new AppError('validation', 'La ville doit contenir au plus 80 caractères.');
+  const nameProblem = personNameError(name);
+  if (nameProblem) throw new AppError('validation', nameProblem);
+  const cityProblem = cityTextError(city);
+  if (cityProblem) throw new AppError('validation', cityProblem);
   return { name, city: city || null };
 }
 

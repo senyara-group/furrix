@@ -4,6 +4,7 @@ import { uploadPetPhoto } from "../services/petPhotos";
 import { downloadPrivatePetPhoto } from "../pets/privatePhotos";
 import type { PetRow } from "../types/database";
 import type { LostForm, PublishLostArgs } from "./types";
+import { cityTextError } from "../places/cities";
 
 /** Validation avant toute requête, dont la copie de la photo. Le serveur vérifie à nouveau. */
 export function validateLostForm(
@@ -18,6 +19,7 @@ export function validateLostForm(
     !values.petId ||
     !values.city.trim() ||
     values.city.trim().length > 80 ||
+    cityTextError(values.city) !== null ||
     !values.latitude.trim() ||
     !values.longitude.trim() ||
     !Number.isFinite(lat) ||

@@ -1,0 +1,49 @@
+/* Champ ville : liste de suggestions sous l'input, au-dessus du contenu. */
+.app-city {
+  position: relative;
+}
+.app-city__list {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + var(--fx-space-2));
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: var(--fx-space-1);
+  list-style: none;
+  max-height: calc(var(--fx-size-touch) * 6);
+  overflow-y: auto;
+  background: var(--fx-color-surface-white);
+  border: 0;
+  border-radius: var(--fx-radius-md);
+  box-shadow: var(--fx-shadow-ring-strong), var(--fx-shadow-toast);
+}
+.app-city__list[hidden] {
+  display: none;
+}
+fieldset:disabled .app-city__list {
+  display: none;
+}
+.app-city__opt {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--fx-space-3);
+  min-height: var(--fx-size-touch);
+  padding: var(--fx-space-3);
+  border-radius: var(--fx-radius-xs);
+  cursor: pointer;
+}
+.app-city__opt:hover,
+.app-city__opt[aria-selected="true"] {
+  background: var(--fx-color-surface-row-hover);
+}
+.app-city__name {
+  font-weight: 600;
+  color: var(--fx-color-ink);
+}
+.app-city__meta {
+  flex: none;
+  font-size: var(--fx-type-caption-size);
+  color: var(--fx-color-ink-muted);
+}

@@ -15,6 +15,8 @@ import type { FurrixClient } from "../services/supabaseClient";
 import type { PetRow } from "../types/database";
 import { PetPhoto } from "../pets/PetPhoto";
 import { approximateLocation, locateTown } from "../meetings/location";
+import { CityInput } from "../places/CityInput";
+import { decimalInput } from "../validation/numbers";
 import { toDataError } from "../services/errors";
 import * as api from "./service";
 import type {
@@ -82,34 +84,39 @@ function NewAlert({
     }),
     running = useRef(false),
     alive = useAlive();
-  const change = (key: keyof LostForm, value: string | boolean) =>
+  const locationVersion = useRef(0);
+  const change = (key: keyof LostForm, value: string | boolean) => {
+    if (['city', 'latitude', 'longitude', 'petId'].includes(key)) { locationVersion.current++; setLocating(false); }
     setValues((v) => ({ ...v, [key]: value }));
+  };
   const locate = async () => {
+    const version = ++locationVersion.current;
     setLocating(true);
     setError("");
     try {
       const point = await approximateLocation();
-      if (alive.current)
+      if (alive.current && version === locationVersion.current)
         setValues((v) => ({
           ...v,
           latitude: String(point.latitude),
           longitude: String(point.longitude),
         }));
     } catch {
-      if (alive.current)
+      if (alive.current && version === locationVersion.current)
         setError(
           "Position indisponible. Tu peux renseigner une zone manuellement.",
         );
     } finally {
-      if (alive.current) setLocating(false);
+      if (alive.current && version === locationVersion.current) setLocating(false);
     }
   };
   const useTown = async () => {
+    const version = ++locationVersion.current;
     setLocating(true);
     setError("");
     try {
       const point = await locateTown(values.city);
-      if (alive.current)
+      if (alive.current && version === locationVersion.current)
         setValues((v) => ({
           ...v,
           city: point.label.split(" · ")[0] || v.city,
@@ -117,12 +124,12 @@ function NewAlert({
           longitude: String(point.longitude),
         }));
     } catch {
-      if (alive.current)
+      if (alive.current && version === locationVersion.current)
         setError(
           "Commune introuvable. Précise son nom ou utilise ta position.",
         );
     } finally {
-      if (alive.current) setLocating(false);
+      if (alive.current && version === locationVersion.current) setLocating(false);
     }
   };
   const submit = async (e: FormEvent) => {
@@ -205,13 +212,23 @@ function NewAlert({
               </Select>
             </Field>
             <Field label="Ville ou commune">
-              <Input
+              <CityInput
                 value={values.city}
                 maxLength={80}
-                onChange={(e) => {
-                  change("city", e.target.value);
+                placeholder="Ex. Lille"
+                onChange={(city) => {
+                  change("city", city);
                   change("latitude", "");
                   change("longitude", "");
+                }}
+                onPick={(c) => {
+                  locationVersion.current++; setLocating(false); setError('');
+                  setValues((v) => ({
+                    ...v,
+                    city: c.name,
+                    latitude: String(c.latitude),
+                    longitude: String(c.longitude),
+                  }));
                 }}
                 required
               />
@@ -220,6 +237,7 @@ function NewAlert({
               <Input
                 type="datetime-local"
                 value={values.seenAt}
+                max={localTime()}
                 onChange={(e) => change("seenAt", e.target.value)}
                 required
               />
@@ -272,7 +290,7 @@ function NewAlert({
                 inputMode="decimal"
                 placeholder="Ex. 50.63"
                 value={values.latitude}
-                onChange={(e) => change("latitude", e.target.value)}
+                onChange={(e) => change("latitude", decimalInput(e.target.value, { decimals: 5, integers: 2, negative: true }).replace(",", "."))}
                 required
               />
             </Field>
@@ -281,7 +299,7 @@ function NewAlert({
                 inputMode="decimal"
                 placeholder="Ex. 3.06"
                 value={values.longitude}
-                onChange={(e) => change("longitude", e.target.value)}
+                onChange={(e) => change("longitude", decimalInput(e.target.value, { decimals: 5, integers: 3, negative: true }).replace(",", "."))}
                 required
               />
             </Field>
@@ -449,10 +467,10 @@ export function SectorSettings({
         </Select>
       </Field>
       <Field label="Commune de mon secteur">
-        <Input
+        <CityInput
           value={town}
           maxLength={80}
-          onChange={(e) => setTown(e.target.value)}
+          onChange={setTown}
           placeholder="Nom de commune ou code postal"
         />
       </Field>
@@ -762,6 +780,7 @@ function AlertDetail({
               <Input
                 type="datetime-local"
                 value={seen}
+                max={localTime()}
                 onChange={(e) => setSeen(e.target.value)}
                 required
               />
@@ -1274,9 +1293,10 @@ export default function LostPetsArea({
               }}
             >
               <Field label="Filtrer par commune exacte">
-                <Input
+                <CityInput
                   value={city}
-                  onChange={(event) => setCity(event.target.value)}
+                  onChange={setCity}
+                  onPick={(c) => setFilter(c.name)}
                   maxLength={80}
                 />
               </Field>

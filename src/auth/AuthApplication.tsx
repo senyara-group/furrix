@@ -215,7 +215,7 @@ export default function AuthApplication({ client = supabase, documents = legalDo
       : <form onSubmit={submit} className="fa-form">
         {view !== 'reset' && <Field label="Ton e-mail" error={auth.fieldErrors.email}><Input type="email" required autoComplete="username" value={form.email} onChange={(e) => set('email', e.target.value)} /></Field>}
         {view !== 'forgot' && <Field label={view === 'reset' ? 'Nouveau mot de passe' : 'Mot de passe'} error={auth.fieldErrors.password}
-          hint={view === 'signup' || view === 'reset' ? 'Au moins 8 caractères. Utilise un mot de passe unique.' : undefined}>
+          hint={view === 'signup' || view === 'reset' ? 'Au moins 8 caractères, avec une lettre et un chiffre. Utilise un mot de passe unique.' : undefined}>
           <Input type="password" required autoComplete={view === 'login' ? 'current-password' : 'new-password'} value={form.password} onChange={(e) => set('password', e.target.value)} /></Field>}
         {(view === 'signup' || view === 'reset') && <Field label="Confirmer le mot de passe"><Input type="password" required autoComplete="new-password" value={form.confirmPassword} onChange={(e) => set('confirmPassword', e.target.value)} /></Field>}
         {view === 'signup' && documents && <Declarations form={form} set={set} documents={documents} />}
