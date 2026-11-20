@@ -13,6 +13,7 @@ import { Alert, Button, Checkbox, Field, FurrixScope, Input } from '../design-sy
 import './auth.css';
 import BetaGate from '../beta/BetaGate';
 import BetaInvitation from '../beta/BetaInvitation';
+import { deletionNoticeKey } from '../account/deletion';
 
 type View = 'login' | 'signup' | 'confirmation' | 'forgot' | 'reset' | 'callback' | 'invite';
 const blank: RegistrationForm = { email: '', password: '', confirmPassword: '', adult: false, terms: false, privacy: false };
@@ -51,6 +52,7 @@ export default function AuthApplication({ client = supabase, documents = legalDo
   const [consent, setConsent] = useState<'loading' | 'required' | 'accepted' | 'error'>('loading');
   const [reloadConsent, setReloadConsent] = useState(0);
   const [callbackFailed, setCallbackFailed] = useState(false);
+  const [deletionDismissed, setDeletionDismissed] = useState(false);
   const lock = useRef(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const set = (key: keyof RegistrationForm, value: string | boolean) => setForm((old) => ({ ...old, [key]: value }));
@@ -154,7 +156,9 @@ export default function AuthApplication({ client = supabase, documents = legalDo
       window.history.replaceState(null, '', `${window.location.pathname}#/auth/login`); }
   }); };
   const working = busy || auth.pending;
-  const notices = <>{(error || auth.error) && <Alert tone="err" title={error || auth.error} />}
+  let deletionRequested = false;
+  try { deletionRequested = sessionStorage.getItem(deletionNoticeKey) === '1'; } catch {}
+  const notices = <>{deletionRequested && !deletionDismissed && <Alert tone="info" title="Demande de suppression enregistrée" actions={<Button variant="quiet" onClick={() => { try { sessionStorage.removeItem(deletionNoticeKey); } catch {} setDeletionDismissed(true); }}>Fermer ce message</Button>}>L’accès au compte est fermé. Le nettoyage des données et des photos continue côté serveur et sera repris en cas de panne.</Alert>}{(error || auth.error) && <Alert tone="err" title={error || auth.error} />}
     {(message || auth.notice) && <Alert tone="ok" title={message || auth.notice} />}</>;
 
   if (view === 'invite') return <BetaInvitation client={client} enabled={privateBeta}

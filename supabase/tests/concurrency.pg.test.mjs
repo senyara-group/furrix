@@ -167,10 +167,10 @@ test('rencontres : concurrence sur plusieurs sessions PostgreSQL', { skip: url ?
     const guard=users[2*N],a=users[2*N-1],b=users[2*N-2],start=new Date(Date.now()+86400000*10).toISOString(),end=new Date(Date.now()+86400000*12).toISOString();
     await caller(target,guard)("select save_sitter_profile('particulier','Accueil de test suffisamment long.','Lille',50.63,3.06,array['chien'],null,'sans_jardin',$1::jsonb,true)",[JSON.stringify([{service:'chez_gardien',price_cents:2000}])]);
     const request=(who,pet,nonce)=>caller(target,who)('select * from create_sitting_request($1,$2,$3,$4,$5,$6,$7)',[guard,pet,'chez_gardien',start,end,'Bonjour',nonce]);
-    const race=async(uid,firstSQL,firstArgs,secondSQL,secondArgs,secondUid=uid,waitEvent='advisory')=>{
+    const race=async(uid,firstSQL,firstArgs,secondSQL,secondArgs,secondUid=uid,waitEvent='advisory',firstRole='authenticated',secondRole='authenticated')=>{
       const x=new pg.Client({connectionString:target}),y=new pg.Client({connectionString:target});await x.connect();await y.connect();let done=false;
-      try{await x.query('begin');await x.query('set local role authenticated');await x.query("select set_config('request.jwt.claim.sub',$1,true)",[uid]);const first=await x.query(firstSQL,firstArgs);
-        await y.query('set statement_timeout=10000');await y.query('set role authenticated');await y.query("select set_config('request.jwt.claim.sub',$1,false)",[secondUid]);
+      try{await x.query('begin');await x.query('set local role '+firstRole);await x.query("select set_config('request.jwt.claim.sub',$1,true)",[uid]);const first=await x.query(firstSQL,firstArgs);
+        await y.query('set statement_timeout=10000');await y.query('set role '+secondRole);await y.query("select set_config('request.jwt.claim.sub',$1,false)",[secondUid]);
         const pending=y.query(secondSQL,secondArgs).then(r=>{done=true;return{ok:true,rows:r.rows};},e=>{done=true;return{ok:false,code:e.code};});
         let observed=false;const deadline=Date.now()+5000;while(!done){await admin.query('select pg_stat_clear_snapshot()');const q=await admin.query("select wait_event from pg_stat_activity where pid=$1",[y.processID]);if(q.rows[0]?.wait_event===waitEvent){observed=true;break;}assert.ok(Date.now()<deadline,'seconde transaction bloquée observable');await new Promise(r=>setTimeout(r,10));}assert.ok(observed,'attente de verrou effectivement observée');
         await x.query('commit');return{first:first.rows,next:await pending};
@@ -241,6 +241,34 @@ test('rencontres : concurrence sur plusieurs sessions PostgreSQL', { skip: url ?
     await t.test('retrait : une proposition enregistrée avant lui empêche le retrait',async()=>{
       const {p,m}=await petMatch(),sql="select * from create_meeting_proposal($1,'balade','Parc',$2::timestamptz[],null,$3)";
       const out=await race(users[4],sql,[m,[start],uuid()],'select retire_pet_profile($1)',[p],customer,'transactionid');assert.deepEqual(out.next,{ok:false,code:'23503'});
+    });
+    const deletionAccount=async()=>{const u=uuid(),p=uuid();await admin.query('insert into auth.users(id) values($1)',[u]);await admin.query("insert into private_beta_members(user_id,expires_at,accepted_at,notice_version,declared_adult) values($1,null,now(),'2026-11-17',true)",[u]);await admin.query("insert into pets(id,owner_id,name,species) values($1,$2,'Test suppression','chien')",[p,u]);return{u,p};};
+    const newGuard=async()=>{const account=await deletionAccount();await caller(target,account.u)("select save_sitter_profile('particulier','Présentation de test suffisamment longue.','Lille',50.63,3.06,array['chien'],null,'sans_jardin',$1::jsonb,true)",[JSON.stringify([{service:'chez_gardien',price_cents:2000}])]);return account;};
+    await t.test('compte : une demande reçue après acceptation attend puis échoue',async()=>{
+      const g=await newGuard(),d=await deletionAccount();
+      const out=await race(g.u,'select request_account_deletion($1)',[g.u],'select * from create_sitting_request($1,$2,$3,$4,$5,$6,$7)',[g.u,d.p,'chez_gardien',start,end,'Bonjour',uuid()],d.u,'transactionid','service_role');
+      assert.deepEqual(out.next,{ok:false,code:'42501'});
+    });
+    await t.test('compte : une garde enregistrée avant acceptation bloque la suppression du gardien',async()=>{
+      const g=await newGuard(),d=await deletionAccount();
+      const out=await race(d.u,'select * from create_sitting_request($1,$2,$3,$4,$5,$6,$7)',[g.u,d.p,'chez_gardien',start,end,'Bonjour',uuid()],'select request_account_deletion($1)',[g.u],g.u,'transactionid','authenticated','service_role');
+      assert.deepEqual(out.next,{ok:false,code:'23503'});
+      assert.equal((await admin.query('select count(*)::int n from account_deletions where user_id=$1',[g.u])).rows[0].n,0);
+    });
+    await t.test('compte : un rendez-vous arrivé pendant la suppression du professionnel est refusé',async()=>{
+      const g=await deletionAccount(),d=await deletionAccount();
+      await caller(target,g.u)("select save_professional_profile('Cabinet test','veterinaire','Lille',50.63,3.06,'Présentation professionnelle de test.',array['chien'],'','','','',$1,true)",[JSON.stringify([{name:'Consultation',unit:'consultation',price_cents:4500}])]);
+      const slot=await publish(g.u,24);
+      const out=await race(g.u,'select request_account_deletion($1)',[g.u],"select request_professional_appointment($1,$2,'Consultation','Bonjour',false,$3)",[slot,d.p,uuid()],d.u,'transactionid','service_role');assert.deepEqual(out.next,{ok:false,code:'42501'});
+    });
+    await t.test('compte : un retrait animal simultané finit sans inversion de verrous',async()=>{
+      const d=await deletionAccount();const out=await race(d.u,'select retire_pet_profile($1)',[d.p],'select request_account_deletion($1)',[d.u],d.u,'transactionid','authenticated','service_role');assert.equal(out.next.ok,true);
+    });
+    await t.test('compte : deux acceptations concurrentes produisent une seule demande',async()=>{
+      const d=await deletionAccount();const out=await race(d.u,'select request_account_deletion($1)',[d.u],'select request_account_deletion($1)',[d.u],d.u,'transactionid','service_role','service_role');assert.equal(out.next.ok,true);assert.equal((await admin.query('select count(*)::int n from account_deletions where user_id=$1',[d.u])).rows[0].n,1);
+    });
+    await t.test('compte : deux workers prennent des comptes distincts sans attendre',async()=>{
+      const x=new pg.Client({connectionString:target}),y=new pg.Client({connectionString:target});await x.connect();await y.connect();try{await x.query('begin');await x.query('set local role service_role');const a=await x.query('select * from claim_account_deletion()');await y.query('set statement_timeout=2000');await y.query('set role service_role');const b=await y.query('select * from claim_account_deletion()');assert.equal(a.rows.length,1);assert.equal(b.rows.length,1);assert.notEqual(a.rows[0].user_id,b.rows[0].user_id);await x.query('commit');}finally{await x.query('rollback').catch(()=>{});await x.end();await y.end();}
     });
   } finally { await drop(); }
 });
