@@ -38,7 +38,9 @@ export const professionalHref = (id?: string) =>
 export function safeWebsite(value: string) {
   try {
     const url = new URL(value);
-    return url.protocol === "https:" && !url.username && !url.password
+    // Un vrai domaine (« exemple.fr »), sans identifiant ni mot de passe dans l'adresse.
+    return url.protocol === "https:" && !url.username && !url.password &&
+      /^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})$/i.test(url.hostname)
       ? url.href
       : null;
   } catch {

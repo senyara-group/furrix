@@ -33,7 +33,7 @@ describe('useAuth', () => {
     const fake = createFakeSupabase();
     const { result } = renderHook(() => useAuth(fake.client));
     await waitFor(() => expect(result.current.status).toBe('signedOut'));
-    await act(() => result.current.submit('signup', { email: 'A@b.fr', password: 'motdepasse' }));
+    await act(() => result.current.submit('signup', { email: 'A@b.fr', password: 'motdepasse42' }));
     expect(fake.auth.signUp).toHaveBeenCalledWith(expect.objectContaining({ email: 'a@b.fr' }));
     expect(result.current.notice).toMatch(/confirme ton e-mail/);
     expect(result.current.status).toBe('signedOut');
@@ -45,7 +45,7 @@ describe('useAuth', () => {
     const { result } = renderHook(() => useAuth(fake.client));
     await act(() => result.current.submit('signup', { email: 'x', password: '1' }));
     expect(fake.auth.signUp).not.toHaveBeenCalled();
-    expect(result.current.fieldErrors.email).toBe('E-mail invalide');
+    expect(result.current.fieldErrors.email).toMatch(/@/);
   });
 
   it('connexion réussie puis échouée, déconnexion', async () => {

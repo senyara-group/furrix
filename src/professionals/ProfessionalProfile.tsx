@@ -22,6 +22,8 @@ import {
   type ApproximatePosition,
 } from "../meetings/location";
 import { ownProfessional, saveProfessional } from "./service";
+import { CityInput } from "../places/CityInput";
+import { decimalInput, euroCents, phoneError, phoneInput } from "../validation/numbers";
 import {
   categories,
   safeWebsite,
@@ -158,11 +160,9 @@ export default function ProfessionalProfile({
       );
       return;
     }
-    if (
-      form.phone.trim() &&
-      !/^\+?[0-9][0-9 .()-]{5,24}$/.test(form.phone.trim())
-    ) {
-      setError("Vérifie le numéro professionnel.");
+    const phoneProblem = phoneError(form.phone);
+    if (phoneProblem) {
+      setError(phoneProblem);
       return;
     }
     if (
@@ -197,9 +197,7 @@ export default function ProfessionalProfile({
         p_services: form.services.map((s) => ({
           name: s.name.trim(),
           unit: s.unit.trim(),
-          price_cents: s.price.trim()
-            ? Math.round(Number(s.price.replace(",", ".")) * 100)
-            : null,
+          price_cents: s.price.trim() ? euroCents(s.price) : null,
         })),
         p_active: form.active,
       });
@@ -306,12 +304,18 @@ export default function ProfessionalProfile({
                 <Stack gap={3}>
                   <h2>Ton secteur</h2>
                   <Field label="Ville ou commune">
-                    <Input
+                    <CityInput
                       value={form.city}
                       maxLength={80}
-                      onChange={(e) => {
+                      placeholder="Ex. Lille"
+                      onChange={(city) => {
                         locVersion.current++;
-                        change({ city: e.target.value, position: null });
+                        change({ city, position: null });
+                      }}
+                      onPick={(c) => {
+                        locVersion.current++;
+                        setError("");
+                        change({ city: c.name, position: { latitude: c.latitude, longitude: c.longitude } });
                       }}
                     />
                   </Field>
@@ -393,7 +397,7 @@ export default function ProfessionalProfile({
                           onChange={(e) =>
                             change({
                               services: form.services.map((s, n) =>
-                                n === i ? { ...s, price: e.target.value } : s,
+                                n === i ? { ...s, price: decimalInput(e.target.value) } : s,
                               ),
                             })
                           }
@@ -457,7 +461,10 @@ export default function ProfessionalProfile({
                       type="tel"
                       value={form.phone}
                       maxLength={26}
-                      onChange={(e) => change({ phone: e.target.value })}
+                      inputMode="tel"
+                      autoComplete="tel"
+                      placeholder="Ex. 03 20 12 34 56"
+                      onChange={(e) => change({ phone: phoneInput(e.target.value) })}
                     />
                   </Field>
                   <Field
@@ -469,7 +476,10 @@ export default function ProfessionalProfile({
                       type="url"
                       value={form.website}
                       maxLength={300}
-                      onChange={(e) => change({ website: e.target.value })}
+                      inputMode="url"
+                      autoComplete="url"
+                      placeholder="https://"
+                      onChange={(e) => change({ website: e.target.value.replace(/\s/g, "") })}
                     />
                   </Field>
                   <Segmented

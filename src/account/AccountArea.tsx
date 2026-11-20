@@ -8,6 +8,7 @@ import { SectorSettings } from '../lost-pets/LostPetsArea';
 import { saveProfile, type SavedProfile } from './service';
 import './account.css';
 import DeleteAccount from './DeleteAccount';
+import { CityInput } from '../places/CityInput';
 
 /** Profil partagé web/mobile et préférences d’alertes existantes, sans activation automatique. */
 export default function AccountArea({ client, owner, email, profile, onSaved, onSignOut }: {
@@ -46,7 +47,7 @@ export default function AccountArea({ client, owner, email, profile, onSaved, on
       <h2>Ton profil</h2>
       <Field label="E-mail" hint="L’adresse de connexion à ton compte."><Input type="email" value={email ?? ''} readOnly /></Field>
       <Field label="Prénom" hint="Il apparaît auprès des autres propriétaires lors des rencontres."><Input autoComplete="given-name" value={draft.name} maxLength={80} required disabled={saving || leaving} onChange={event => { setDraft(d => ({ ...d, name: event.target.value })); setNotice(''); }} /></Field>
-      <Field label="Ville" optional hint="Ce champ ne modifie ni la ville de tes animaux ni ta zone d’alertes."><Input autoComplete="address-level2" value={draft.city} maxLength={80} disabled={saving || leaving} onChange={event => { setDraft(d => ({ ...d, city: event.target.value })); setNotice(''); }} /></Field>
+      <Field label="Ville" optional hint="Ce champ ne modifie ni la ville de tes animaux ni ta zone d’alertes."><CityInput value={draft.city} maxLength={80} placeholder="Ex. Lille" disabled={saving || leaving} onChange={city => { setDraft(d => ({ ...d, city })); setNotice(''); }} /></Field>
       {error && <Alert tone="err" title="Profil non enregistré">{error}</Alert>}
       {notice && <Alert tone="ok" title={notice} />}
       <Button type="submit" loading={saving} disabled={leaving}>Enregistrer mon profil</Button>

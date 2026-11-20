@@ -14,6 +14,7 @@ import LostPetsArea from "./LostPetsArea";
 import LocalAlertNotice from "./LocalAlertNotice";
 import * as api from "./service";
 import * as geo from "../meetings/location";
+import * as cities from '../places/cities';
 const owner = fakeSession().user.id;
 const pet: PetRow = {
   id: "22222222-2222-4222-8222-222222222222",
@@ -73,6 +74,20 @@ function setup() {
   return createFakeSupabase();
 }
 describe("animaux perdus : validation et publication", () => {
+  it('une ville choisie remplace une localisation ancienne encore en cours', async () => {
+    const fake=setup();let finish!: (p: geo.ApproximatePosition) => void;
+    vi.spyOn(geo,'approximateLocation').mockImplementation(()=>new Promise(r=>{finish=r;}));
+    vi.spyOn(cities,'searchCities').mockResolvedValue([{name:'Paris',postcode:'75000',department:'75',latitude:48.86,longitude:2.35}]);
+    render(<LostPetsArea client={fake.client} owner={owner} pets={[pet]} />);
+    fireEvent.click(screen.getByRole('button',{name:'Déclarer une disparition'}));
+    fireEvent.click(screen.getByRole('button',{name:'Utiliser ma position actuelle comme dernière zone connue'}));
+    const input=screen.getByRole('combobox',{name:'Ville ou commune'});
+    fireEvent.focus(input);fireEvent.change(input,{target:{value:'Pa'}});
+    fireEvent.click(await screen.findByRole('option',{name:/Paris/}));
+    await act(async()=>finish({latitude:50.63,longitude:3.06}));
+    expect((screen.getByLabelText('Latitude de la zone') as HTMLInputElement).value).toBe('48.86');
+    expect((screen.getByLabelText('Longitude de la zone') as HTMLInputElement).value).toBe('2.35');
+  });
   it("arrondit avant envoi et refuse zone absente, future date et texte trop long", () => {
     expect(api.validateLostForm(form)).toMatchObject({
       p_lat: 50.63,

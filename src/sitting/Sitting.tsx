@@ -191,12 +191,12 @@ function PaymentPanel({ s }: { s: MySitting }) {
     </div>
     <fieldset className="gd-card" disabled aria-describedby="gd-pay-soon">
       <legend className="fx-vh">Carte bancaire (bientôt disponible)</legend>
-      <Field label="Numéro de carte"><Input className="fx-num" placeholder="1234 1234 1234 1234" inputMode="numeric" autoComplete="off" /></Field>
+      <Field label="Numéro de carte"><Input className="fx-num" placeholder="1234 1234 1234 1234" inputMode="numeric" maxLength={19} autoComplete="off" /></Field>
       <div className="gd-card__row">
-        <Field label="Expiration"><Input className="fx-num" placeholder="MM / AA" autoComplete="off" /></Field>
-        <Field label="Code de sécurité"><Input className="fx-num" placeholder="123" autoComplete="off" /></Field>
+        <Field label="Expiration"><Input className="fx-num" placeholder="MM / AA" inputMode="numeric" maxLength={7} autoComplete="off" /></Field>
+        <Field label="Code de sécurité"><Input className="fx-num" placeholder="123" inputMode="numeric" maxLength={4} autoComplete="off" /></Field>
       </div>
-      <Field label="Nom sur la carte"><Input placeholder="Prénom Nom" autoComplete="off" /></Field>
+      <Field label="Nom sur la carte"><Input placeholder="Prénom Nom" maxLength={80} autoComplete="off" /></Field>
     </fieldset>
     <Button variant="ink" icon="card" block disabled aria-describedby="gd-pay-soon">Payer {total} + frais</Button>
     <p id="gd-pay-soon" className="gd-pay__soon">Le paiement en ligne arrive bientôt : rien ne peut être payé ni prélevé pour l’instant, et la garde n’est pas encore réservée. Ce formulaire sera celui du prestataire de paiement retenu ; Furrix ne verra jamais ton numéro de carte.</p>

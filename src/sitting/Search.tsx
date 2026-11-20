@@ -6,6 +6,8 @@ import {
 import type { PetRow } from '../types/database';
 import type { FurrixClient } from '../services/supabaseClient';
 import { approximateLocation, locateTown, LocationError, locationMessage } from '../meetings/location';
+import { CityInput } from '../places/CityInput';
+import { cityLabel } from '../places/cities';
 import { dayKey, SlotField } from '../meetings/SlotField';
 import { searchSitters } from './service';
 import { usePetPhotoUrl } from '../meetings/usePetPhotoUrl';
@@ -85,7 +87,8 @@ function CriteriaPanel({ pets, criteria, onApply, onClose }: { pets: PetRow[]; c
     {dateError ? <p className="fx-field__error" role="alert">{dateError}</p> : null}
     <Stack gap={2}>
       <Field label="Ville ou code postal" hint={draft.place ? `Recherche autour de : ${draft.place.label}` : 'Seule une zone d’environ 1 km sert à la recherche ; elle n’est pas enregistrée.'}>
-        <Input value={town} placeholder="Ex. Lille" autoComplete="address-level2" onChange={(e) => {locationVersion.current++;setLocating(null);setTown(e.target.value);set({place:null});}}
+        <CityInput value={town} placeholder="Ex. Lille ou 59000" onChange={(v) => {locationVersion.current++;setLocating(null);setTown(v);set({place:null});}}
+          onPick={(c) => { locationVersion.current++; setLocating(null); setError(''); set({ place: { label: cityLabel(c), latitude: c.latitude, longitude: c.longitude } }); }}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void locate('town'); } }} />
       </Field>
       <Row className="gd-locate">

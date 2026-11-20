@@ -5,6 +5,9 @@ import {
 } from '../design-system';
 import type { FurrixClient } from '../services/supabaseClient';
 import { approximateLocation, locateTown, LocationError, locationMessage } from '../meetings/location';
+import { CityInput } from '../places/CityInput';
+import { cityLabel } from '../places/cities';
+import { decimalInput, digitsOnly, euroCents } from '../validation/numbers';
 import { listMySittings, listSittingThreads, mySitterProfile, saveSitterProfile, setSitterPhoto } from './service';
 import { usePetPhotoUrl } from '../meetings/usePetPhotoUrl';
 import { kindLabel, nameOf, outdoorLabel, phaseOf, SERVICES, serviceLabel, shortPeriod, speciesPlural, statusOf, unitLabel } from './format';
@@ -53,7 +56,7 @@ export function MySittings({ client }: { client: FurrixClient }) {
 
 type Form = { kind: SitterKind; bio: string; city: string; place: { latitude: number; longitude: number; label: string } | null; species: string[];
   maxWeight: string; outdoor: SitterOutdoor; prices: Partial<Record<SittingService, string>>; active: boolean };
-const cents = (v: string) => Math.round(Number(v.replace(',', '.')) * 100);
+const cents = (v: string) => euroCents(v) ?? Number.NaN;
 const euros = (c: number) => (c / 100).toFixed(c % 100 ? 2 : 0).replace('.', ',');
 
 /** Proposer des gardes : présentation, zone, animaux accueillis, formules et tarifs. Informations déclarées, non vérifiées. */
@@ -163,7 +166,8 @@ export function SitterProfileForm({ client, userId }: { client: FurrixClient; us
         </Field>
         <Stack gap={2}>
           <Field label="Ville" hint={form.place ? `Zone enregistrée autour de : ${form.place.label} (environ 1 km).` : 'Seule une zone d’environ 1 km est enregistrée, pour calculer les distances.'}>
-            <Input value={form.city} maxLength={80} placeholder="Ex. Lambersart" autoComplete="address-level2" onChange={(e) => {locationVersion.current++;setLocating(null);set({ city: e.target.value, place: null });}} />
+            <CityInput value={form.city} placeholder="Ex. Lambersart" onChange={(v) => {locationVersion.current++;setLocating(null);set({ city: v, place: null });}}
+              onPick={(c) => { locationVersion.current++; setLocating(null); setLocError(''); set({ city: c.name, place: { latitude: c.latitude, longitude: c.longitude, label: cityLabel(c) } }); }} />
           </Field>
           <Row className="gd-locate">
             <Button variant="out" size="sm" icon="search" loading={locating === 'town'} disabled={!!locating || form.city.trim().length < 2} onClick={() => { void locate('town'); }}>Trouver la ville</Button>
@@ -176,7 +180,7 @@ export function SitterProfileForm({ client, userId }: { client: FurrixClient; us
             options={['chien', 'chat', 'lapin', 'rongeur', 'oiseau', 'reptile'].map((s) => ({ value: s, label: speciesPlural[s] }))} />
           {error(errors.species)}</Stack>
         <Field label="Poids maximum (kg)" optional hint="Pour les chiens, par exemple 15." error={errors.weight}>
-          <Input value={form.maxWeight} inputMode="numeric" maxLength={3} placeholder="15" onChange={(e) => set({ maxWeight: e.target.value.replace(/\D/g, '') })} />
+          <Input value={form.maxWeight} inputMode="numeric" maxLength={3} placeholder="15" onChange={(e) => set({ maxWeight: digitsOnly(e.target.value, 3) })} />
         </Field>
         <Stack gap={2}><Text variant="label" as="p">Extérieur</Text>
           <OptionGroup aria-label="Extérieur" value={form.outdoor} onChange={(outdoor) => set({ outdoor })} options={(['jardin_clos', 'jardin', 'sans_jardin'] as const).map((o) => ({ value: o, label: outdoorLabel[o] }))} /></Stack>
@@ -184,7 +188,7 @@ export function SitterProfileForm({ client, userId }: { client: FurrixClient; us
           <OptionGroup multiple aria-label="Formules proposées" value={SERVICES.filter((s) => form.prices[s] !== undefined)}
             onChange={(list) => set({ prices: Object.fromEntries((list as SittingService[]).map((s) => [s, form.prices[s] ?? ''])) })} options={SERVICES.map((s) => ({ value: s, label: serviceLabel[s] }))} />
           {SERVICES.filter((s) => form.prices[s] !== undefined).map((s) => <Field key={s} label={`${serviceLabel[s]} : tarif par ${unitLabel[s][0]} (€)`}>
-            <Input value={form.prices[s]} inputMode="decimal" maxLength={7} placeholder="20" className="fx-num" onChange={(e) => set({ prices: { ...form.prices, [s]: e.target.value.replace(/[^\d,.]/g, '') } })} />
+            <Input value={form.prices[s]} inputMode="decimal" maxLength={7} placeholder="20" className="fx-num" onChange={(e) => set({ prices: { ...form.prices, [s]: decimalInput(e.target.value, { integers: 4 }) } })} />
           </Field>)}
           {error(errors.prices)}
           <Note>Tes tarifs sont affichés hors frais de service Furrix, encore à définir.</Note>
