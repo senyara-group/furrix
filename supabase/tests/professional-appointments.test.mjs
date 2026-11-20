@@ -353,7 +353,7 @@ test("rendez-vous professionnels : rôles, consentement, disponibilités et tran
         await db.exec(
           await readFile(
             new URL(
-              "../migrations/20261120093911_professional_appointments.sql",
+              "../migrations/20261120100223_professional_appointments.sql",
               import.meta.url,
             ),
             "utf8",

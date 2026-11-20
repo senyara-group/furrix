@@ -33,7 +33,13 @@ La confirmation verrouille d’abord l’animal puis le calendrier professionnel
 
 ## Migration et retour arrière
 
-`20261120093911_professional_appointments.sql` dépend de `20261119171727_professional_directory.sql` et des tables animaux/bêta existantes. Aucune migration antérieure n’est réécrite. **Non appliquée sur DEV à la préparation de ce lot.**
+`20261120100223_professional_appointments.sql` dépend de `20261119171727_professional_directory.sql` et des tables animaux/bêta existantes. Aucune migration antérieure n’est réécrite. **Appliquée sur DEV le 20 novembre 2026 avec autorisation de Guillaume**, après fusion de la PR #36. Le fichier initial `20261120093911_professional_appointments.sql` est renommé pour correspondre à la version enregistrée par Supabase ; son contenu SQL reste identique.
+
+Contrôles après application : les deux tables ont RLS activé et aucun droit direct de lecture ou d’insertion pour `anon` et `authenticated`. Les six fonctions refusent l’exécution anonyme et fixent leur `search_path`. Les sondes sous rôles réels refusent une lecture directe, un appel de suivi sans identité et une publication sans identité ; la transaction de sondes est annulée. Les nouvelles tables contiennent zéro créneau et zéro rendez-vous. Aucune modification des comptes ou des données métier existantes.
+
+Les conseillers Supabase signalent l’[absence de politiques sur ces tables privées](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy) et les [fonctions privilégiées accessibles aux membres](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable) : ces choix sont intentionnels, l’accès métier passant uniquement par les fonctions contrôlées. Les avertissements antérieurs concernant [`touch_updated_at`](https://supabase.com/docs/guides/database/database-linter?lint=0011_function_search_path_mutable), [`handle_new_user`](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable) et la [protection des mots de passe compromis](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection) restent hors de cette activation.
+
+Une sonde de lecture sous rôle `authenticated`, avec le contexte SQL d’un membre bêta ayant accepté la notice, exécute les deux fonctions de liste sans erreur. Elle ne remplace pas une connexion réelle par l’API Auth. Après renommage : contrôle des types, 222 tests Vitest, compilation et 17 tests SQL ciblés annuaire/rendez-vous réussis.
 
 Le retour arrière est `supabase/operations/rollback_professional_appointments.sql`. Il supprime les créneaux et demandes de ce lot : sauvegarder ces données avant toute utilisation hors base de test. Il préserve animaux, profils et activités professionnelles. Pour retirer également l’annuaire, retirer d’abord les rendez-vous, puis l’annuaire ; réappliquer dans l’ordre inverse.
 
@@ -44,6 +50,6 @@ Le retour arrière est `supabase/operations/rollback_professional_appointments.s
 - PostgreSQL local 18.6 : 13 scénarios de concurrence et leur parent, dont trois nouveaux : confirmation concurrente du même créneau, deux établissements pour le même animal, demande simultanément rejouée. Les tests observent l’attente d’un verrou avant de libérer la première transaction.
 - Navigateur local, client simulé, 390 et 1 280 px : demande, attente, réponse professionnelle, annulation et créneaux ; un titre principal, pas de débordement horizontal ni erreur JavaScript, boutons/liens d’action d’au moins 44 px.
 
-Restent la recette des vraies API Supabase avec plusieurs comptes, la réception et le suivi des demandes sur DEV après autorisation d’application, puis les essais Android/iOS. Les tests locaux ne prouvent pas ces points. Aucun rendez-vous réel, notification, message ou e-mail n’est créé pour la validation locale.
+Restent la recette des vraies API Supabase avec plusieurs comptes, la réception et le suivi des demandes sur DEV, puis les essais Android/iOS. Les contrôles techniques d’application ne prouvent pas ces parcours complets. Aucun rendez-vous réel, notification, message ou e-mail n’a été créé pendant l’activation.
 
 Les listes sont limitées aux 100 demandes les plus récemment mises à jour et aux 100 premiers créneaux actifs à venir. Pas d’archivage paginé ni de recherche d’historique complet dans ce lot. Le partage porte sur les valeurs courantes de l’animal : ce n’est pas une copie de son profil au moment de la demande.
