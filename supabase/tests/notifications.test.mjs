@@ -482,7 +482,7 @@ test("notifications communes : événements, destinataires, consentement et acc�
         await db.exec(
           await readFile(
             new URL(
-              "../migrations/20261120100904_unified_notifications.sql",
+              "../migrations/20261120103721_unified_notifications.sql",
               import.meta.url,
             ),
             "utf8",
