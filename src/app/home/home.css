@@ -1,0 +1,5 @@
+.app-home-activity { min-width: 0; padding-block: var(--fx-space-6); }
+.app-home-activity h2, .app-home-activity h3, .app-home-activity p { margin: 0; }
+.app-home-activity .fx-card { overflow-wrap: anywhere; }
+.app-home-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--fx-space-3); }
+.app-home-category { font-size: var(--fx-type-caption-size); }

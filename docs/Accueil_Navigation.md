@@ -1,5 +1,7 @@
 # Accueil et navigation Plein air
 
+Le raccordement du bloc « À suivre » aux données métier réelles est décrit dans [Accueil_Activite.md](Accueil_Activite.md). Ce document conserve le périmètre historique du premier lot de navigation.
+
 Lot du 17 novembre 2026, branche `feat/app-home`, construite sur `feat/authentication`.
 Intégrer l'authentification d'abord ; ce lot dépend de sa vérification des déclarations et de sa migration.
 Il n'ajoute aucune migration ni opération distante.
