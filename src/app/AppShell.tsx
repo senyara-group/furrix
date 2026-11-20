@@ -143,7 +143,7 @@ function AppShellContent({ client, user, onSignOut }: { client: FurrixClient; us
   const gardeContent = overview.status === 'ready' && overview.data ? <Suspense fallback={pageLoading}><GardeArea key={user.id} client={client} ownerId={user.id} pets={overview.data.pets} /></Suspense> : undefined;
   const accountContent = overview.status === 'ready' && overview.data
     ? <AccountArea key={user.id} client={client} owner={user.id} email={user.email} profile={overview.data.profile} onSaved={overview.saveProfile} onSignOut={signOut} /> : undefined;
-  const servicesContent=<Suspense fallback={pageLoading}><ProfessionalsArea key={user.id} client={client} owner={user.id}/></Suspense>;
+  const servicesContent=<Suspense fallback={pageLoading}><ProfessionalsArea key={user.id} client={client} owner={user.id} pets={overview.data?.pets ?? []}/></Suspense>;
   const lostContent = <LostPetsArea key={`${user.id}:lost`} client={client} owner={user.id} pets={overview.data?.pets || []} />;
   return <AppShellView overview={overview} retry={overview.retry} email={user.email} onSignOut={signOut} petsContent={petsContent} meetingsContent={meetingsContent} messagesContent={messagesContent} gardeContent={gardeContent} accountContent={accountContent} servicesContent={servicesContent} lostContent={lostContent} notificationUnread={unread} />;
 }

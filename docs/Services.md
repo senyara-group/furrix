@@ -1,5 +1,7 @@
 # Services — premier lot : annuaire et activité professionnelle
 
+Ce document décrit le premier lot. Le lot suivant, avec créneaux et demandes de rendez-vous, est décrit dans [RendezVousServices.md](RendezVousServices.md) ; les limites « pas de réservation » ci-dessous concernent uniquement ce premier lot.
+
 Ce lot remplace l’écran Services en préparation par un annuaire bêta : vétérinaires, toilettage et éducation. Garde reste un parcours distinct, accessible par lien depuis Services et Mon compte ; aucun fichier de la branche d’Alexis n’est modifié.
 
 ## Parcours disponibles

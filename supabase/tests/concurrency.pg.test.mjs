@@ -167,10 +167,10 @@ test('rencontres : concurrence sur plusieurs sessions PostgreSQL', { skip: url ?
     const guard=users[2*N],a=users[2*N-1],b=users[2*N-2],start=new Date(Date.now()+86400000*10).toISOString(),end=new Date(Date.now()+86400000*12).toISOString();
     await caller(target,guard)("select save_sitter_profile('particulier','Accueil de test suffisamment long.','Lille',50.63,3.06,array['chien'],null,'sans_jardin',$1::jsonb,true)",[JSON.stringify([{service:'chez_gardien',price_cents:2000}])]);
     const request=(who,pet,nonce)=>caller(target,who)('select * from create_sitting_request($1,$2,$3,$4,$5,$6,$7)',[guard,pet,'chez_gardien',start,end,'Bonjour',nonce]);
-    const race=async(uid,firstSQL,firstArgs,secondSQL,secondArgs)=>{
+    const race=async(uid,firstSQL,firstArgs,secondSQL,secondArgs,secondUid=uid)=>{
       const x=new pg.Client({connectionString:target}),y=new pg.Client({connectionString:target});await x.connect();await y.connect();let done=false;
       try{await x.query('begin');await x.query('set local role authenticated');await x.query("select set_config('request.jwt.claim.sub',$1,true)",[uid]);const first=await x.query(firstSQL,firstArgs);
-        await y.query('set statement_timeout=10000');await y.query('set role authenticated');await y.query("select set_config('request.jwt.claim.sub',$1,false)",[uid]);
+        await y.query('set statement_timeout=10000');await y.query('set role authenticated');await y.query("select set_config('request.jwt.claim.sub',$1,false)",[secondUid]);
         const pending=y.query(secondSQL,secondArgs).then(r=>{done=true;return{ok:true,rows:r.rows};},e=>{done=true;return{ok:false,code:e.code};});
         const deadline=Date.now()+5000;while(!done){await admin.query('select pg_stat_clear_snapshot()');const q=await admin.query("select wait_event from pg_stat_activity where pid=$1",[y.processID]);if(q.rows[0]?.wait_event==='advisory')break;assert.ok(Date.now()<deadline,'seconde transaction bloquée observable');await new Promise(r=>setTimeout(r,10));}
         await x.query('commit');return{first:first.rows,next:await pending};
@@ -198,5 +198,22 @@ test('rencontres : concurrence sur plusieurs sessions PostgreSQL', { skip: url ?
       }finally{await x.query('rollback').catch(()=>{});await x.end();await y.end();}
     });
 
+    const pro1=users[0],pro2=users[1],customer=users[2],otherCustomer=users[3];
+    for(const uid of [pro1,pro2])await caller(target,uid)("select save_professional_profile('Cabinet test','veterinaire','Lille',50.63,3.06,'Présentation professionnelle de test.',array['chien'],'','','','',$1,true)",[JSON.stringify([{name:'Consultation',unit:'consultation',price_cents:4500}])]);
+    const publish=async(uid,h)=>{const id=uuid();await caller(target,uid)('select publish_professional_slot($1,$2,$3)',[id,new Date(Date.now()+86400000*20+h*3600000).toISOString(),new Date(Date.now()+86400000*20+(h+1)*3600000).toISOString()]);return id;};
+    const book=async(uid,pet,slot)=> (await caller(target,uid)("select request_professional_appointment($1,$2,'Consultation','Bonjour',false,$3) id",[slot,pet,uuid()]))[0].id;
+    await t.test('services : deux confirmations du même créneau ne réussissent pas ensemble',async()=>{
+      const slot=await publish(pro1,0),x=await book(customer,pets[2],slot),y=await book(otherCustomer,pets[3],slot),sql="select update_professional_appointment($1,'confirm',$2)";
+      const out=await race(pro1,sql,[x,slot],sql,[y,slot]);assert.equal(out.next.ok,false);assert.equal(out.next.code,'23505');
+      assert.equal((await admin.query("select count(*)::int n from professional_appointments where slot_id=$1 and status='confirmed'",[slot])).rows[0].n,1);
+    });
+    await t.test('services : deux établissements ne confirment pas simultanément le même animal',async()=>{
+      const s1=await publish(pro1,3),s2=await publish(pro2,3.5),x=await book(customer,pets[2],s1),y=await book(customer,pets[2],s2),sql="select update_professional_appointment($1,'confirm',$2)";
+      const out=await race(pro1,sql,[x,s1],sql,[y,s2],pro2);assert.deepEqual(out.next,{ok:false,code:'23505'});
+    });
+    await t.test('services : demande rejouée simultanément, même identifiant',async()=>{
+      const slot=await publish(pro1,6),nonce=uuid(),sql="select request_professional_appointment($1,$2,'Consultation','Bonjour',false,$3) id",args=[slot,pets[2],nonce];
+      const out=await race(customer,sql,args,sql,args);assert.equal(out.next.ok,true);assert.equal(out.first[0].id,out.next.rows[0].id);
+    });
   } finally { await drop(); }
 });

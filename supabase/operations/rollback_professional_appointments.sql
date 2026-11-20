@@ -1,0 +1,10 @@
+begin;
+drop function public.list_professional_appointments(uuid);
+drop function public.update_professional_appointment(uuid,text,uuid,text);
+drop function public.request_professional_appointment(uuid,uuid,text,text,boolean,uuid);
+drop function public.list_professional_slots(uuid);
+drop function public.close_professional_slot(uuid);
+drop function public.publish_professional_slot(uuid,timestamptz,timestamptz);
+drop table public.professional_appointments;
+drop table public.professional_slots;
+commit;

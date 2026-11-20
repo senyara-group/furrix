@@ -98,7 +98,7 @@ it("une fiche indique le statut déclaré et ne promet pas de réservation", asy
   expect(
     screen.getByText(/qualifications n’ont pas été vérifiées/),
   ).toBeTruthy();
-  expect(screen.getByText(/Aucun rendez-vous n’est réservé/)).toBeTruthy();
+  expect(screen.getByText(/ne réserve aucun rendez-vous/)).toBeTruthy();
   const link = screen.getByRole("link", { name: "Ouvrir son site" });
   expect(link.getAttribute("rel")).toBe("noopener noreferrer");
   expect(link.getAttribute("href")).toBe("https://example.org/");

@@ -1,4 +1,5 @@
 import type {Professional,OwnProfessional,SaveProfessionalArgs} from '../professionals/types';
+import type { Appointment, Slot } from '../professionals/appointments/types';
 // Contrat de base de données — extrait limité aux tables de ce lot (profiles, pets).
 // Source : types générés depuis le schéma DEV (generate_typescript_types, lecture seule, 3 novembre 2026),
 // réduits volontairement. Les autres tables seront ajoutées au fil du branchement.
@@ -115,6 +116,12 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      publish_professional_slot: {Args:{p_id:string;p_starts:string;p_ends:string};Returns:undefined};
+      close_professional_slot: {Args:{p_id:string};Returns:undefined};
+      list_professional_slots: {Args:{p_professional:string};Returns:Slot[]};
+      request_professional_appointment: {Args:{p_slot:string;p_pet:string;p_service:string;p_message:string;p_share:boolean;p_request:string};Returns:string};
+      update_professional_appointment: {Args:{p_id:string;p_action:string;p_slot?:string;p_note?:string};Returns:undefined};
+      list_professional_appointments: {Args:{p_id?:string};Returns:Appointment[]};
       search_professionals: {Args:{p_lat?:number;p_lng?:number;p_radius?:number;p_category?:string;p_professional?:string};Returns:Professional[]};
       save_professional_profile: {Args:SaveProfessionalArgs;Returns:OwnProfessional};
       set_professional_active: {Args:{p_active:boolean};Returns:undefined};
