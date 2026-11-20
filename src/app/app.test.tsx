@@ -53,7 +53,7 @@ describe('accueil et navigation', () => {
     fireEvent.click(within(tabs).getByRole('link', { name: 'Plus' }));
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Plus'));
     const more = screen.getByRole('navigation', { name: 'Plus de destinations' });
-    expect(within(more).getAllByRole('link').map((a) => a.textContent)).toEqual(['Accueil', 'Mes animaux', 'Mon compte', 'Animaux perdus']);
+    expect(within(more).getAllByRole('link').map((a) => a.textContent)).toEqual(['Accueil', 'Mes animaux', 'Mon compte', 'Animaux perdus', 'Notifications']);
     fireEvent.click(within(more).getByRole('link', { name: 'Animaux perdus' }));
     await waitFor(() => expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Animaux perdus'));
     expect(within(tabs).getByRole('link', { name: 'Plus' }).getAttribute('aria-current')).toBe('page');
@@ -122,6 +122,6 @@ it('ouvre les notifications locales et ferme le menu du compte avec Echap', asyn
   fireEvent.keyDown(document, { key: 'Escape' });
   expect(screen.queryByRole('navigation', { name: 'Menu du compte' })).toBeNull();
   expect(document.activeElement).toBe(toggle);
-  fireEvent.click(screen.getAllByRole('button', { name: 'Notifications animaux perdus : non lues' })[0]!);
-  expect(window.location.hash).toBe('#/animaux-perdus?notifications');
+  fireEvent.click(screen.getAllByRole('button', { name: 'Notifications : non lues' })[0]!);
+  expect(window.location.hash).toBe('#/notifications');
 });

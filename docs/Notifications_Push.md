@@ -1,5 +1,7 @@
 # Notifications Android — Firebase et Supabase
 
+Le prolongement à tous les parcours existants et au centre commun est décrit dans [Notifications_Communes.md](Notifications_Communes.md). Ce document conserve la procédure et les résultats du premier lot animaux perdus.
+
 État : raccordement activé sur DEV le 19 novembre 2026, après accord explicite. Projet Firebase `furrix-8dd6e`, application `fr.furrix.app`. Pas d’authentification Firebase, Firestore ni campagne marketing dans ce parcours.
 
 ## Application

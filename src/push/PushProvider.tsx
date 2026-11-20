@@ -68,6 +68,7 @@ export function AndroidPushSettings() {
     <Card>
       <Stack gap={3}>
         <h2>Notifications sur cet appareil</h2>
+        <Button as="a" href="#/notifications" variant="quiet">Mes notifications et catégories</Button>
         {!value.supported ? (
           <Note>
             Les notifications hors application se règlent dans Furrix sur
@@ -76,8 +77,8 @@ export function AndroidPushSettings() {
         ) : (
           <>
             <p>
-              Reçois les alertes de ton secteur et les observations sur tes
-              annonces, même quand Furrix est fermé.
+              Reçois les alertes des catégories que tu as choisies, même quand
+              Furrix est fermé. Règle ces catégories dans le centre de notifications.
             </p>
             {value.phase === "on" ? (
               <Alert
@@ -102,7 +103,7 @@ export function AndroidPushSettings() {
             ) : (
               <Note>
                 Tu choisis de les activer sur chaque appareil. Les alertes de
-                secteur dépendent de la zone choisie ci-dessus.
+                secteur dépendent de la zone choisie dans Mon compte.
               </Note>
             )}
             {value.phase !== "unavailable" && (

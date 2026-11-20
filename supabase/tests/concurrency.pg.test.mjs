@@ -215,5 +215,11 @@ test('rencontres : concurrence sur plusieurs sessions PostgreSQL', { skip: url ?
       const slot=await publish(pro1,6),nonce=uuid(),sql="select request_professional_appointment($1,$2,'Consultation','Bonjour',false,$3) id",args=[slot,pets[2],nonce];
       const out=await race(customer,sql,args,sql,args);assert.equal(out.next.ok,true);assert.equal(out.first[0].id,out.next.rows[0].id);
     });
+    await t.test('notifications : message concurrent rejoué, un seul événement et une seule livraison par appareil',async()=>{
+      const m=(await admin.query('select m.id,a.owner_id sender,b.owner_id recipient from matches m join pets a on a.id=m.pet_a join pets b on b.id=m.pet_b where m.ended_at is null and not public.meeting_blocked(a.owner_id,b.owner_id) and public.meeting_member_active(a.owner_id) and public.meeting_member_active(b.owner_id) limit 1')).rows[0];
+      const device=uuid(),session=uuid(),nonce=uuid();await admin.query('insert into auth.sessions(id,user_id) values($1,$2)',[session,m.recipient]);await admin.query('insert into android_push_devices(id,user_id,session_id,token) values($1,$2,$3,$4)',[device,m.recipient,session,'not-a-real-notification-device-token']);await caller(target,m.recipient)("select set_notification_preference('messages',true)");
+      const sql='select id from send_match_message($1,$2,$3)',args=[m.id,'Test concurrent',nonce],out=await race(m.sender,sql,args,sql,args);assert.equal(out.next.ok,true);assert.equal(out.first[0].id,out.next.rows[0].id);
+      const rows=(await admin.query("select n.id,(select count(*)::int from android_push_jobs q where q.app_notification_id=n.id and q.device_id=$2) deliveries from app_notifications n where n.user_id=$1 and n.event_key=$3",[m.recipient,device,'message:'+out.first[0].id])).rows;assert.equal(rows.length,1);assert.equal(rows[0].deliveries,1);
+    });
   } finally { await drop(); }
 });

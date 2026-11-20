@@ -23,7 +23,7 @@ const loadGarde = () => import('../sitting/Garde');
 const GardeArea = lazy(loadGarde);
 const pageLoading = <p role="status" className="app-small">Chargement…</p>;
 import LostPetsArea from '../lost-pets/LostPetsArea';
-import { useLocalAlertUnread } from '../lost-pets/useLocalAlertUnread';
+import Notifications, { NotificationsProvider, useNotifications } from '../notifications/Notifications';
 
 const pillars = [
   { route: 'rencontres', label: 'Faire des rencontres', tag: 'Un peu de compagnie', text: 'Des compagnons de balade et de nouveaux amis, pour eux comme pour toi.', icon: Heart, color: 'sky' },
@@ -55,8 +55,8 @@ function Home({ overview }: { overview: OverviewState }) {
   </>;
 }
 
-export function AppShellView({ overview, retry, email, onSignOut, preview = false, petsContent, meetingsContent, messagesContent, gardeContent, accountContent, lostContent, servicesContent, localNotice, notificationUnread = false }: {
-  overview: OverviewState; retry: () => void; email?: string; onSignOut?: () => Promise<boolean>; preview?: boolean; petsContent?: ReactNode; meetingsContent?: ReactNode; messagesContent?: ReactNode; gardeContent?: ReactNode; accountContent?: ReactNode; lostContent?: ReactNode; servicesContent?: ReactNode; localNotice?: ReactNode; notificationUnread?: boolean;
+export function AppShellView({ overview, retry, email, onSignOut, preview = false, petsContent, meetingsContent, messagesContent, gardeContent, accountContent, lostContent, servicesContent, notificationsContent, localNotice, notificationUnread = false }: {
+  overview: OverviewState; retry: () => void; email?: string; onSignOut?: () => Promise<boolean>; preview?: boolean; petsContent?: ReactNode; meetingsContent?: ReactNode; messagesContent?: ReactNode; gardeContent?: ReactNode; accountContent?: ReactNode; lostContent?: ReactNode; servicesContent?: ReactNode; notificationsContent?: ReactNode; localNotice?: ReactNode; notificationUnread?: boolean;
 }) {
   const [route, setRoute] = useState(() => routeFromHash(window.location.hash));
   const [menuOpen,setMenuOpen]=useState(false);
@@ -84,12 +84,12 @@ export function AppShellView({ overview, retry, email, onSignOut, preview = fals
   const go = (to: string) => { setMenuOpen(false); window.location.hash = `#/${to}`; };
   const toggleMenu=()=>{menuToggle.current=document.activeElement as HTMLElement;setMenuOpen(v=>!v);};
   useEffect(()=>{if(!menuOpen)return;const escape=(e:KeyboardEvent)=>{if(e.key==='Escape'){setMenuOpen(false);menuToggle.current?.focus();}};const outside=(e:PointerEvent)=>{if(!(e.target as HTMLElement).closest('#app-account-menu,[data-account-toggle]'))setMenuOpen(false);};document.addEventListener('keydown',escape);document.addEventListener('pointerdown',outside);return()=>{document.removeEventListener('keydown',escape);document.removeEventListener('pointerdown',outside);};},[menuOpen]);
-  const notificationLabel=notificationUnread?'Notifications animaux perdus : non lues':'Notifications animaux perdus';
-  const notifications=<IconButton icon="bell" label={notificationLabel} className={notificationUnread?'app-notification-unread':undefined} onClick={()=>go('animaux-perdus?notifications')}/>;
+  const notificationLabel=notificationUnread?'Notifications : non lues':'Notifications';
+  const notifications=<IconButton icon="bell" label={notificationLabel} className={notificationUnread?'app-notification-unread':undefined} onClick={()=>go('notifications')}/>;
   const menuAction=<span data-account-toggle><IconButton icon="user" label={menuOpen?'Fermer le menu du compte':'Ouvrir le menu du compte'} aria-expanded={menuOpen} aria-controls="app-account-menu" onClick={toggleMenu}/></span>;
   const initial = (overview.data?.profile.name?.trim() || email || '').charAt(0).toUpperCase();
   const isTab = route === 'accueil' || tabNav.some((item) => item.id === route);
-  const currentTab = ['animaux-perdus', 'animaux', 'compte'].includes(route) ? 'plus' : route;
+  const currentTab = ['animaux-perdus', 'animaux', 'compte', 'notifications'].includes(route) ? 'plus' : route;
   const pending = route === 'animaux-perdus' ? lostPets : pillars.find((item) => item.route === route);
   return <div className="furrix-shell">
     {preview && <div className="app-preview" role="status">Aperçu local de l’interface · sans connexion, sans données de compte</div>}
@@ -106,6 +106,7 @@ export function AppShellView({ overview, retry, email, onSignOut, preview = fals
       {localNotice}
       {route === 'accueil' ? <Home overview={overview} />
         : route === 'plus' ? <section className="app-page"><h1>Plus</h1><p>Retrouve tes animaux, ton compte et les alertes de ton secteur.</p><nav className="app-more-links" aria-label="Plus de destinations">{moreNav.map((item) => <a className="app-outline" key={item.id} href={item.href}>{item.label}<ArrowRight size={18} aria-hidden /></a>)}</nav></section>
+        : route === 'notifications' && notificationsContent ? notificationsContent
         : route === 'animaux-perdus' && lostContent ? lostContent
         : route === 'rencontres' && meetingsContent ? meetingsContent
         : route === 'services' && servicesContent ? servicesContent
@@ -131,7 +132,7 @@ function AppShellContent({ client, user, onSignOut }: { client: FurrixClient; us
   // Retire les demandes non envoyées de ce compte quand sa session quitte l’application.
   useEffect(()=>()=>{try{const prefix='furrix:garde-draft:'+user.id+':';for(const key of Object.keys(sessionStorage))if(key.startsWith(prefix))sessionStorage.removeItem(key);}catch{}},[user.id]);
   const overview = useAccountOverview(client, user.id);
-  const unread=useLocalAlertUnread(client,user.id);
+  const unread=(useNotifications()?.unread ?? 0)>0;
   const petsContent = overview.status === 'ready' && overview.data
     ? <PetsWorkspace key={user.id} client={client} ownerId={user.id} pets={overview.data.pets} onSaved={overview.savePet} reload={overview.retry} /> : undefined;
   useEffect(() => {
@@ -145,7 +146,7 @@ function AppShellContent({ client, user, onSignOut }: { client: FurrixClient; us
     ? <AccountArea key={user.id} client={client} owner={user.id} email={user.email} profile={overview.data.profile} onSaved={overview.saveProfile} onSignOut={signOut} /> : undefined;
   const servicesContent=<Suspense fallback={pageLoading}><ProfessionalsArea key={user.id} client={client} owner={user.id} pets={overview.data?.pets ?? []}/></Suspense>;
   const lostContent = <LostPetsArea key={`${user.id}:lost`} client={client} owner={user.id} pets={overview.data?.pets || []} />;
-  return <AppShellView overview={overview} retry={overview.retry} email={user.email} onSignOut={signOut} petsContent={petsContent} meetingsContent={meetingsContent} messagesContent={messagesContent} gardeContent={gardeContent} accountContent={accountContent} servicesContent={servicesContent} lostContent={lostContent} notificationUnread={unread} />;
+  return <AppShellView overview={overview} retry={overview.retry} email={user.email} onSignOut={signOut} petsContent={petsContent} meetingsContent={meetingsContent} messagesContent={messagesContent} gardeContent={gardeContent} accountContent={accountContent} servicesContent={servicesContent} lostContent={lostContent} notificationsContent={<Notifications client={client}/>} notificationUnread={unread} />;
 }
 
 export function AppPreview() {
@@ -154,5 +155,5 @@ export function AppPreview() {
 
 /** Les push Android restent liés à la durée de la session, indépendamment de l’écran ouvert. */
 export default function AppShell({client,user,onSignOut}:{client:FurrixClient;user:User;onSignOut:()=>Promise<boolean>}) {
-  return <AndroidPushProvider key={user.id} client={client} owner={user.id}><MessageDraftProvider><AppShellContent client={client} user={user} onSignOut={onSignOut}/></MessageDraftProvider></AndroidPushProvider>;
+  return <AndroidPushProvider key={user.id} client={client} owner={user.id}><NotificationsProvider key={user.id} client={client} owner={user.id}><MessageDraftProvider><AppShellContent client={client} user={user} onSignOut={onSignOut}/></MessageDraftProvider></NotificationsProvider></AndroidPushProvider>;
 }

@@ -10,6 +10,7 @@ export const destinations = [
   { id: 'animaux', label: 'Mes animaux' },
   { id: 'compte', label: 'Mon compte' },
   { id: 'animaux-perdus', label: 'Animaux perdus' },
+  { id: 'notifications', label: 'Notifications' },
 ] as const;
 
 /** En-tête ordinateur (maquette « Plein air ») : Messages et le compte sont à droite, hors de cette liste. */
@@ -24,7 +25,7 @@ export const tabNav: NavItem[] = [
   { id: 'plus', label: 'Plus', href: '#/plus', icon: 'more' },
 ];
 export const moreNav: NavItem[] = destinations
-  .filter(({ id }) => ['accueil', 'animaux-perdus', 'animaux', 'compte'].includes(id))
+  .filter(({ id }) => ['accueil', 'notifications', 'animaux-perdus', 'animaux', 'compte'].includes(id))
   .map(({ id, label }) => ({ id, label, href: `#/${id}` }));
 
 export type AppRoute = typeof destinations[number]['id'];
