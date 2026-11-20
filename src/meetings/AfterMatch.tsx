@@ -3,7 +3,7 @@ import {useMessageDraft} from './messageDrafts';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActionBar, Alert, Button, Card, ChatLayout, ChatThread, CheckList, Composer, DetailLayout, EmptyState, Field, FurrixScope, Icon,
-  Input, Loading, MessageBubble, Note, OptionGroup, Page, PageHeader, ResultList, ResultRow, Separator, SlotGrid, Stack, StatusBadge,
+  Input, ListHeader, Loading, MessageBubble, Note, OptionGroup, Page, PageHeader, ResultList, ResultRow, Separator, SlotGrid, Stack, StatusBadge,
   Steps, SystemMessage, Text, Textarea, Who, type StepState,
 } from '../design-system';
 import type { FurrixClient } from '../services/supabaseClient';
@@ -12,6 +12,10 @@ import { createProposal, endMatch, latestProposal, listMyMatches, loadMessages, 
 import type { MatchMessage, MeetingProposal, MyMatch, ProposalDraft, ReportReason } from './types';
 import { usePetPhotoUrl } from './usePetPhotoUrl';
 import { messagesHref, views, type View } from './links';
+import { cap, longSlot, nextSlotInput, SlotField } from './SlotField';
+import { listSittingThreads } from '../sitting/service';
+import { chatHref } from '../sitting/links';
+import type { SittingThread } from '../sitting/types';
 import './after-match.css';
 
 const activityLabel = { balade: 'Balade', jeu: 'Jeu au parc' } as const;
@@ -22,9 +26,6 @@ const reasons: Array<{ value: ReportReason; label: string }> = [
 const species: Record<string, [string, string]> = { chien: ['Chien', 'Chienne'], chat: ['Chat', 'Chatte'] };
 const STEP_LABELS = ['Match', 'Proposition', 'Réponse', 'Rencontre'];
 
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-/** « Sam. 22 nov., 10:00 » */
-export const longSlot = (iso: string) => cap(new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso)));
 /** « Sam. 22 · 10:00 » */
 const shortSlot = (iso: string) => {
   const d = new Date(iso);
@@ -76,37 +77,34 @@ function MatchRow({ client, match }: { client: FurrixClient; match: MyMatch }) {
     meta={draft.trim() ? `Brouillon : ${draft.trim().slice(0,80)}` : match.last_text ? `« ${match.last_text.length > 80 ? `${match.last_text.slice(0, 80)}…` : match.last_text} »` : `Match avec ${match.my_pet_name} · ${day(match.matched_at)}`} />;
 }
 
-function MatchList({ client }: { client: FurrixClient }) {
-  const [state,setState]=useState<{status:'loading'|'ready'|'error';data:MyMatch[]}>({status:'loading',data:[]});
-  const [attempt,setAttempt]=useState(0),[refreshing,setRefreshing]=useState(false),[query,setQuery]=useState('');
-  useEffect(()=>{
-    let current=true,running=false;
-    const load=async()=>{
-      if(running)return;running=true;if(current)setRefreshing(true);
-      try{const data=await listMyMatches(client);if(current)setState({status:'ready',data});}
-      catch(error){if(current)setState(previous=>({data:error instanceof AppError&&error.code==='network'?previous.data:[],status:'error'}));}
-      finally{running=false;if(current)setRefreshing(false);}
-    };
-    void load();return poll(load,15_000,()=>{current=false;});
-  },[client,attempt]);
-  const normalize=(text:string)=>text.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('fr-FR');
-  const words=normalize(query).trim().split(/\s+/).filter(Boolean);
-  const filtered=state.data.filter(m=>{const text=normalize([m.name,m.owner_name,m.my_pet_name].filter(Boolean).join(' '));return words.every(word=>text.includes(word));});
-  const retry=<Button variant="out" size="sm" icon="retry" loading={refreshing} onClick={()=>setAttempt(a=>a+1)}>Actualiser</Button>;
-  return <>
-    <PageHeader title="Messages" subtitle="Une conversation s’ouvre gratuitement après chaque match." />
-    {state.status==='error'&&<Alert tone="err" title={state.data.length?'Actualisation indisponible':'Tes conversations n’ont pas pu être chargées.'} actions={retry}>{state.data.length?'Les dernières conversations chargées restent affichées. Réessaie pour récupérer les nouveaux messages.':undefined}</Alert>}
-    {state.status==='loading'?<Loading label="Chargement de tes conversations…"/>:<>
-      {state.data.length>0&&<Stack gap={3}>
-        <Field label="Rechercher une conversation"><Input type="search" value={query} maxLength={100} placeholder="Animal ou propriétaire" onChange={e=>setQuery(e.target.value)}/></Field>
-        {state.data.length===100&&<Note>La recherche porte sur tes 100 conversations les plus récentes.</Note>}
-        <div className="app-message-tools"><Note>{filtered.length} conversation{filtered.length>1?'s':''}</Note>{state.status!=='error'&&retry}</div>
-      </Stack>}
-      {filtered.length?<ResultList>{filtered.map(m=><MatchRow key={m.match_id} client={client} match={m}/>)}</ResultList>:state.data.length?
-        <EmptyState icon="search" title="Aucune conversation trouvée" action={<Button variant="quiet" onClick={()=>setQuery('')}>Effacer la recherche</Button>}>Essaie le prénom du propriétaire ou le nom d’un des animaux.</EmptyState>:
-        state.status!=='error'&&<EmptyState icon="message" title="Pas encore de conversation" action={<Button as="a" href="#/rencontres" variant="out" size="sm">Découvrir des compagnons</Button>}>Un j’aime de chaque côté, et la conversation s’ouvre ici.</EmptyState>}
-    </>}
-  </>;
+function MatchList({client}:{client:FurrixClient}) {
+ const [state,setState]=useState<{status:'loading'|'ready'|'error';data:MyMatch[]}>({status:'loading',data:[]});
+ const [garde,setGarde]=useState<SittingThread[]>([]),[gardeError,setGardeError]=useState(false);
+ const [attempt,setAttempt]=useState(0),[refreshing,setRefreshing]=useState(false),[query,setQuery]=useState('');
+ useEffect(()=>{let current=true,running=false;const load=async()=>{if(running)return;running=true;if(current)setRefreshing(true);
+ const [matches,threads]=await Promise.allSettled([listMyMatches(client),listSittingThreads(client)]);
+ if(current){if(matches.status==='fulfilled')setState({status:'ready',data:matches.value});else setState(old=>({status:'error',data:matches.reason instanceof AppError&&matches.reason.code==='network'?old.data:[]}));
+ if(threads.status==='fulfilled'){setGarde(threads.value);setGardeError(false);}else{setGardeError(true);if(!(threads.reason instanceof AppError&&threads.reason.code==='network'))setGarde([]);}setRefreshing(false);}running=false;};void load();return poll(load,15_000,()=>{current=false;});},[client,attempt]);
+ const normalize=(v:string)=>v.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('fr-FR');
+ const words=normalize(query).trim().split(/\s+/).filter(Boolean),find=(v:string)=>words.every(w=>normalize(v).includes(w));
+ const filtered=state.data.filter(m=>find([m.name,m.owner_name,m.my_pet_name].filter(Boolean).join(' '))),filteredGarde=garde.filter(t=>find(t.other_name??''));
+ const count=filtered.length+filteredGarde.length,total=state.data.length+garde.length;
+ const retry=<Button variant="out" size="sm" icon="retry" loading={refreshing} onClick={()=>setAttempt(a=>a+1)}>Actualiser</Button>;
+ return <><PageHeader title="Messages" subtitle="Tes conversations de rencontres et de garde, au même endroit."/>
+ {(state.status==='error'||gardeError)&&<Alert tone="err" title={total?'Actualisation indisponible':'Tes conversations n’ont pas pu être chargées.'} actions={retry}>{gardeError?'Les conversations de garde n’ont pas pu être actualisées. ':''}{state.status==='error'?'Les conversations de rencontres n’ont pas pu être actualisées. ':''}Les derniers échanges restent affichés en cas de panne réseau.</Alert>}
+ {state.status==='loading'?<Loading label="Chargement de tes conversations…"/>:<>
+ {total>0&&<Stack gap={3}><Field label="Rechercher une conversation"><Input type="search" value={query} maxLength={100} placeholder="Animal ou propriétaire" onChange={e=>setQuery(e.target.value)}/></Field>
+ {state.data.length===100&&<Note>La recherche de rencontres porte sur tes 100 conversations les plus récentes.</Note>}
+ <div className="app-message-tools"><Note>{count} conversation{count>1?'s':''}</Note>{state.status!=='error'&&!gardeError&&retry}</div></Stack>}
+ {count>0?<Stack gap={8}>
+ {filtered.length>0&&<Stack gap={2}>{garde.length>0&&<ListHeader title="Rencontres"/>}<ResultList>{filtered.map(m=><MatchRow key={m.match_id} client={client} match={m}/>)}</ResultList></Stack>}
+ {filteredGarde.length>0&&<Stack gap={2}><ListHeader title="Garde"/><ResultList>{filteredGarde.map(t=><SittingInboxRow key={t.owner_id+':'+t.sitter_id} thread={t}/>)}</ResultList></Stack>}
+ </Stack>:total>0?<EmptyState icon="search" title="Aucune conversation trouvée" action={<Button variant="quiet" onClick={()=>setQuery('')}>Effacer la recherche</Button>}>Essaie le prénom du propriétaire, le nom d’un animal ou celui du gardien.</EmptyState>:state.status!=='error'&&!gardeError&&<EmptyState icon="message" title="Pas encore de conversation" action={<Button as="a" href="#/rencontres" variant="out" size="sm">Découvrir des compagnons</Button>}>Un j’aime de chaque côté, ou un premier contact avec un gardien, et la conversation s’ouvre ici.</EmptyState>}
+ </>}</>;
+}
+function SittingInboxRow({thread:t}:{thread:SittingThread}){
+ const [draft]=useMessageDraft('garde:'+t.owner_id+':'+t.sitter_id);
+ return <li><ResultRow as="a" href={chatHref(t.owner_id,t.sitter_id)} initials={(t.other_name?.trim()||'?').charAt(0).toUpperCase()} name={t.other_name?.trim()||(t.role==='owner'?'Le gardien':'Le propriétaire')} tag={<StatusBadge status={draft?'todo':'draft'}>{draft?'Brouillon':t.role==='owner'?'Ton gardien':'Te confie un animal'}</StatusBadge>} meta={draft?'Brouillon : '+draft.trim().slice(0,80):t.last_text?'« '+t.last_text.slice(0,80)+' »':'Conversation de garde'}/></li>;
 }
 
 /* ───────── Un match ───────── */
@@ -127,76 +125,6 @@ function SideCard({ client, match, proposal, children }: { client: FurrixClient;
 
 function StepsCard({ reached, stopped }: { reached: number; stopped?: boolean }) {
   return <Card calm><Stack gap={3}><Text variant="kicker">Où en est la rencontre</Text><Steps label="Étapes" steps={steps(reached, stopped)} /></Stack></Card>;
-}
-
-/* Créneaux : heure locale « AAAA-MM-JJTHH:MM », convertie en ISO à l'envoi. */
-const pad = (n: number) => String(n).padStart(2, '0');
-const dayKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const nextSlotInput = () => `${dayKey(new Date(Date.now() + 2 * 86400_000))}T10:00`;
-const HOURS = Array.from({ length: 12 }, (_, i) => `${pad(8 + i)}:00`);
-const WEEKDAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
-const monthName = (d: Date) => cap(new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(d));
-const validSlot = (s: string) => !!s && !Number.isNaN(new Date(s).getTime());
-
-/** Un créneau : le champ ouvre un petit calendrier (jour puis heure) sous lui. */
-function SlotField({ value, onChange, label }: { value: string; onChange: (slot: string) => void; label: string }) {
-  const [open, setOpen] = useState(false);
-  const box = useRef<HTMLDivElement>(null);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const initial = validSlot(value) ? new Date(value) : new Date(today.getTime() + 2 * 86400_000);
-  const [month, setMonth] = useState(() => new Date(initial.getFullYear(), initial.getMonth(), 1));
-  const [picked, setPicked] = useState(() => dayKey(initial));
-  const [step, setStep] = useState<'day' | 'hour'>('day');
-  useEffect(() => {
-    if (!open) return;
-    const away = (e: Event) => { if (!box.current?.contains(e.target as Node)) setOpen(false); };
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('pointerdown', away); document.addEventListener('keydown', esc);
-    return () => { document.removeEventListener('pointerdown', away); document.removeEventListener('keydown', esc); };
-  }, [open]);
-  const toggle = () => {
-    if (!open && validSlot(value)) { const d = new Date(value); setMonth(new Date(d.getFullYear(), d.getMonth(), 1)); setPicked(dayKey(d)); }
-    setStep('day');
-    setOpen((o) => !o);
-  };
-  const lead = (month.getDay() + 6) % 7;
-  const count = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-  const cells = [...Array<null>(lead).fill(null), ...Array.from({ length: count }, (_, i) => new Date(month.getFullYear(), month.getMonth(), i + 1))];
-  const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  const now = Date.now();
-  const pickedDate = new Date(`${picked}T00:00`);
-  return <div className="am-slotfield" ref={box}>
-    <button type="button" className="fx-input am-slotbtn" aria-label={label} aria-expanded={open} aria-haspopup="dialog" onClick={toggle}>
-      <Icon name="calendar" size={18} />
-      <span className={validSlot(value) ? 'fx-num' : 'am-placeholder'}>{validSlot(value) ? longSlot(new Date(value).toISOString()) : 'Choisir un jour et une heure'}</span>
-    </button>
-    {open && step === 'hour' ? <div className="am-cal" role="dialog" aria-label={`${label} : heure`}>
-      <div className="am-cal__head">
-        <button type="button" className="am-cal__nav" aria-label="Changer de jour" onClick={() => setStep('day')}>‹</button>
-        <b>{cap(day(pickedDate.toISOString()))}</b>
-        <span className="am-cal__spacer" aria-hidden="true" />
-      </div>
-      <p className="am-cal__label">Choisis l’heure</p>
-      <div className="am-cal__hours" role="group" aria-label="Heure">
-        {HOURS.map((h) => { const slot = `${picked}T${h}`; return <button key={h} type="button" className="am-cal__hour fx-num"
-          aria-pressed={value === slot} disabled={new Date(slot).getTime() <= now} onClick={() => { onChange(slot); setOpen(false); }}>{h}</button>; })}
-      </div>
-    </div> : open ? <div className="am-cal" role="dialog" aria-label={`${label} : jour`}>
-      <div className="am-cal__head">
-        <button type="button" className="am-cal__nav" aria-label="Mois précédent" disabled={month <= thisMonth} onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}>‹</button>
-        <b>{monthName(month)}</b>
-        <button type="button" className="am-cal__nav" aria-label="Mois suivant" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}>›</button>
-      </div>
-      <div className="am-cal__grid" role="group" aria-label="Jour">
-        {WEEKDAYS.map((w, i) => <span key={i} className="am-cal__wd" aria-hidden="true">{w}</span>)}
-        {cells.map((d, i) => d ? <button key={i} type="button" className="am-cal__day fx-num" aria-pressed={dayKey(d) === picked}
-          aria-label={new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(d)}
-          data-today={dayKey(d) === dayKey(today) || undefined} disabled={d < today || HOURS.every((h) => new Date(`${dayKey(d)}T${h}`).getTime() <= now)}
-          onClick={() => { setPicked(dayKey(d)); setStep('hour'); }}>{d.getDate()}</button>
-          : <span key={i} />)}
-      </div>
-    </div> : null}
-  </div>;
 }
 
 function ProposalForm({ client, match, onSent }: { client: FurrixClient; match: MyMatch; onSent: (p: MeetingProposal) => void }) {
