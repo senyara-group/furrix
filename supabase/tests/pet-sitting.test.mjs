@@ -139,6 +139,6 @@ test('garde : profil, recherche, demande, accord, conversation, nouvelles, annul
   assert.equal((await search(X,{radius:4}))[0]?.sitter_id,S);
   assert.equal((await search(X,{radius:3})).length,0);
  });
- await t.test('retour arrière puis réapplication de la correction de concurrence',async()=>{await db.exec(await readFile(new URL('../operations/rollback_sitting_concurrency_recovery.sql',import.meta.url),'utf8'));await db.exec(await readFile(new URL('../migrations/20261120090806_sitting_concurrency_recovery.sql',import.meta.url),'utf8'));});
+ await t.test('retour arrière puis réapplication de la correction de concurrence',async()=>{await db.exec(await readFile(new URL('../operations/rollback_sitting_concurrency_recovery.sql',import.meta.url),'utf8'));await db.exec(await readFile(new URL('../migrations/20261120093317_sitting_concurrency_recovery.sql',import.meta.url),'utf8'));});
 }finally{await db.close();}
 });
