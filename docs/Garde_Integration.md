@@ -33,7 +33,7 @@ Lecture seule sur DEV : les trois migrations d’Alexis sont déjà présentes s
 
 Elles sont conservées intactes. Les corps des quatre fonctions concernées ont été comparés par empreinte normalisée entre DEV et ces fichiers : ils correspondent.
 
-La nouvelle migration `20261120090806_sitting_concurrency_recovery.sql` est préparée uniquement, pas appliquée :
+La nouvelle migration `20261120093317_sitting_concurrency_recovery.sql` est appliquée sur DEV après accord du 20 novembre 2026 :
 
 - verrou de paire commun à Rencontres et Garde, pris avant les contrôles de blocage ;
 - nouvelle vérification bêta après attente du verrou ;
@@ -53,6 +53,8 @@ Retour arrière : `supabase/operations/rollback_sitting_concurrency_recovery.sql
 - Les tests SQL d’Alexis et le retour arrière de la nouvelle migration sont exécutés avec l’ensemble des migrations locales. Les requêtes de préparation du minuteur push restent exclues du PostgreSQL local dépourvu de pg_net/Vault, comme documenté dans le lot précédent.
 - Navigateur avec client simulé, à 390 et 1280 px : recherche par ville, fiche, demande envoyée, écran de paiement désactivé, boîte Messages, retour au brouillon. Un titre principal, aucun débordement horizontal ni erreur JavaScript.
 
-Aucune mutation DEV, aucun envoi à des comptes réels, aucune fusion GitHub, aucun déploiement ni compilation Android/iOS réalisés pour cette intégration. La correction SQL devra être appliquée sur DEV après accord, puis la recette collective devra couvrir les vrais comptes, Storage et les appareils. Un nouvel APK sera nécessaire pour les fonctionnalités ajoutées depuis la dernière version distribuée.
+La PR 34 est fusionnée et la correction SQL est appliquée sur DEV après accord. Aucun envoi à des comptes réels ni compilation Android/iOS n’a été réalisé pour cette intégration. La recette collective doit encore couvrir les vrais comptes, Storage et les appareils. Un nouvel APK sera nécessaire pour les fonctionnalités ajoutées depuis la dernière version distribuée.
 
 Résultat de la suite SQL complète après correction : 107/107. Contrôle des types et compilation web réussis. Les 218 tests Vitest passent sur l’état final. Les essais navigateur utilisent uniquement des données locales simulées, supprimées du checkout après contrôle.
+
+Activation DEV après accord le 20 novembre 2026 : correction appliquée sous la version Supabase 20261120093317, fichier local aligné sans modification du SQL. Les empreintes des quatre corps de fonctions correspondent au dépôt ; search_path fixé, appels anonymes refusés, RLS et interdiction des écritures directes conservés. Les quatre opérations invalides ont été refusées sous un rôle authentifié dans une transaction annulée. Aucune demande ni aucun message de test créés. Les tests de concurrence restent ceux du PostgreSQL local ; la recette avec les appareils réels reste à faire.
