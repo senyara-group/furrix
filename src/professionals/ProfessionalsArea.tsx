@@ -41,6 +41,10 @@ import {
   type Professional,
 } from "./types";
 import ProfessionalProfile from "./ProfessionalProfile";
+import AppointmentsArea from './appointments/AppointmentsArea';
+import { AvailableSlots } from './appointments/Slots';
+import { appointmentHref } from './appointments/types';
+import type { PetRow } from '../types/database';
 import "./professionals.css";
 type Search = {
   position: ApproximatePosition | null;
@@ -57,9 +61,11 @@ const speciesLabel: Record<string, string> = {
 function ProfessionalDetail({
   client,
   id,
+  owner,
 }: {
   client: FurrixClient;
   id: string;
+  owner: string;
 }) {
   const [profile, setProfile] = useState<Professional | null>(),
     [failed, setFailed] = useState(false),
@@ -190,8 +196,8 @@ function ProfessionalDetail({
           <Stack gap={3}>
             <h2>Contacter l’établissement</h2>
             <p>
-              Contacte directement l’établissement pour ses disponibilités.
-              Aucun rendez-vous n’est réservé dans Furrix.
+              Tu peux aussi contacter directement l’établissement. Un appel ou
+              l’ouverture de son site ne réserve aucun rendez-vous dans Furrix.
             </p>
             <div className="app-pro-actions">
               {profile.phone && (
@@ -222,6 +228,7 @@ function ProfessionalDetail({
             )}
           </Stack>
         </Card>
+        <AvailableSlots client={client} professional={id} owner={owner} />
         {profile.category === "veterinaire" && (
           <Note>
             Furrix ne gère pas les urgences vétérinaires. Contacte directement
@@ -323,6 +330,7 @@ function Directory({
         showTitleOnPhone
       />
       <div className="app-pro-actions app-pro-shortcuts">
+        <Button as="a" href={appointmentHref()} variant="out">Mes rendez-vous</Button>
         <Button as="a" href="#/services?vue=profil" variant="out">
           Proposer mes services
         </Button>
@@ -487,9 +495,11 @@ function Directory({
 export default function ProfessionalsArea({
   client,
   owner,
+  pets = [],
 }: {
   client: FurrixClient;
   owner: string;
+  pets?: PetRow[];
 }) {
   const read = () =>
     new URLSearchParams(window.location.hash.split("?")[1] ?? "");
@@ -510,10 +520,12 @@ export default function ProfessionalsArea({
   return (
     <FurrixScope className="app-pro-root">
       <Page>
-        {edit ? (
+        {['rendez-vous', 'creneaux', 'demander'].includes(params.get('vue') ?? '') ? (
+          <AppointmentsArea client={client} owner={owner} params={params} pets={pets} />
+        ) : edit ? (
           <ProfessionalProfile key={owner} client={client} owner={owner} />
         ) : id ? (
-          <ProfessionalDetail key={id} client={client} id={id} />
+          <ProfessionalDetail key={id} client={client} id={id} owner={owner} />
         ) : (
           <Directory client={client} search={search} onSearch={setSearch} />
         )}
