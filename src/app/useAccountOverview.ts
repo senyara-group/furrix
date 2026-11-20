@@ -26,7 +26,9 @@ export function useAccountOverview(client: FurrixClient, userId: string) {
     setResult(current => current.owner !== userId || !current.data ? current : {
       ...current, data: { ...current.data, profile: { name: profile.name, city: profile.city } },
     });
-  }, retry: () => setAttempt((value) => value + 1), savePet: (pet: PetRow) => {
+  }, retry: () => setAttempt((value) => value + 1), retirePet: (id: string) => {
+    setResult(current => current.owner !== userId || !current.data ? current : { ...current, data: { ...current.data, pets: current.data.pets.filter(p => p.id !== id) } });
+  }, savePet: (pet: PetRow) => {
     if (pet.owner_id !== userId) return;
     setResult((current) => {
       if (current.owner !== userId || !current.data) return current;

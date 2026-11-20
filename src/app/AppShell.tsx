@@ -25,6 +25,7 @@ const pageLoading = <p role="status" className="app-small">Chargement…</p>;
 import LostPetsArea from '../lost-pets/LostPetsArea';
 import Notifications, { NotificationsProvider, useNotifications } from '../notifications/Notifications';
 import HomeActivity from './home/HomeActivity';
+import FirstSteps from './home/FirstSteps';
 
 const pillars = [
   { route: 'rencontres', label: 'Faire des rencontres', tag: 'Un peu de compagnie', text: 'Des compagnons de balade et de nouveaux amis, pour eux comme pour toi.', icon: Heart, color: 'sky' },
@@ -33,7 +34,7 @@ const pillars = [
 ] as const;
 const lostPets = { label: 'Animaux perdus', text: 'Tu pourras signaler un animal perdu ou trouvé près de chez toi, et aider à le ramener à la maison.' };
 
-function Home({ overview, activity }: { overview: OverviewState; activity?: ReactNode }) {
+function Home({ overview, activity, firstSteps }: { overview: OverviewState; activity?: ReactNode; firstSteps?: ReactNode }) {
   const name = overview.data?.profile.name?.trim().split(/\s+/)[0];
   return <>
     <section className="app-local-alert"><a href="#/animaux-perdus">Animaux perdus : consulter les alertes locales ou déclarer une disparition.</a></section>
@@ -41,10 +42,11 @@ function Home({ overview, activity }: { overview: OverviewState; activity?: Reac
       <div><p className="app-eyebrow"><Sun size={17} aria-hidden /> Le quotidien, en bonne compagnie</p>
         <h1>{name ? `Salut ${name}.` : 'Bienvenue chez toi.'}<br />Et si on prenait<br className="app-desktop-break" /> l’air ensemble ?</h1>
         <p>De nouvelles rencontres, une garde attentionnée,<br className="app-desktop-break" /> les bons professionnels. Tout pour eux, près de toi.</p>
-        <a className="app-primary" href="#/animaux">Découvrir mon espace <ArrowRight size={18} aria-hidden /></a>
+        <a className="app-primary" href={overview.status==='ready'&&!overview.data?.pets.length?'#/animaux?nouveau=1':'#/animaux'}>{overview.status==='ready'&&!overview.data?.pets.length?'Présenter mon animal':'Retrouver mes animaux'} <ArrowRight size={18} aria-hidden /></a>
       </div>
       <div className="app-park-scene" aria-hidden="true"><div className="app-sun-disc" /><div className="app-hill app-hill-back" /><div className="app-hill app-hill-front" /><div className="app-dog"><Dog size={100} strokeWidth={1.2} /></div><div className="app-scene-note"><PawPrint size={16} /> Les petits bonheurs sont dehors.</div></div>
     </section>
+    {firstSteps}
     <section className="app-section" aria-labelledby="app-pillars"><div className="app-section-heading"><div><p className="app-eyebrow">À chacun son envie</p><h2 id="app-pillars">Qu’est-ce qu’on fait aujourd’hui ?</h2></div><span className="app-stage">Ton quotidien avec eux</span></div>
       <div className="app-pillars">{pillars.map(({ route, label, tag, text, icon: Icon, color }) => <a className={`app-pillar app-${color}`} href={`#/${route}`} key={route}>
         <div className="app-pillar-top"><Icon size={27} strokeWidth={1.6} aria-hidden /><ArrowUpRight size={22} aria-hidden /></div><p className="app-eyebrow">{tag}</p><h3>{label}</h3><p>{text}</p><span className="app-small">{route==='services'?'Consulter l’annuaire':route==='garde'?'Chercher une garde':'Découvrir les animaux'}</span>
@@ -56,8 +58,8 @@ function Home({ overview, activity }: { overview: OverviewState; activity?: Reac
   </>;
 }
 
-export function AppShellView({ overview, retry, email, onSignOut, preview = false, petsContent, meetingsContent, messagesContent, gardeContent, accountContent, lostContent, servicesContent, notificationsContent, activityContent, localNotice, notificationUnread = false }: {
-  overview: OverviewState; retry: () => void; email?: string; onSignOut?: () => Promise<boolean>; preview?: boolean; petsContent?: ReactNode; meetingsContent?: ReactNode; messagesContent?: ReactNode; gardeContent?: ReactNode; accountContent?: ReactNode; lostContent?: ReactNode; servicesContent?: ReactNode; notificationsContent?: ReactNode; activityContent?: ReactNode; localNotice?: ReactNode; notificationUnread?: boolean;
+export function AppShellView({ overview, retry, email, onSignOut, preview = false, petsContent, meetingsContent, messagesContent, gardeContent, accountContent, lostContent, servicesContent, notificationsContent, activityContent, firstStepsContent, localNotice, notificationUnread = false }: {
+  overview: OverviewState; retry: () => void; email?: string; onSignOut?: () => Promise<boolean>; preview?: boolean; petsContent?: ReactNode; meetingsContent?: ReactNode; messagesContent?: ReactNode; gardeContent?: ReactNode; accountContent?: ReactNode; lostContent?: ReactNode; servicesContent?: ReactNode; notificationsContent?: ReactNode; activityContent?: ReactNode; firstStepsContent?: ReactNode; localNotice?: ReactNode; notificationUnread?: boolean;
 }) {
   const [route, setRoute] = useState(() => routeFromHash(window.location.hash));
   const [menuOpen,setMenuOpen]=useState(false);
@@ -105,7 +107,7 @@ export function AppShellView({ overview, retry, email, onSignOut, preview = fals
     <PhoneBarContext.Provider value={setPhoneBar}><main id="app-content" tabIndex={-1} ref={title}>
       {overview.status === 'error' && <div className="app-load-error" role="alert">Ton espace n’a pas pu être chargé. <button onClick={retry}>Réessayer</button></div>}
       {localNotice}
-      {route === 'accueil' ? <Home overview={overview} activity={activityContent} />
+      {route === 'accueil' ? <Home overview={overview} activity={activityContent} firstSteps={firstStepsContent} />
         : route === 'plus' ? <section className="app-page"><h1>Plus</h1><p>Retrouve tes animaux, ton compte et les alertes de ton secteur.</p><nav className="app-more-links" aria-label="Plus de destinations">{moreNav.map((item) => <a className="app-outline" key={item.id} href={item.href}>{item.label}<ArrowRight size={18} aria-hidden /></a>)}</nav></section>
         : route === 'notifications' && notificationsContent ? notificationsContent
         : route === 'animaux-perdus' && lostContent ? lostContent
@@ -135,7 +137,7 @@ function AppShellContent({ client, user, onSignOut }: { client: FurrixClient; us
   const overview = useAccountOverview(client, user.id);
   const unread=(useNotifications()?.unread ?? 0)>0;
   const petsContent = overview.status === 'ready' && overview.data
-    ? <PetsWorkspace key={user.id} client={client} ownerId={user.id} pets={overview.data.pets} onSaved={overview.savePet} reload={overview.retry} /> : undefined;
+    ? <PetsWorkspace key={user.id} client={client} ownerId={user.id} pets={overview.data.pets} onSaved={overview.savePet} onRetired={overview.retirePet} reload={overview.retry} /> : undefined;
   useEffect(() => {
     const timer = window.setTimeout(() => { void loadRencontres().catch(() => {}); void loadMessages().catch(() => {}); void loadGarde().catch(() => {}); }, 1500);
     return () => window.clearTimeout(timer);
@@ -147,7 +149,7 @@ function AppShellContent({ client, user, onSignOut }: { client: FurrixClient; us
     ? <AccountArea key={user.id} client={client} owner={user.id} email={user.email} profile={overview.data.profile} onSaved={overview.saveProfile} onSignOut={signOut} /> : undefined;
   const servicesContent=<Suspense fallback={pageLoading}><ProfessionalsArea key={user.id} client={client} owner={user.id} pets={overview.data?.pets ?? []}/></Suspense>;
   const lostContent = <LostPetsArea key={`${user.id}:lost`} client={client} owner={user.id} pets={overview.data?.pets || []} />;
-  return <AppShellView overview={overview} retry={overview.retry} email={user.email} onSignOut={signOut} petsContent={petsContent} meetingsContent={meetingsContent} messagesContent={messagesContent} gardeContent={gardeContent} accountContent={accountContent} servicesContent={servicesContent} lostContent={lostContent} notificationsContent={<Notifications client={client}/>} activityContent={<HomeActivity key={user.id} client={client} owner={user.id}/>} notificationUnread={unread} />;
+  return <AppShellView overview={overview} retry={overview.retry} email={user.email} onSignOut={signOut} petsContent={petsContent} meetingsContent={meetingsContent} messagesContent={messagesContent} gardeContent={gardeContent} accountContent={accountContent} servicesContent={servicesContent} lostContent={lostContent} notificationsContent={<Notifications client={client}/>} activityContent={<HomeActivity key={user.id} client={client} owner={user.id}/>} firstStepsContent={overview.status === 'ready' && overview.data ? <FirstSteps key={user.id} owner={user.id} profile={overview.data.profile} pets={overview.data.pets}/> : undefined} notificationUnread={unread} />;
 }
 
 export function AppPreview() {

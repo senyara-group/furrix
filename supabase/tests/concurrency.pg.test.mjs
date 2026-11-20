@@ -167,12 +167,12 @@ test('rencontres : concurrence sur plusieurs sessions PostgreSQL', { skip: url ?
     const guard=users[2*N],a=users[2*N-1],b=users[2*N-2],start=new Date(Date.now()+86400000*10).toISOString(),end=new Date(Date.now()+86400000*12).toISOString();
     await caller(target,guard)("select save_sitter_profile('particulier','Accueil de test suffisamment long.','Lille',50.63,3.06,array['chien'],null,'sans_jardin',$1::jsonb,true)",[JSON.stringify([{service:'chez_gardien',price_cents:2000}])]);
     const request=(who,pet,nonce)=>caller(target,who)('select * from create_sitting_request($1,$2,$3,$4,$5,$6,$7)',[guard,pet,'chez_gardien',start,end,'Bonjour',nonce]);
-    const race=async(uid,firstSQL,firstArgs,secondSQL,secondArgs,secondUid=uid)=>{
+    const race=async(uid,firstSQL,firstArgs,secondSQL,secondArgs,secondUid=uid,waitEvent='advisory')=>{
       const x=new pg.Client({connectionString:target}),y=new pg.Client({connectionString:target});await x.connect();await y.connect();let done=false;
       try{await x.query('begin');await x.query('set local role authenticated');await x.query("select set_config('request.jwt.claim.sub',$1,true)",[uid]);const first=await x.query(firstSQL,firstArgs);
         await y.query('set statement_timeout=10000');await y.query('set role authenticated');await y.query("select set_config('request.jwt.claim.sub',$1,false)",[secondUid]);
         const pending=y.query(secondSQL,secondArgs).then(r=>{done=true;return{ok:true,rows:r.rows};},e=>{done=true;return{ok:false,code:e.code};});
-        const deadline=Date.now()+5000;while(!done){await admin.query('select pg_stat_clear_snapshot()');const q=await admin.query("select wait_event from pg_stat_activity where pid=$1",[y.processID]);if(q.rows[0]?.wait_event==='advisory')break;assert.ok(Date.now()<deadline,'seconde transaction bloquée observable');await new Promise(r=>setTimeout(r,10));}
+        let observed=false;const deadline=Date.now()+5000;while(!done){await admin.query('select pg_stat_clear_snapshot()');const q=await admin.query("select wait_event from pg_stat_activity where pid=$1",[y.processID]);if(q.rows[0]?.wait_event===waitEvent){observed=true;break;}assert.ok(Date.now()<deadline,'seconde transaction bloquée observable');await new Promise(r=>setTimeout(r,10));}assert.ok(observed,'attente de verrou effectivement observée');
         await x.query('commit');return{first:first.rows,next:await pending};
       }finally{await x.query('rollback').catch(()=>{});await x.end();await y.end();}
     };
@@ -220,6 +220,27 @@ test('rencontres : concurrence sur plusieurs sessions PostgreSQL', { skip: url ?
       const device=uuid(),session=uuid(),nonce=uuid();await admin.query('insert into auth.sessions(id,user_id) values($1,$2)',[session,m.recipient]);await admin.query('insert into android_push_devices(id,user_id,session_id,token) values($1,$2,$3,$4)',[device,m.recipient,session,'not-a-real-notification-device-token']);await caller(target,m.recipient)("select set_notification_preference('messages',true)");
       const sql='select id from send_match_message($1,$2,$3)',args=[m.id,'Test concurrent',nonce],out=await race(m.sender,sql,args,sql,args);assert.equal(out.next.ok,true);assert.equal(out.first[0].id,out.next.rows[0].id);
       const rows=(await admin.query("select n.id,(select count(*)::int from android_push_jobs q where q.app_notification_id=n.id and q.device_id=$2) deliveries from app_notifications n where n.user_id=$1 and n.event_key=$3",[m.recipient,device,'message:'+out.first[0].id])).rows;assert.equal(rows.length,1);assert.equal(rows[0].deliveries,1);
+    });
+    const freshPet=async()=>{const id=uuid();await admin.query("insert into pets(id,owner_id,name,species) values($1,$2,'Retrait','chien')",[id,customer]);return id;};
+    await t.test('retrait : une garde commencée après le retrait attend puis est refusée',async()=>{
+      const p=await freshPet(),sql='select * from create_sitting_request($1,$2,$3,$4,$5,$6,$7)',args=[guard,p,'chez_gardien',start,end,'Bonjour',uuid()];
+      const out=await race(customer,'select retire_pet_profile($1)',[p],sql,args,customer,'transactionid');assert.deepEqual(out.next,{ok:false,code:'42501'});
+    });
+    await t.test('retrait : une garde validée avant le retrait le bloque sans perdre la demande',async()=>{
+      const p=await freshPet(),sql='select * from create_sitting_request($1,$2,$3,$4,$5,$6,$7)',args=[guard,p,'chez_gardien',start,end,'Bonjour',uuid()];
+      const out=await race(customer,sql,args,'select retire_pet_profile($1)',[p],customer,'transactionid');assert.deepEqual(out.next,{ok:false,code:'23503'});assert.equal((await admin.query('select archived_at from pets where id=$1',[p])).rows[0].archived_at,null);
+    });
+    await t.test('retrait : un nouveau rendez-vous ne traverse pas le contrôle d’activité',async()=>{
+      const p=await freshPet(),slot=await publish(pro1,20);const out=await race(customer,'select retire_pet_profile($1)',[p],"select request_professional_appointment($1,$2,'Consultation','Bonjour',false,$3)",[slot,p,uuid()],customer,'transactionid');assert.deepEqual(out.next,{ok:false,code:'42501'});
+    });
+    const petMatch=async()=>{const p=await freshPet(),m=uuid();await admin.query('insert into matches(id,pet_a,pet_b) values($1,least($2::uuid,$3::uuid),greatest($2::uuid,$3::uuid))',[m,p,pets[4]]);return{p,m};};
+    await t.test('retrait : une proposition ayant commencé son contrôle avant le retrait est refusée ensuite',async()=>{
+      const {p,m}=await petMatch(),sql="select * from create_meeting_proposal($1,'balade','Parc',$2::timestamptz[],null,$3)";
+      const out=await race(customer,'select retire_pet_profile($1)',[p],sql,[m,[start],uuid()],users[4],'transactionid');assert.deepEqual(out.next,{ok:false,code:'42501'});
+    });
+    await t.test('retrait : une proposition enregistrée avant lui empêche le retrait',async()=>{
+      const {p,m}=await petMatch(),sql="select * from create_meeting_proposal($1,'balade','Parc',$2::timestamptz[],null,$3)";
+      const out=await race(users[4],sql,[m,[start],uuid()],'select retire_pet_profile($1)',[p],customer,'transactionid');assert.deepEqual(out.next,{ok:false,code:'23503'});
     });
   } finally { await drop(); }
 });
