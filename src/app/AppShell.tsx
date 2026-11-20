@@ -19,6 +19,8 @@ const loadMessages = () => import('../meetings/AfterMatch');
 const Rencontres = lazy(loadRencontres);
 const MessagesArea = lazy(loadMessages);
 const ProfessionalsArea = lazy(()=>import('../professionals/ProfessionalsArea'));
+const loadGarde = () => import('../sitting/Garde');
+const GardeArea = lazy(loadGarde);
 const pageLoading = <p role="status" className="app-small">Chargement…</p>;
 import LostPetsArea from '../lost-pets/LostPetsArea';
 import { useLocalAlertUnread } from '../lost-pets/useLocalAlertUnread';
@@ -53,8 +55,8 @@ function Home({ overview }: { overview: OverviewState }) {
   </>;
 }
 
-export function AppShellView({ overview, retry, email, onSignOut, preview = false, petsContent, meetingsContent, messagesContent, accountContent, lostContent, servicesContent, localNotice, notificationUnread = false }: {
-  overview: OverviewState; retry: () => void; email?: string; onSignOut?: () => Promise<boolean>; preview?: boolean; petsContent?: ReactNode; meetingsContent?: ReactNode; messagesContent?: ReactNode; accountContent?: ReactNode; lostContent?: ReactNode; servicesContent?: ReactNode; localNotice?: ReactNode; notificationUnread?: boolean;
+export function AppShellView({ overview, retry, email, onSignOut, preview = false, petsContent, meetingsContent, messagesContent, gardeContent, accountContent, lostContent, servicesContent, localNotice, notificationUnread = false }: {
+  overview: OverviewState; retry: () => void; email?: string; onSignOut?: () => Promise<boolean>; preview?: boolean; petsContent?: ReactNode; meetingsContent?: ReactNode; messagesContent?: ReactNode; gardeContent?: ReactNode; accountContent?: ReactNode; lostContent?: ReactNode; servicesContent?: ReactNode; localNotice?: ReactNode; notificationUnread?: boolean;
 }) {
   const [route, setRoute] = useState(() => routeFromHash(window.location.hash));
   const [menuOpen,setMenuOpen]=useState(false);
@@ -108,6 +110,7 @@ export function AppShellView({ overview, retry, email, onSignOut, preview = fals
         : route === 'rencontres' && meetingsContent ? meetingsContent
         : route === 'services' && servicesContent ? servicesContent
         : route === 'messages' && messagesContent ? messagesContent
+        : route === 'garde' && gardeContent ? gardeContent
         : route === 'compte' && accountContent ? accountContent
         : route === 'compte' ? <section className="app-page"><p className="app-eyebrow">Ton espace personnel</p><h1>Mon compte</h1><p>Un seul compte pour le web et les applications mobiles.</p><dl><dt>E-mail</dt><dd>{email || (preview ? 'Non affiché dans cet aperçu' : 'Non renseigné')}</dd><dt>Prénom</dt><dd>{overview.data?.profile.name || 'Non renseigné'}</dd><dt>Ville</dt><dd>{overview.data?.profile.city || 'Non renseignée'}</dd></dl>
           <p className="app-small">{preview ? 'Cet aperçu n’enregistre aucune modification.' : 'Ton profil sera disponible après le chargement de ton espace.'}</p><button className="app-outline" disabled={!onSignOut || leaving} onClick={() => { void signOut(); }}><LogOut size={18} aria-hidden />{leaving ? 'Déconnexion…' : 'Déconnecter cet appareil'}</button>{error && <p role="alert">{error}</p>}</section>
@@ -125,21 +128,24 @@ export function AppShellView({ overview, retry, email, onSignOut, preview = fals
 function AppShellContent({ client, user, onSignOut }: { client: FurrixClient; user: User; onSignOut: () => Promise<boolean> }) {
   const push = useAndroidPush();
   const signOut = async () => { try { await push?.disable(); } catch {} return onSignOut(); };
+  // Retire les demandes non envoyées de ce compte quand sa session quitte l’application.
+  useEffect(()=>()=>{try{const prefix='furrix:garde-draft:'+user.id+':';for(const key of Object.keys(sessionStorage))if(key.startsWith(prefix))sessionStorage.removeItem(key);}catch{}},[user.id]);
   const overview = useAccountOverview(client, user.id);
   const unread=useLocalAlertUnread(client,user.id);
   const petsContent = overview.status === 'ready' && overview.data
     ? <PetsWorkspace key={user.id} client={client} ownerId={user.id} pets={overview.data.pets} onSaved={overview.savePet} reload={overview.retry} /> : undefined;
   useEffect(() => {
-    const timer = window.setTimeout(() => { void loadRencontres().catch(() => {}); void loadMessages().catch(() => {}); }, 1500);
+    const timer = window.setTimeout(() => { void loadRencontres().catch(() => {}); void loadMessages().catch(() => {}); void loadGarde().catch(() => {}); }, 1500);
     return () => window.clearTimeout(timer);
   }, []);
   const meetingsContent = overview.status === 'ready' && overview.data ? <Suspense fallback={pageLoading}><Rencontres key={user.id} client={client} ownerId={user.id} pets={overview.data.pets} /></Suspense> : undefined;
   const messagesContent = overview.status === 'ready' && overview.data ? <Suspense fallback={pageLoading}><MessagesArea key={user.id} client={client} ownerId={user.id} /></Suspense> : undefined;
+  const gardeContent = overview.status === 'ready' && overview.data ? <Suspense fallback={pageLoading}><GardeArea key={user.id} client={client} ownerId={user.id} pets={overview.data.pets} /></Suspense> : undefined;
   const accountContent = overview.status === 'ready' && overview.data
     ? <AccountArea key={user.id} client={client} owner={user.id} email={user.email} profile={overview.data.profile} onSaved={overview.saveProfile} onSignOut={signOut} /> : undefined;
   const servicesContent=<Suspense fallback={pageLoading}><ProfessionalsArea key={user.id} client={client} owner={user.id}/></Suspense>;
   const lostContent = <LostPetsArea key={`${user.id}:lost`} client={client} owner={user.id} pets={overview.data?.pets || []} />;
-  return <AppShellView overview={overview} retry={overview.retry} email={user.email} onSignOut={signOut} petsContent={petsContent} meetingsContent={meetingsContent} messagesContent={messagesContent} accountContent={accountContent} servicesContent={servicesContent} lostContent={lostContent} notificationUnread={unread} />;
+  return <AppShellView overview={overview} retry={overview.retry} email={user.email} onSignOut={signOut} petsContent={petsContent} meetingsContent={meetingsContent} messagesContent={messagesContent} gardeContent={gardeContent} accountContent={accountContent} servicesContent={servicesContent} lostContent={lostContent} notificationUnread={unread} />;
 }
 
 export function AppPreview() {

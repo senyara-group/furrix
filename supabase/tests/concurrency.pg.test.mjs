@@ -35,6 +35,8 @@ async function prepare() {
   for (const file of (await readdir(dir)).filter((f) => f.endsWith('.sql')).sort()) {
  // pg_net, Vault et pg_cron : intégration contrôlée sur DEV, absente du PostgreSQL local.
  if(file.endsWith('_android_push_scheduler.sql'))continue;
+    // Contrôle négatif explicite : prouver les régressions sans la seule migration corrective.
+    if(process.env.FURRIX_TEST_OMIT_SITTING_RECOVERY==='1'&&file.endsWith('_sitting_concurrency_recovery.sql'))continue;
     let sql = await readFile(new URL(file, dir), 'utf8');
     if (file.includes('0002_rate')) sql = sql.replace(/create extension if not exists pg_cron;[\s\S]*?(?=-- ═══ IDEMPOTENCE)/, '');
     await admin.query(sql);
@@ -160,5 +162,41 @@ test('rencontres : concurrence sur plusieurs sessions PostgreSQL', { skip: url ?
         }
       }
     });
+
+    // Demandes de garde : transactions maintenues ouvertes pour provoquer les courses, sans simple pari sur le timing.
+    const guard=users[2*N],a=users[2*N-1],b=users[2*N-2],start=new Date(Date.now()+86400000*10).toISOString(),end=new Date(Date.now()+86400000*12).toISOString();
+    await caller(target,guard)("select save_sitter_profile('particulier','Accueil de test suffisamment long.','Lille',50.63,3.06,array['chien'],null,'sans_jardin',$1::jsonb,true)",[JSON.stringify([{service:'chez_gardien',price_cents:2000}])]);
+    const request=(who,pet,nonce)=>caller(target,who)('select * from create_sitting_request($1,$2,$3,$4,$5,$6,$7)',[guard,pet,'chez_gardien',start,end,'Bonjour',nonce]);
+    const race=async(uid,firstSQL,firstArgs,secondSQL,secondArgs)=>{
+      const x=new pg.Client({connectionString:target}),y=new pg.Client({connectionString:target});await x.connect();await y.connect();let done=false;
+      try{await x.query('begin');await x.query('set local role authenticated');await x.query("select set_config('request.jwt.claim.sub',$1,true)",[uid]);const first=await x.query(firstSQL,firstArgs);
+        await y.query('set statement_timeout=10000');await y.query('set role authenticated');await y.query("select set_config('request.jwt.claim.sub',$1,false)",[uid]);
+        const pending=y.query(secondSQL,secondArgs).then(r=>{done=true;return{ok:true,rows:r.rows};},e=>{done=true;return{ok:false,code:e.code};});
+        const deadline=Date.now()+5000;while(!done){await admin.query('select pg_stat_clear_snapshot()');const q=await admin.query("select wait_event from pg_stat_activity where pid=$1",[y.processID]);if(q.rows[0]?.wait_event==='advisory')break;assert.ok(Date.now()<deadline,'seconde transaction bloquée observable');await new Promise(r=>setTimeout(r,10));}
+        await x.query('commit');return{first:first.rows,next:await pending};
+      }finally{await x.query('rollback').catch(()=>{});await x.end();await y.end();}
+    };
+    await t.test('garde : deux acceptations qui se chevauchent ne peuvent pas toutes deux réussir',async()=>{
+      const [ra]=await request(a,pets[2*N-1],uuid()),[rb]=await request(b,pets[2*N-2],uuid());
+      const sql="select * from update_sitting_request($1,'accept')";const out=await race(guard,sql,[ra.id],sql,[rb.id]);assert.equal(out.first[0].status,'accepted');assert.deepEqual(out.next,{ok:false,code:'23505'});
+      assert.equal((await admin.query("select count(*)::int n from sitting_requests where sitter_id=$1 and status='accepted'",[guard])).rows[0].n,1);
+    });
+    await t.test('garde : un rejeu simultané de demande retrouve la demande initiale',async()=>{
+      const pet=uuid(),nonce=uuid();await admin.query("insert into pets(id,owner_id,name,species) values($1,$2,'Nouveau','chien')",[pet,a]);const sql='select * from create_sitting_request($1,$2,$3,$4,$5,$6,$7)',args=[guard,pet,'chez_gardien',start,end,'Bonjour',nonce];
+      const out=await race(a,sql,args,sql,args);assert.equal(out.next.ok,true);assert.equal(out.first[0].id,out.next.rows[0].id);
+    });
+    await t.test('garde : le rejeu du trentième message ne se fait pas refuser par la limite',async()=>{
+      await admin.query('delete from sitting_messages where sender_id=$1',[a]);for(let i=0;i<29;i++)await admin.query("insert into sitting_messages(owner_id,sitter_id,sender_id,text,request_id) values($1,$2,$1,'Test',$3)",[a,guard,uuid()]);
+      const nonce=uuid(),sql='select * from send_sitting_message($1,$2,$3,$4)',args=[a,guard,'Trentième',nonce];const out=await race(a,sql,args,sql,args);assert.equal(out.next.ok,true);assert.equal(out.first[0].id,out.next.rows[0].id);
+    });
+    await t.test('garde : un blocage validé avant la reprise interdit le message concurrent',async()=>{
+      await admin.query('delete from sitting_messages where sender_id=$1',[a]);
+      const x=new pg.Client({connectionString:target}),y=new pg.Client({connectionString:target});await x.connect();await y.connect();try{
+        await x.query('begin');await x.query('set local role authenticated');await x.query("select set_config('request.jwt.claim.sub',$1,true)",[guard]);await x.query('select block_sitting_contact($1)',[a]);
+        await y.query('set statement_timeout=10000');await y.query('set role authenticated');await y.query("select set_config('request.jwt.claim.sub',$1,false)",[a]);let done=false;const pending=y.query('select send_sitting_message($1,$2,$3,$4)',[a,guard,'Après blocage',uuid()]).then(()=>{done=true;return{ok:true};},e=>{done=true;return{ok:false,code:e.code};});
+        const deadline=Date.now()+5000;while(!done){await admin.query('select pg_stat_clear_snapshot()');const q=await admin.query('select wait_event from pg_stat_activity where pid=$1',[y.processID]);if(q.rows[0]?.wait_event==='advisory')break;assert.ok(Date.now()<deadline);await new Promise(r=>setTimeout(r,10));}await x.query('commit');assert.deepEqual(await pending,{ok:false,code:'42501'});
+      }finally{await x.query('rollback').catch(()=>{});await x.end();await y.end();}
+    });
+
   } finally { await drop(); }
 });

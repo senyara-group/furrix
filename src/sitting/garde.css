@@ -1,0 +1,241 @@
+/* Garde (parcours 2) : seulement ce que le design system n'a pas. */
+
+/* Raccourcis sous le titre (Mes gardes, profil de gardien). */
+.gd-shortcuts {
+  flex-wrap: wrap;
+  gap: var(--fx-space-2);
+  margin: calc(-1 * var(--fx-space-1)) 0 var(--fx-space-5);
+}
+
+/* Dates et formule, puis le panneau de critères. */
+.gd-qbar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fx-space-3);
+  margin-bottom: var(--fx-space-5);
+}
+.gd-criteria {
+  margin-bottom: var(--fx-space-6);
+}
+.gd-dates {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--fx-space-3);
+}
+.gd-locate,
+.gd-criteria__acts,
+.gd-empty-acts {
+  flex-wrap: wrap;
+  gap: var(--fx-space-2);
+}
+.gd-empty-acts {
+  justify-content: center;
+}
+.gd-note {
+  margin-top: var(--fx-space-4);
+}
+.gd-map .fx-marker {
+  white-space: nowrap;
+}
+.gd-map .fx-marker:hover,
+.gd-map .fx-marker--hot {
+  z-index: 2;
+}
+
+/* Lignes d'information des cartes latérales. */
+.gd-ln {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.4;
+}
+.gd-ln svg {
+  flex: none;
+}
+.gd-ln b {
+  font-weight: 600;
+}
+
+/* Fiche : photo choisie par le gardien, tarif mis en avant, autres formules. */
+.gd-photo {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--fx-radius-3xl);
+  background: var(--fx-color-illustration-sky);
+}
+.gd-photoedit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--fx-space-3);
+  max-width: 420px;
+}
+.gd-upload {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+.gd-upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.gd-photo--empty {
+  display: grid;
+  place-items: center;
+  color: var(--fx-color-ink-soft);
+}
+.gd-price {
+  margin: 0;
+}
+.gd-price__v {
+  font-family: var(--fx-font-display, 'Bricolage Grotesque', sans-serif);
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.gd-prices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 15px;
+}
+.gd-prices li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--fx-space-3);
+}
+.gd-prices b {
+  font-weight: 600;
+}
+
+/* Paiement (design seul) : récapitulatif, moyen de paiement, carte illustrée, champs grisés jamais saisissables. */
+.gd-pay__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fx-space-3);
+}
+.gd-pay__lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fx-color-ink-soft);
+}
+.gd-paycard {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 360px;
+  padding: 20px 22px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #16213A, #2E3850);
+  color: #fff;
+}
+.gd-paycard__num {
+  font-size: 20px;
+  letter-spacing: 0.08em;
+}
+.gd-paycard__row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  opacity: 0.8;
+}
+.gd-pay__soon {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--fx-color-ink-soft);
+  text-align: center;
+}
+.gd-filters {
+  margin-bottom: var(--fx-space-4);
+}
+.gd-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--fx-space-4);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.gd-card[disabled] .fx-input {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.gd-card__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--fx-space-3);
+}
+
+/* Conversation : rappel compact (téléphone) et fil aéré. */
+.gd-ctx {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.gd-ctx > svg {
+  flex: none;
+}
+.gd-ctx__b {
+  flex: 1;
+  min-width: 0;
+}
+.gd-ctx__b p {
+  margin: 0;
+}
+.gd-ctx .fx-btn--quiet {
+  min-width: 44px;
+  padding: 0;
+}
+.gd-root .fx-chatlay__main > .fx-note {
+  margin-bottom: var(--fx-space-4);
+}
+.gd-chat {
+  gap: 12px;
+  margin-top: 0;
+  padding: var(--fx-space-2) 0;
+}
+.gd-root .fx-composer {
+  margin-top: var(--fx-space-5);
+}
+
+/* Listes : le badge passe sous le nom, lignes séparées. */
+.gd-root .fx-res__body {
+  align-items: flex-start;
+}
+.gd-root .fx-res + .fx-res,
+.gd-root .fx-reslist > li + li {
+  margin-top: 2px;
+}
+
+@media (min-width: 900px) {
+  .gd-qbar {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--fx-space-5);
+  }
+  .gd-qbar .fx-when {
+    flex: none;
+    min-width: 340px;
+  }
+  .gd-dates {
+    grid-template-columns: 1fr 1fr;
+  }
+  .gd-map .fx-map__note {
+    display: block;
+  }
+}
