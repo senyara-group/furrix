@@ -24,6 +24,7 @@ const GardeArea = lazy(loadGarde);
 const pageLoading = <p role="status" className="app-small">Chargement…</p>;
 import LostPetsArea from '../lost-pets/LostPetsArea';
 import Notifications, { NotificationsProvider, useNotifications } from '../notifications/Notifications';
+import HomeActivity from './home/HomeActivity';
 
 const pillars = [
   { route: 'rencontres', label: 'Faire des rencontres', tag: 'Un peu de compagnie', text: 'Des compagnons de balade et de nouveaux amis, pour eux comme pour toi.', icon: Heart, color: 'sky' },
@@ -32,7 +33,7 @@ const pillars = [
 ] as const;
 const lostPets = { label: 'Animaux perdus', text: 'Tu pourras signaler un animal perdu ou trouvé près de chez toi, et aider à le ramener à la maison.' };
 
-function Home({ overview }: { overview: OverviewState }) {
+function Home({ overview, activity }: { overview: OverviewState; activity?: ReactNode }) {
   const name = overview.data?.profile.name?.trim().split(/\s+/)[0];
   return <>
     <section className="app-local-alert"><a href="#/animaux-perdus">Animaux perdus : consulter les alertes locales ou déclarer une disparition.</a></section>
@@ -44,19 +45,19 @@ function Home({ overview }: { overview: OverviewState }) {
       </div>
       <div className="app-park-scene" aria-hidden="true"><div className="app-sun-disc" /><div className="app-hill app-hill-back" /><div className="app-hill app-hill-front" /><div className="app-dog"><Dog size={100} strokeWidth={1.2} /></div><div className="app-scene-note"><PawPrint size={16} /> Les petits bonheurs sont dehors.</div></div>
     </section>
-    <section className="app-section" aria-labelledby="app-pillars"><div className="app-section-heading"><div><p className="app-eyebrow">À chacun son envie</p><h2 id="app-pillars">Qu’est-ce qu’on fait aujourd’hui ?</h2></div><span className="app-stage">Les services se préparent</span></div>
+    <section className="app-section" aria-labelledby="app-pillars"><div className="app-section-heading"><div><p className="app-eyebrow">À chacun son envie</p><h2 id="app-pillars">Qu’est-ce qu’on fait aujourd’hui ?</h2></div><span className="app-stage">Ton quotidien avec eux</span></div>
       <div className="app-pillars">{pillars.map(({ route, label, tag, text, icon: Icon, color }) => <a className={`app-pillar app-${color}`} href={`#/${route}`} key={route}>
-        <div className="app-pillar-top"><Icon size={27} strokeWidth={1.6} aria-hidden /><ArrowUpRight size={22} aria-hidden /></div><p className="app-eyebrow">{tag}</p><h3>{label}</h3><p>{text}</p><span className="app-small">{route==='services'?'Consulter l’annuaire':'En préparation'}</span>
+        <div className="app-pillar-top"><Icon size={27} strokeWidth={1.6} aria-hidden /><ArrowUpRight size={22} aria-hidden /></div><p className="app-eyebrow">{tag}</p><h3>{label}</h3><p>{text}</p><span className="app-small">{route==='services'?'Consulter l’annuaire':route==='garde'?'Chercher une garde':'Découvrir les animaux'}</span>
       </a>)}</div>
     </section>
-    <section className="app-lower"><div className="app-follow"><p className="app-eyebrow">Le fil de tes aventures</p><h2>À suivre</h2><div className="app-empty-inline"><CalendarDays size={30} strokeWidth={1.5} aria-hidden /><div><h3>Une page toute neuve.</h3><p>Les rencontres et réservations apparaîtront ici lorsque ces services seront disponibles.</p></div></div></div>
+    <section className="app-lower">{activity ?? <div className="app-follow"><p className="app-eyebrow">Le fil de tes aventures</p><h2>À suivre</h2><div className="app-empty-inline"><CalendarDays size={30} strokeWidth={1.5} aria-hidden /><div><h3>Ton suivi au même endroit.</h3><p>Les activités personnelles ne sont pas chargées dans cet aperçu.</p></div></div></div>}
       <div className="app-animal-note"><PawPrint size={25} aria-hidden /><h2>Et tes compagnons ?</h2><p>{overview.status === 'loading' ? 'Nous retrouvons leurs profils…' : overview.status === 'error' ? 'Leurs profils n’ont pas pu être chargés.' : overview.data?.pets.length ? 'Retrouve les profils de tes animaux dans ton espace.' : 'Leur petite place est déjà réservée. Ajoute leur profil pour faire les présentations.'}</p><a href="#/animaux">Mes animaux <ArrowRight size={17} aria-hidden /></a></div>
     </section>
   </>;
 }
 
-export function AppShellView({ overview, retry, email, onSignOut, preview = false, petsContent, meetingsContent, messagesContent, gardeContent, accountContent, lostContent, servicesContent, notificationsContent, localNotice, notificationUnread = false }: {
-  overview: OverviewState; retry: () => void; email?: string; onSignOut?: () => Promise<boolean>; preview?: boolean; petsContent?: ReactNode; meetingsContent?: ReactNode; messagesContent?: ReactNode; gardeContent?: ReactNode; accountContent?: ReactNode; lostContent?: ReactNode; servicesContent?: ReactNode; notificationsContent?: ReactNode; localNotice?: ReactNode; notificationUnread?: boolean;
+export function AppShellView({ overview, retry, email, onSignOut, preview = false, petsContent, meetingsContent, messagesContent, gardeContent, accountContent, lostContent, servicesContent, notificationsContent, activityContent, localNotice, notificationUnread = false }: {
+  overview: OverviewState; retry: () => void; email?: string; onSignOut?: () => Promise<boolean>; preview?: boolean; petsContent?: ReactNode; meetingsContent?: ReactNode; messagesContent?: ReactNode; gardeContent?: ReactNode; accountContent?: ReactNode; lostContent?: ReactNode; servicesContent?: ReactNode; notificationsContent?: ReactNode; activityContent?: ReactNode; localNotice?: ReactNode; notificationUnread?: boolean;
 }) {
   const [route, setRoute] = useState(() => routeFromHash(window.location.hash));
   const [menuOpen,setMenuOpen]=useState(false);
@@ -104,7 +105,7 @@ export function AppShellView({ overview, retry, email, onSignOut, preview = fals
     <PhoneBarContext.Provider value={setPhoneBar}><main id="app-content" tabIndex={-1} ref={title}>
       {overview.status === 'error' && <div className="app-load-error" role="alert">Ton espace n’a pas pu être chargé. <button onClick={retry}>Réessayer</button></div>}
       {localNotice}
-      {route === 'accueil' ? <Home overview={overview} />
+      {route === 'accueil' ? <Home overview={overview} activity={activityContent} />
         : route === 'plus' ? <section className="app-page"><h1>Plus</h1><p>Retrouve tes animaux, ton compte et les alertes de ton secteur.</p><nav className="app-more-links" aria-label="Plus de destinations">{moreNav.map((item) => <a className="app-outline" key={item.id} href={item.href}>{item.label}<ArrowRight size={18} aria-hidden /></a>)}</nav></section>
         : route === 'notifications' && notificationsContent ? notificationsContent
         : route === 'animaux-perdus' && lostContent ? lostContent
@@ -146,7 +147,7 @@ function AppShellContent({ client, user, onSignOut }: { client: FurrixClient; us
     ? <AccountArea key={user.id} client={client} owner={user.id} email={user.email} profile={overview.data.profile} onSaved={overview.saveProfile} onSignOut={signOut} /> : undefined;
   const servicesContent=<Suspense fallback={pageLoading}><ProfessionalsArea key={user.id} client={client} owner={user.id} pets={overview.data?.pets ?? []}/></Suspense>;
   const lostContent = <LostPetsArea key={`${user.id}:lost`} client={client} owner={user.id} pets={overview.data?.pets || []} />;
-  return <AppShellView overview={overview} retry={overview.retry} email={user.email} onSignOut={signOut} petsContent={petsContent} meetingsContent={meetingsContent} messagesContent={messagesContent} gardeContent={gardeContent} accountContent={accountContent} servicesContent={servicesContent} lostContent={lostContent} notificationsContent={<Notifications client={client}/>} notificationUnread={unread} />;
+  return <AppShellView overview={overview} retry={overview.retry} email={user.email} onSignOut={signOut} petsContent={petsContent} meetingsContent={meetingsContent} messagesContent={messagesContent} gardeContent={gardeContent} accountContent={accountContent} servicesContent={servicesContent} lostContent={lostContent} notificationsContent={<Notifications client={client}/>} activityContent={<HomeActivity key={user.id} client={client} owner={user.id}/>} notificationUnread={unread} />;
 }
 
 export function AppPreview() {
