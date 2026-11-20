@@ -3,3 +3,6 @@
 .app-home-activity .fx-card { overflow-wrap: anywhere; }
 .app-home-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--fx-space-3); }
 .app-home-category { font-size: var(--fx-type-caption-size); }
+.app-first-steps { margin-top: var(--fx-space-6); }
+.app-first-steps-list { display: grid; gap: var(--fx-space-4); padding-inline-start: var(--fx-space-5); }
+@media(min-width:900px) { .app-first-steps-list { grid-template-columns: repeat(3,minmax(0,1fr)); } }
