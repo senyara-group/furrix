@@ -15,6 +15,7 @@ export type Database = {
   __InternalSupabase: { PostgrestVersion: '14.18' };
   public: {
     Tables: {
+      account_deletions: { Row: { user_id: string; requested_at: string; completed_at: string | null }; Insert: never; Update: never; Relationships: [] };
       professional_profiles: {Row:OwnProfessional;Insert:never;Update:never;Relationships:[]};
       lost_pets: { Row: import('../lost-pets/types').OwnLostRow; Insert: never; Update: never; Relationships: [] };
       lost_alert_subscriptions: { Row: LostSector; Insert: never; Update: never; Relationships: [] };
@@ -118,6 +119,7 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      account_deletion_blockers: { Args: Record<string, never>; Returns: { section: string; total: number }[] };
       pet_retirement_blockers: {Args:{p_pet:string};Returns:RetirementBlocker[]};
       retire_pet_profile: {Args:{p_pet:string};Returns:undefined};
       list_app_notifications: {Args:{p_limit?:number;p_before?:string;p_before_id?:string;p_id?:string};Returns:Notification[]};

@@ -86,3 +86,10 @@ verify_jwt = true
 # comparaison constante et RPC de file réservées à service_role. Aucun autre endpoint modifié.
 [functions.android-push-worker]
 verify_jwt = false
+
+# Le premier endpoint vérifie le jeton auprès d'Auth ; le worker exige un secret serveur dédié.
+[functions.account-deletion]
+verify_jwt = true
+
+[functions.account-deletion-worker]
+verify_jwt = false
