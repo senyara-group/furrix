@@ -58,6 +58,19 @@ it("ne demande aucune permission à l’ouverture", async () => {
   runtime.stop();
   expect(mocks.remove).toHaveBeenCalledTimes(4);
 });
+it('un appui sur une notification commune consulte le serveur avant de naviguer',async()=>{
+ const runtime=new AndroidPush(client,owner,phase);await runtime.start();
+ const target='22222222-2222-4222-8222-222222222222';
+ window.history.replaceState(null,'','/');
+ rpc.mockImplementation(async(name:string)=>({data:name==='list_app_notifications'?[]:null,error:null}));
+ mocks.listeners.get('pushNotificationActionPerformed')!({notification:{data:{app_notification_id:owner,url:'https://evil.test'}}});
+ await vi.waitFor(()=>expect(rpc).toHaveBeenCalledWith('list_app_notifications',{p_id:owner,p_limit:1}));
+ expect(window.location.hash).toBe('');
+ rpc.mockImplementation(async(name:string)=>({data:name==='list_app_notifications'?[{id:owner,target_type:'appointment',target_id:target}]:null,error:null}));
+ mocks.listeners.get('pushNotificationActionPerformed')!({notification:{data:{app_notification_id:owner}}});
+ await vi.waitFor(()=>expect(window.location.hash).toBe('#/services?vue=rendez-vous&rendezvous='+target));
+ expect(rpc).toHaveBeenCalledWith('read_app_notification',{p_id:owner});runtime.stop();window.history.replaceState(null,'','/');
+});
 it("un refus système n’inscrit pas l’appareil", async () => {
   mocks.requestPermissions.mockResolvedValue({ receive: "denied" });
   const runtime = new AndroidPush(client, owner, phase);

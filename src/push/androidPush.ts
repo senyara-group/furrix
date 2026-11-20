@@ -3,6 +3,8 @@ import { PushNotifications } from "@capacitor/push-notifications";
 import { nativeSessionStorage } from "../platform/sessionStorage";
 import type { FurrixClient } from "../services/supabaseClient";
 import { lostHref } from "../lost-pets/links";
+import { listNotifications as listAppNotifications, readNotification as readAppNotification } from '../notifications/service';
+import { notificationHref } from '../notifications/types';
 export type PushPhase =
   | "loading"
   | "off"
@@ -16,6 +18,8 @@ export const androidPushSupported = () =>
 const storageKey = "furrix.push.device";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function pushTarget(data: unknown) {
+  const app = (data as { app_notification_id?: unknown } | null)?.app_notification_id;
+  if (typeof app === 'string' && uuid.test(app)) return { app };
   const d = data as { alert_id?: unknown; notification_id?: unknown } | null;
   return d &&
     typeof d.alert_id === "string" &&
@@ -231,6 +235,14 @@ export class AndroidPush {
     if (!this.active || !target) return;
     try {
       if (!(await this.sameUser())) return;
+      if ('app' in target) {
+        const [item] = await listAppNotifications(this.client, { id: target.app, limit: 1 });
+        const href = item && notificationHref(item);
+        if (!href || !this.active) return;
+        await readAppNotification(this.client, target.app);
+        if (this.active) window.location.hash = href;
+        return;
+      }
       const { data, error } = await this.client
         .from("local_notifications")
         .select("id,alert_id")

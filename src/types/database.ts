@@ -1,5 +1,6 @@
 import type {Professional,OwnProfessional,SaveProfessionalArgs} from '../professionals/types';
 import type { Appointment, Slot } from '../professionals/appointments/types';
+import type { Notification, Preference } from '../notifications/types';
 // Contrat de base de données — extrait limité aux tables de ce lot (profiles, pets).
 // Source : types générés depuis le schéma DEV (generate_typescript_types, lecture seule, 3 novembre 2026),
 // réduits volontairement. Les autres tables seront ajoutées au fil du branchement.
@@ -116,6 +117,11 @@ export type Database = {
     };
     Views: { [_ in never]: never };
     Functions: {
+      list_app_notifications: {Args:{p_limit?:number;p_before?:string;p_before_id?:string;p_id?:string};Returns:Notification[]};
+      read_app_notification: {Args:{p_id:string};Returns:undefined};
+      read_all_app_notifications: {Args:Record<string,never>;Returns:undefined};
+      get_notification_preferences: {Args:Record<string,never>;Returns:Preference[]};
+      set_notification_preference: {Args:{p_category:string;p_push:boolean};Returns:undefined};
       publish_professional_slot: {Args:{p_id:string;p_starts:string;p_ends:string};Returns:undefined};
       close_professional_slot: {Args:{p_id:string};Returns:undefined};
       list_professional_slots: {Args:{p_professional:string};Returns:Slot[]};

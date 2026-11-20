@@ -6,7 +6,7 @@ export type ServiceAccount = {
 };
 export type Delivery = {
   token: string;
-  alert_id: string;
+  alert_id: string | null;
   notification_id: string;
   kind: string;
 };
@@ -74,12 +74,16 @@ export function fcmMessage(d: Delivery) {
       ? "Un animal de ton secteur a été retrouvé."
       : d.kind === "lost_sighting"
         ? "Une observation a été ajoutée à ton alerte."
-        : "Une nouvelle alerte concerne ton secteur.";
+        : d.kind === 'lost_local' ? "Une nouvelle alerte concerne ton secteur."
+        : d.kind.includes('message') ? 'Tu as reçu un nouveau message.'
+        : d.kind.startsWith('appointment_') ? 'Du nouveau pour un rendez-vous Services.'
+        : d.kind.startsWith('sitting_') ? 'Du nouveau pour une garde.'
+        : 'Du nouveau dans tes rencontres.';
   return {
     message: {
       token: d.token,
       notification: { title: "Furrix", body },
-      data: { alert_id: d.alert_id, notification_id: d.notification_id },
+      data: d.alert_id ? { alert_id: d.alert_id, notification_id: d.notification_id } : { app_notification_id: d.notification_id },
       android: {
         priority: "high",
         ttl: "3600s",

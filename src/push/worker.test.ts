@@ -15,6 +15,14 @@ const delivery = {
   kind: "lost_local",
 };
 describe("serveur push", () => {
+  it('les nouvelles catégories ne transmettent aucun contenu privé et utilisent un identifiant de notification',()=>{
+    for(const kind of ['like','match','match_message','meeting_accepted','sitting_message','sitting_pending','sitting_update','appointment_countered']){
+      const message=fcmMessage({...delivery,alert_id:null,kind}).message;
+      expect(message.data).toEqual({app_notification_id:delivery.notification_id});
+      expect(message.notification.title).toBe('Furrix');expect(message.notification.body).not.toContain('secteur');
+      expect(Object.keys(message)).toEqual(['token','notification','data','android']);
+    }
+  });
   it("limite les données affichées et les données du lien", () => {
     const m = fcmMessage(delivery).message;
     expect(m.data).toEqual({
