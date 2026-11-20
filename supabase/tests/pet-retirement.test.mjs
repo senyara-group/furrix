@@ -323,7 +323,7 @@ test("retrait d’animal : profil masqué, activités protégées, historique co
         await db.exec(
           await readFile(
             new URL(
-              "../migrations/20261120122123_pet_profile_retirement.sql",
+              "../migrations/20261120134240_pet_profile_retirement.sql",
               import.meta.url,
             ),
             "utf8",
@@ -340,3 +340,4 @@ test("retrait d’animal : profil masqué, activités protégées, historique co
     await db.close();
   }
 });
+
