@@ -86,3 +86,9 @@ L'icône reprend la patte de `src/design-system/icons/Icon.tsx`, le fond clair, 
 Installer le nouvel APK par-dessus le précédent, signé avec le même certificat de test, pour conserver la session. Ne pas désinstaller pour actualiser l'icône ; si le lanceur conserve une ancienne image, le relancer. Les écrans de lancement restent ceux du squelette.
 
 Contrôles de la version 1.0.1 : types et compilation web OK, 159/159 tests. Aperçu local sans données de compte dans Chrome à 320, 390 et 1280 px : aucun débordement horizontal ni erreur JavaScript ; cibles des onglets téléphone de 64 × 49 px minimum. Compilation Android réussie ; signature identique à la première bêta, vérifiée avec apksigner. SHA-256 de l'APK : 4cf200c7590bf6ad715e2d3b569cc43081795b856ac85fd7efbafd0a7f0cc8ff. Cette mise à jour reste à essayer sur l'Honor ; aucune compilation iOS réalisée.
+
+## APK de recette 1.0.4 — 23 novembre 2026
+
+Base applicative : `main` au commit `d37727b` (intégration des champs et suggestions de communes incluse). Version Android `1.0.4`, code `5`, identifiant `fr.furrix.app`. L'APK local `Furrix-beta-1.0.4.apk` est compilé avec `npm run android:apk`, après contrôle de configuration mobile et des types ; les trois tests de configuration mobile passent. La signature est vérifiée avec `apksigner` et comparée à l'APK 1.0.3 : identique. Une mise à jour par-dessus l'installation existante est donc possible, sans désinstallation.
+
+SHA-256 de l'APK : `a28b28b39c770727cb5f556c53a6cfb3ebb2f8b05a77f1568c45e3760230181a`. Aucun essai sur appareil réel dans cette compilation, aucune publication en boutique ni modification de Supabase. Le parcours de suppression du compte est embarqué mais son traitement serveur reste à déployer et activer séparément, selon `Suppression_Compte.md`. Aucun secret ni APK n'est ajouté au dépôt.
