@@ -79,8 +79,20 @@
     calc(var(--fx-layout-page-x) * -1) -1px 0 var(--fx-color-line-strong),
     var(--fx-layout-page-x) -1px 0 var(--fx-color-line-strong);
 }
+/* Téléphone, clavier ouvert : la barre collée cacherait le champ en cours de saisie. Elle reprend sa place en fin de page. */
+@media (max-width: 899.98px) and (pointer: coarse) {
+  .fx-detail:has(input:focus, textarea:focus, select:focus) .fx-actions {
+    position: static;
+  }
+}
 .fx-actions > .fx-btn {
   width: 100%;
+  /* Un libellé long (« Écrire à Marie-Ève de La Fontaine-Rousseau ») passe à la ligne au lieu de déborder. */
+  min-width: 0;
+  white-space: normal;
+  text-align: center;
+  overflow-wrap: anywhere;
+  padding-block: 8px;
 }
 .fx-actions > :first-child,
 .fx-actions > :nth-child(2):last-child {

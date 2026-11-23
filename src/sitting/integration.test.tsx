@@ -23,7 +23,7 @@ import {RequestForm} from './Sitter';import type {SitterResult} from './types';
 it('un brouillon de demande d’un autre compte n’est pas repris',()=>{
  const other='33333333-3333-4333-8333-333333333333';const start=new Date(Date.now()+3*86400000).toISOString().slice(0,16),end=new Date(Date.now()+5*86400000).toISOString().slice(0,16);
  sessionStorage.setItem('furrix:garde-draft:'+me+':'+guard,JSON.stringify({pet:'p-a',service:'chez_gardien',starts:start,ends:end,message:'Informations privées du compte précédent',request:'r'}));
- const sitter:SitterResult={sitter_id:guard,name:'Sam',kind:'particulier',city:'Lille',bio:'Accueil de démonstration suffisamment long.',distance_km:3,species:['chien'],max_weight_kg:null,outdoor:'sans_jardin',services:[{service:'chez_gardien',price_cents:2000}],price_cents:2000,busy:false,photo:null};
+ const sitter:SitterResult={sitter_id:guard,name:'Sam',kind:'particulier',city:'Lille',bio:'Accueil de démonstration suffisamment long.',distance_km:3,species:['chien'],max_weight_kg:null,outdoor:'sans_jardin',services:[{service:'chez_gardien',price_cents:2000}],price_cents:2000,busy:false,photo:null,weekdays:[1,2,3,4,5,6,7],capacity:1};
  render(<RequestForm client={createFakeSupabase().client} sitter={sitter} pets={[{id:'p-b',owner_id:other,name:'Luna',species:'chien'} as PetRow]} criteria={{pet:'p-b',service:'chez_gardien',starts:start,ends:end,radius:10,place:null}} onBack={vi.fn()} onSent={vi.fn()}/>);
  expect((screen.getByLabelText(/Message à Sam/) as HTMLTextAreaElement).value).toBe('');
 });

@@ -8,11 +8,11 @@ import { approximateLocation, locateTown, LocationError, locationMessage } from 
 import { CityInput } from '../places/CityInput';
 import { cityLabel } from '../places/cities';
 import { decimalInput, digitsOnly, euroCents } from '../validation/numbers';
-import { listMySittings, listSittingThreads, mySitterProfile, saveSitterProfile, setSitterPhoto } from './service';
+import { listMySittings, listSittingThreads, mySitterProfile, saveSitterAvailability, saveSitterProfile, setSitterPhoto } from './service';
 import { usePetPhotoUrl } from '../meetings/usePetPhotoUrl';
-import { kindLabel, nameOf, outdoorLabel, phaseOf, SERVICES, serviceLabel, shortPeriod, speciesPlural, statusOf, unitLabel } from './format';
+import { capacityLabel, dayLong, kindLabel, nameOf, outdoorLabel, phaseOf, SERVICES, serviceLabel, shortPeriod, speciesPlural, statusOf, unitLabel, WEEKDAYS } from './format';
 import { chatHref, gardeHref } from './links';
-import type { MySitting, ServicePrice, SitterKind, SitterOutdoor, SittingService, SittingThread } from './types';
+import type { MySitting, ServicePrice, SitterAbsence, SitterKind, SitterOutdoor, SittingService, SittingThread } from './types';
 
 function SittingRow({ s }: { s: MySitting }) {
   const name = nameOf(s.other_name, s.role === 'owner' ? 'Le gardien' : 'Le propriétaire');
@@ -55,7 +55,55 @@ export function MySittings({ client }: { client: FurrixClient }) {
 }
 
 type Form = { kind: SitterKind; bio: string; city: string; place: { latitude: number; longitude: number; label: string } | null; species: string[];
-  maxWeight: string; outdoor: SitterOutdoor; prices: Partial<Record<SittingService, string>>; active: boolean };
+  maxWeight: string; outdoor: SitterOutdoor; prices: Partial<Record<SittingService, string>>; active: boolean;
+  weekdays: number[]; capacity: string; absences: SitterAbsence[] };
+/** Aujourd'hui, en date locale AAAA-MM-JJ (comme les champs de date). */
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const addDays = (day: string, n: number) => { const d = new Date(`${day}T12:00:00`); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const dayFmt = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+/** « sam. 20 déc. 2026 → dim. 28 déc. 2026 » ; un seul jour : « sam. 20 déc. 2026 ». */
+const absenceLabel = (a: SitterAbsence) => { const from = dayFmt.format(new Date(`${a.starts_on}T12:00:00`)); return a.starts_on === a.ends_on ? from : `${from} → ${dayFmt.format(new Date(`${a.ends_on}T12:00:00`))}`; };
+const MAX_ABSENCES = 30;
+
+/** Jours proposés, capacité et absences : ce qui fait apparaître (ou non) le gardien pour des dates. */
+function AvailabilityFields({ form, set, error }: { form: Form; set: (next: Partial<Form>) => void; error?: string }) {
+  const [draft, setDraft] = useState({ from: '', to: '' });
+  const [problem, setProblem] = useState('');
+  const add = () => {
+    const from = draft.from, to = draft.to || draft.from;
+    if (!from) { setProblem('Choisis le premier jour de ton absence.'); return; }
+    if (to < from) { setProblem('La fin de l’absence doit venir après son début.'); return; }
+    if (to < today()) { setProblem('Cette période est déjà passée.'); return; }
+    if (to > addDays(from, 366)) { setProblem('Une absence dure un an au plus.'); return; }
+    if (form.absences.length >= MAX_ABSENCES) { setProblem(`${MAX_ABSENCES} périodes au plus : retire une période passée ou inutile.`); return; }
+    setProblem(''); setDraft({ from: '', to: '' });
+    set({ absences: [...form.absences, { starts_on: from, ends_on: to }].sort((a, b) => a.starts_on.localeCompare(b.starts_on)) });
+  };
+  return <Stack gap={4}>
+    <Text variant="h2">Disponibilités</Text>
+    <Stack gap={2}><Text variant="label" as="p">Jours proposés</Text>
+      <OptionGroup multiple aria-label="Jours proposés" value={form.weekdays.map(String)} onChange={(list) => set({ weekdays: (list as string[]).map(Number).sort((a, b) => a - b) })}
+        options={WEEKDAYS.map((d) => ({ value: String(d), label: dayLong[d - 1]!.charAt(0).toUpperCase() + dayLong[d - 1]!.slice(1) }))} />
+      <Text variant="body-sm">Une demande doit tomber entièrement sur ces jours : pour une garde de plusieurs nuits, coche tous les jours où l’animal sera chez toi.</Text>
+    </Stack>
+    <Field label="Capacité d’accueil" hint={`Nombre de gardes acceptées que tu peux assurer en même temps. ${capacityLabel(Number(form.capacity) || 1)}.`} error={error}>
+      <Input value={form.capacity} inputMode="numeric" maxLength={2} className="fx-num" placeholder="1" onChange={(e) => set({ capacity: digitsOnly(e.target.value, 2) })} />
+    </Field>
+    <Stack gap={2}><Text variant="label" as="p">Périodes indisponibles</Text>
+      <Text variant="body-sm">Vacances, déplacements : tu n’apparais pas dans la recherche sur ces dates. Tu es la seule personne à les voir.</Text>
+      {form.absences.length ? <ul className="gd-absences">{form.absences.map((a, i) => <li key={`${a.starts_on}-${a.ends_on}-${i}`}>
+        <span className="fx-num">{absenceLabel(a)}</span>
+        <Button variant="quiet" size="sm" icon="close" aria-label={`Retirer la période ${absenceLabel(a)}`} onClick={() => set({ absences: form.absences.filter((_, j) => j !== i) })}>Retirer</Button>
+      </li>)}</ul> : <Text variant="body-sm">Aucune période pour l’instant.</Text>}
+      <div className="gd-absence-add">
+        <Field label="Du"><Input type="date" value={draft.from} min={today()} onChange={(e) => { setProblem(''); setDraft((d) => ({ from: e.target.value, to: d.to && d.to < e.target.value ? '' : d.to })); }} /></Field>
+        <Field label="Au" optional><Input type="date" value={draft.to} min={draft.from || today()} onChange={(e) => { setProblem(''); setDraft((d) => ({ ...d, to: e.target.value })); }} /></Field>
+        <Button variant="out" size="sm" icon="calendar" onClick={add}>Ajouter la période</Button>
+      </div>
+      {problem ? <p className="fx-field__error" role="alert"><Icon name="warning" size={16} />{problem}</p> : null}
+    </Stack>
+  </Stack>;
+}
 const cents = (v: string) => euroCents(v) ?? Number.NaN;
 const euros = (c: number) => (c / 100).toFixed(c % 100 ? 2 : 0).replace('.', ',');
 
@@ -64,7 +112,8 @@ export function SitterProfileForm({ client, userId }: { client: FurrixClient; us
   const [form, setForm] = useState<Form | null>(null);
   const [exists, setExists] = useState(false);
   const [loadError, setLoadError] = useState(false);
-  const [errors, setErrors] = useState<{ bio?: string; place?: string; species?: string; prices?: string; weight?: string }>({});
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [errors, setErrors] = useState<{ bio?: string; place?: string; species?: string; prices?: string; weight?: string; availability?: string }>({});
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<'saved' | 'failed' | null>(null);
   const [locating, setLocating] = useState<'town' | 'device' | null>(null);
@@ -76,7 +125,7 @@ export function SitterProfileForm({ client, userId }: { client: FurrixClient; us
   const [photoMessage, setPhotoMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const photoUrl = usePetPhotoUrl(client, photo);
   useEffect(() => {
-    let current = true;
+    let current = true; setLoadError(false);
     void mySitterProfile(client, userId).then((data) => {
       if (!current) return;
       setExists(!!data);
@@ -85,11 +134,15 @@ export function SitterProfileForm({ client, userId }: { client: FurrixClient; us
         kind: data.profile.kind, bio: data.profile.bio, city: data.profile.city, species: data.profile.species, outdoor: data.profile.outdoor, active: data.profile.active,
         place: { latitude: data.profile.latitude, longitude: data.profile.longitude, label: data.profile.city }, maxWeight: data.profile.max_weight_kg ? String(data.profile.max_weight_kg) : '',
         prices: Object.fromEntries(data.services.map((s) => [s.service, euros(s.price_cents)])),
-      } : { kind: 'particulier', bio: '', city: '', place: null, species: ['chien'], maxWeight: '', outdoor: 'sans_jardin', prices: { chez_gardien: '' }, active: true });
+        weekdays: data.profile.weekdays?.length ? data.profile.weekdays : [...WEEKDAYS], capacity: String(data.profile.capacity ?? 1),
+        absences: data.absences.filter((a) => a.ends_on >= today()),
+      } : { kind: 'particulier', bio: '', city: '', place: null, species: ['chien'], maxWeight: '', outdoor: 'sans_jardin', prices: { chez_gardien: '' }, active: true,
+        weekdays: [...WEEKDAYS], capacity: '1', absences: [] });
     }).catch(() => { if (current) setLoadError(true); });
     return () => { current = false; };
-  }, [client, userId]);
-  if (loadError) return <Alert tone="err" title="Ton profil de gardien n’a pas pu être chargé." />;
+  }, [client, userId, loadAttempt]);
+  if (loadError) return <Alert tone="err" title="Ton profil de gardien n’a pas pu être chargé." actions={<Button variant="out" size="sm" icon="retry" onClick={() => setLoadAttempt((a) => a + 1)}>Réessayer</Button>}>
+    Vérifie ta connexion. Rien n’a été modifié.</Alert>;
   if (!form) return <Loading label="Chargement de ton profil de gardien…" />;
   const set = (next: Partial<Form>) => { setForm(current=>current?{...current,...next}:current); setResult(null); };
   const locate = async (how: 'town' | 'device') => {
@@ -122,13 +175,18 @@ export function SitterProfileForm({ client, userId }: { client: FurrixClient; us
     if (!services.length && !problems.prices) problems.prices = 'Propose au moins une formule avec son tarif.';
     const weight = form.maxWeight.trim() ? Number(form.maxWeight) : null;
     if (weight !== null && (!Number.isInteger(weight) || weight < 1 || weight > 120)) problems.weight = 'Indique un poids entre 1 et 120 kg, ou laisse vide.';
+    const capacity = Number(form.capacity);
+    if (!form.weekdays.length) problems.availability = 'Choisis au moins un jour proposé.';
+    else if (!Number.isInteger(capacity) || capacity < 1 || capacity > 10) problems.availability = 'Indique une capacité d’accueil entre 1 et 10.';
     setErrors(problems);
     if (Object.keys(problems).length) return;
     setBusy(true); setResult(null);
     try {
       await saveSitterProfile(client, { kind: form.kind, bio: form.bio, city: form.city, latitude: form.place!.latitude, longitude: form.place!.longitude,
         species: form.species, max_weight_kg: weight, outdoor: form.outdoor, services, active: form.active });
-      setExists(true); setResult('saved');
+      setExists(true);
+      await saveSitterAvailability(client, { weekdays: form.weekdays, capacity, absences: form.absences.filter((a) => a.ends_on >= today()) });
+      setResult('saved');
     } catch { setResult('failed'); } finally { setBusy(false); }
   };
   const error = (text?: string) => text ? <p className="fx-field__error" role="alert"><Icon name="warning" size={16} />{text}</p> : null;
@@ -140,7 +198,8 @@ export function SitterProfileForm({ client, userId }: { client: FurrixClient; us
       aside={<Card calm><Stack gap={3}><Text variant="kicker">Bon à savoir</Text>
         <Text variant="body-sm">Tu restes libre d’accepter ou de refuser chaque demande, sans justification.</Text>
         <Text variant="body-sm">Une demande acceptée n’est réservée qu’après le paiement du propriétaire. La commission Furrix et le moment du versement sont encore à définir.</Text>
-        <Text variant="body-sm">Assurance, déclaration d’activité, nombre d’animaux accueillis : ces conditions seront précisées avant l’ouverture des paiements.</Text>
+        <Text variant="body-sm">Tes jours, ta capacité et tes absences décident des dates où tu apparais. Une demande déjà reçue reste à toi d’accepter ou non.</Text>
+        <Text variant="body-sm">Assurance et déclaration d’activité : ces conditions seront précisées avant l’ouverture des paiements.</Text>
       </Stack></Card>}
       actions={<ActionBar><Button icon="check" loading={busy} onClick={() => { void save(); }}>{exists ? 'Enregistrer' : 'Publier mon profil'}</Button></ActionBar>}>
       {result === 'saved' ? <Alert tone="ok" title={form.active ? 'Profil enregistré' : 'Profil en pause'}>{form.active ? 'Les propriétaires proches peuvent te trouver dans la recherche.' : 'Tu n’apparais plus dans la recherche. Tes gardes en cours ne changent pas.'}</Alert> : null}
@@ -193,6 +252,7 @@ export function SitterProfileForm({ client, userId }: { client: FurrixClient; us
           {error(errors.prices)}
           <Note>Tes tarifs sont affichés hors frais de service Furrix, encore à définir.</Note>
         </Stack>
+        <AvailabilityFields form={form} set={set} error={errors.availability} />
       </Stack>
     </DetailLayout>
   </section>;

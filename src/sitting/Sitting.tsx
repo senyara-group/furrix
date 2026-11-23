@@ -40,23 +40,25 @@ function Payout({ s }: { s: MySitting }) {
 
 /** Nouvelles de l'animal : le journal du gardien, et sa saisie pendant la garde. */
 function News({ client, s, canWrite }: { client: FurrixClient; s: MySitting; canWrite: boolean }) {
-  const [items, setItems] = useState<SittingUpdate[] | null>(null);
+  const [items, setItems] = useState<SittingUpdate[] | null | 'error'>(null);
+  const [attempt, setAttempt] = useState(0);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => {
-    let current = true;
-    void listSittingUpdates(client, s.id).then((data) => { if (current) setItems(data); }).catch(() => { if (current) setItems([]); });
+    let current = true; setItems(null);
+    void listSittingUpdates(client, s.id).then((data) => { if (current) setItems(data); }).catch(() => { if (current) setItems('error'); });
     return () => { current = false; };
-  }, [client, s.id]);
+  }, [client, s.id, attempt]);
   const send = async () => {
     setBusy(true); setError('');
-    try { const saved = await addSittingUpdate(client, s.id, text); setItems((v) => [saved, ...(v ?? [])]); setText(''); }
+    try { const saved = await addSittingUpdate(client, s.id, text); setItems((v) => [saved, ...(Array.isArray(v) ? v : [])]); setText(''); }
     catch { setError('La nouvelle n’a pas été envoyée. Réessaie.'); } finally { setBusy(false); }
   };
   return <Card><Stack gap={4}>
     <Text variant="h2">Nouvelles de {s.pet_name}</Text>
     {items === null ? <p className="fx-t-body-sm" role="status">Chargement des nouvelles…</p>
+      : items === 'error' ? <Alert tone="err" title="Les nouvelles n’ont pas pu être chargées." actions={<Button variant="out" size="sm" icon="retry" onClick={() => setAttempt((a) => a + 1)}>Réessayer</Button>} />
       : items.length ? <Log>{items.map((u) => <LogItem key={u.id} time={<span className="fx-num">{stamp(u.created_at)}</span>}>{u.text}</LogItem>)}</Log>
       : <Text variant="body">{s.role === 'sitter' ? `Pas encore de nouvelles. Une balade, un repas : publie-les ici pour rassurer ${other(s)}.` : `Pas encore de nouvelles. ${other(s)} pourra en publier ici pendant la garde.`}</Text>}
     {canWrite ? <><Separator />
@@ -76,12 +78,29 @@ export function SittingView({ client, s, onChange }: { client: FurrixClient; s: 
   const owner = s.role === 'owner';
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [confirming, setConfirming] = useState<'withdraw' | 'decline' | null>(null);
   const run = async (action: 'withdraw' | 'accept' | 'decline') => {
     setBusy(action); setError('');
-    try { const saved = await updateSittingRequest(client, s.id, action); onChange({ ...s, ...saved }); }
-    catch { setError(action === 'accept' ? 'L’accord n’a pas été enregistré : la demande a peut-être changé, ou ces dates sont déjà prises.' : 'L’action n’a pas été confirmée. Réessaie.'); }
+    try { const saved = await updateSittingRequest(client, s.id, action); setConfirming(null); onChange({ ...s, ...saved }); }
+    catch { setError(action === 'accept' ? 'L’accord n’a pas été enregistré : tu n’as peut-être plus de place sur ces dates (voir ta capacité d’accueil), ou la demande a changé.' : 'L’action n’a pas été confirmée. Réessaie.'); }
     finally { setBusy(null); }
   };
+  /** Retirer ou refuser : une confirmation, pour éviter une erreur de doigt sur téléphone. */
+  const afterAccept = s.status === 'accepted';
+  const confirmText: Record<'withdraw' | 'decline', { ask: string; detail: string; yes: string }> = {
+    withdraw: { ask: afterAccept ? 'Ne pas donner suite ?' : 'Retirer ta demande ?', detail: `Nous prévenons ${name} et la demande est close. Tu pourras en envoyer une autre.`, yes: afterAccept ? 'Oui, ne pas donner suite' : 'Oui, retirer' },
+    decline: afterAccept
+      ? { ask: 'Revenir sur ton accord ?', detail: `Rien n’a été payé. Nous prévenons ${name} que tu ne peux plus garder ${s.pet_name}.`, yes: 'Oui, annuler mon accord' }
+      : { ask: 'Refuser cette demande ?', detail: `Nous prévenons ${name}. Tu n’as pas à te justifier.`, yes: 'Oui, refuser' },
+  };
+  const ask = (action: 'withdraw' | 'decline', label: string, variant: 'danger' | 'quiet' = 'danger') =>
+    <Button variant={variant} disabled={!!busy} aria-expanded={confirming === action} onClick={() => setConfirming(action)}>{label}</Button>;
+  /** La confirmation remplace les boutons, là où se trouve le doigt (en bas sur téléphone). */
+  const confirmBar = confirming ? <ActionBar className="gd-confirm" role="group" aria-label={confirmText[confirming].ask}>
+    <p className="gd-confirm__text" aria-live="polite"><b>{confirmText[confirming].ask}</b> {confirmText[confirming].detail}</p>
+    <Button variant="danger" loading={busy === confirming} onClick={() => { void run(confirming); }}>{confirmText[confirming].yes}</Button>
+    <Button variant="out" disabled={!!busy} onClick={() => setConfirming(null)}>Garder la demande</Button>
+  </ActionBar> : null;
   const badge = statusOf(phase, s.role, name, s.cancelled_by === (owner ? s.owner_id : s.sitter_id));
   const write = <Button as="a" href={chatHref(s.owner_id, s.sitter_id)} variant="out" icon="message">Écrire à {name}</Button>;
   const search = (label = 'Chercher un autre gardien') => <Button as="a" href={gardeHref()} icon="search">{label}</Button>;
@@ -94,7 +113,7 @@ export function SittingView({ client, s, onChange }: { client: FurrixClient; s: 
     title = 'Demande envoyée';
     body = <><StepsCard phase={phase} /><Card><Stack><Text variant="h2">{name} a reçu ta demande</Text>
       <Text variant="body">Sa réponse s’affichera ici. Tant que {name} n’a pas accepté, rien n’est réservé ni payé.</Text></Stack></Card></>;
-    actions = <ActionBar>{write}<Button variant="danger" loading={busy === 'withdraw'} onClick={() => { void run('withdraw'); }}>Retirer ma demande</Button></ActionBar>;
+    actions = <ActionBar>{write}{ask('withdraw', 'Retirer ma demande')}</ActionBar>;
   } else if (!owner && phase === 'pending') {
     title = 'Demande de garde reçue';
     body = <>
@@ -108,7 +127,7 @@ export function SittingView({ client, s, onChange }: { client: FurrixClient; s: 
     actions = <ActionBar>
       <Button icon="check" loading={busy === 'accept'} disabled={!!busy} onClick={() => { void run('accept'); }}>Accepter</Button>
       {write}
-      <Button variant="danger" loading={busy === 'decline'} disabled={!!busy} onClick={() => { void run('decline'); }}>Refuser</Button>
+      {ask('decline', 'Refuser')}
     </ActionBar>;
   } else if (phase === 'withdrawn') {
     title = 'Demande retirée';
@@ -119,9 +138,11 @@ export function SittingView({ client, s, onChange }: { client: FurrixClient; s: 
     body = <><StepsCard phase={phase} /><Card><Stack><Text variant="h2">{owner ? `${name} n’est pas disponible pour cette garde` : 'Tu as refusé cette demande'}</Text>
       <Text variant="body">{owner ? 'Ce sont des choses qui arrivent : un gardien n’a pas à justifier un refus. Rien n’a été payé.' : `Nous avons prévenu ${name}. Rien n’avait été payé.`}</Text></Stack></Card></>;
     actions = <ActionBar>{owner ? search('Voir tous les gardiens') : <Button as="a" href={gardeHref({ vue: 'mes-gardes' })} variant="out">Mes gardes</Button>}</ActionBar>;
-  } else if (phase === 'expired') {
+  } else if (phase === 'expired' || phase === 'lapsed') {
     title = 'Demande expirée';
-    body = <><StepsCard phase={phase} /><Alert tone="warn" title={owner ? `${name} n’a pas répondu à temps` : 'Demande expirée'}>La demande a expiré. Rien n’a été réservé ni payé.</Alert></>;
+    const why = phase === 'lapsed' ? (owner ? 'Le paiement n’a pas été fait avant le début de la garde' : `${name} n’a pas payé avant le début de la garde`)
+      : owner ? `${name} n’a pas répondu avant le début de la garde` : 'Tu n’as pas répondu avant le début de la garde';
+    body = <><StepsCard phase={phase} /><Alert tone="warn" title={why}>La demande n’est plus active. Rien n’a été réservé ni payé.</Alert></>;
     actions = <ActionBar>{owner ? <>{search()}<Button as="a" href={gardeHref({ vue: 'demander', gardien: s.sitter_id })} variant="out">Renvoyer une demande à {name}</Button></> : null}</ActionBar>;
   } else if (phase === 'accepted' && owner) {
     title = `${name} a accepté ta demande`;
@@ -130,12 +151,12 @@ export function SittingView({ client, s, onChange }: { client: FurrixClient; s: 
       <PaymentPanel s={s} /></>;
     actions = <ActionBar>
       {write}
-      <Button variant="quiet" loading={busy === 'withdraw'} onClick={() => { void run('withdraw'); }}>Ne pas donner suite</Button>
+      {ask('withdraw', 'Ne pas donner suite', 'quiet')}
     </ActionBar>;
   } else if (phase === 'accepted') {
     title = 'Demande acceptée';
-    body = <><StepsCard phase={phase} title="Où en est la demande" /><Alert tone="ok" title="Tu as accepté">Il reste à {name} de payer pour confirmer la réservation. Tant que ce n’est pas payé, ces dates ne sont pas réservées.</Alert><Payout s={s} /></>;
-    actions = <ActionBar>{write}</ActionBar>;
+    body = <><StepsCard phase={phase} title="Où en est la demande" /><Alert tone="ok" title="Tu as accepté">Il reste à {name} de payer pour confirmer la réservation. Tant que ce n’est pas payé, la garde n’est pas confirmée. D’ici là, une place est gardée pour {s.pet_name} dans ta capacité d’accueil.</Alert><Payout s={s} /></>;
+    actions = <ActionBar>{write}{ask('decline', 'Je ne peux plus garder', 'quiet')}</ActionBar>;
   } else if (phase === 'booked') {
     title = 'Réservation confirmée';
     body = <>
@@ -165,7 +186,7 @@ export function SittingView({ client, s, onChange }: { client: FurrixClient; s: 
   }
   return <section aria-label={title}>
     <PageHeader back={{ label: 'Mes gardes', onClick: () => go(gardeHref({ vue: 'mes-gardes' })) }} title={title} status={<StatusBadge status={badge.status}>{badge.label}</StatusBadge>} showTitleOnPhone />
-    <DetailLayout aside={<Side client={client} s={s} />} actions={actions}>
+    <DetailLayout aside={<Side client={client} s={s} />} actions={confirmBar ?? actions}>
       {error ? <Alert tone="err" title={error} /> : null}
       {body}
     </DetailLayout>

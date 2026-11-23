@@ -28,6 +28,17 @@
   box-shadow: var(--fx-shadow-marker);
   transform: translate(-50%, -50%);
   cursor: pointer;
+  /* Nom long : coupé sur la carte (le nom complet reste dans l'étiquette accessible et la liste). */
+  max-width: 46%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fx-marker--hot,
+.fx-marker:hover,
+.fx-marker:focus-visible {
+  z-index: 1;
+  max-width: 90%;
 }
 .fx-marker--hot {
   background: var(--fx-color-poppy);

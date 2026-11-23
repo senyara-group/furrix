@@ -23,7 +23,8 @@ const merge = (old: SittingMessage[], incoming: SittingMessage[]) => [...new Map
 /** Conversation de garde entre un propriétaire et un gardien (planche « Conversation »), avant ou après une demande. */
 export function SittingChat({ client, me, owner, sitter }: { client: FurrixClient; me: string; owner: string; sitter: string }) {
   const role = me === owner ? 'owner' : 'sitter';
-  const [info, setInfo] = useState<{ name: string; sitting: MySitting | null } | null | undefined>();
+  const [info, setInfo] = useState<{ name: string; sitting: MySitting | null } | null | 'error' | undefined>();
+  const [infoAttempt, setInfoAttempt] = useState(0);
   const [messages, setMessages] = useState<SittingMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [text,setText,draftRequest]=useMessageDraft('garde:'+owner+':'+sitter);
@@ -35,7 +36,7 @@ export function SittingChat({ client, me, owner, sitter }: { client: FurrixClien
   const lastId = useRef<number>();
 
   useEffect(() => {
-    let current = true;
+    let current = true; setInfo(undefined);
     void (async () => {
       const [sittings, threads] = await Promise.all([listMySittings(client), listSittingThreads(client)]);
       const mine = sittings.filter((x) => x.owner_id === owner && x.sitter_id === sitter);
@@ -48,9 +49,9 @@ export function SittingChat({ client, me, owner, sitter }: { client: FurrixClien
         name = found.name;
       } else if (!open && !thread) { if (current) setInfo(null); return; }
       if (current) setInfo({ name: nameOf(name, role === 'owner' ? 'Le gardien' : 'Le propriétaire'), sitting: open });
-    })().catch(() => { if (current) setInfo(null); });
+    })().catch(() => { if (current) setInfo('error'); });
     return () => { current = false; };
-  }, [client, owner, sitter, role]);
+  }, [client, owner, sitter, role, infoAttempt]);
 
   useEffect(() => {
     alive.current = true; let running = false; lastId.current = undefined;
@@ -79,6 +80,8 @@ export function SittingChat({ client, me, owner, sitter }: { client: FurrixClien
   };
 
   if (info === undefined) return <Loading label="Chargement de la conversation…" />;
+  if (info === 'error') return <Alert tone="err" title="La conversation n’a pas pu être chargée." actions={<Button variant="out" size="sm" icon="retry" onClick={() => setInfoAttempt((a) => a + 1)}>Réessayer</Button>}>
+    Vérifie ta connexion. Tes messages ne sont pas perdus.</Alert>;
   if (info === null) return <EmptyState icon="message" title="Conversation indisponible" action={<Button as="a" href={gardeHref({ vue: 'mes-gardes' })} variant="out" size="sm">Mes gardes</Button>}>
     Cette conversation n’existe pas ou n’est plus accessible.
   </EmptyState>;

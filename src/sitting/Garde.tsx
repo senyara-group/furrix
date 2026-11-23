@@ -6,7 +6,7 @@ import { usePhoneBar } from '../app/phoneBar';
 import { getSitter, listMySittings } from './service';
 import { nameOf } from './format';
 import { gardeHref, views, type GardeParams, type GardeView } from './links';
-import { SearchView, useCriteria } from './Search';
+import { isoOf, SearchView, useCriteria } from './Search';
 import { RequestForm, SitterFiche } from './Sitter';
 import { CancelView, PaymentView, ProblemView, SittingView } from './Sitting';
 import { SittingChat } from './Chat';
@@ -37,10 +37,13 @@ function SitterSpace({ client, pets, sitterId, vue, cached, criteria }: {
   const [sitter, setSitter] = useState<SitterResult | null | undefined>(cached?.sitter_id === sitterId ? cached : undefined);
   const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
+  // Dates de la recherche, si elles sont complètes et à venir : la fiche dit alors si le gardien est libre.
+  const dates = criteria.starts && criteria.ends && new Date(criteria.starts).getTime() > Date.now() && new Date(criteria.ends) > new Date(criteria.starts)
+    ? { starts: isoOf(criteria.starts), ends: isoOf(criteria.ends) } : undefined;
   useEffect(() => {
     if (sitter) return;
     let current = true; setFailed(false);
-    void getSitter(client, sitterId, criteria.place ?? undefined, criteria.service).then((s) => { if (current) setSitter(s); }).catch(() => { if (current) setFailed(true); });
+    void getSitter(client, sitterId, criteria.place ?? undefined, criteria.service, dates).then((s) => { if (current) setSitter(s); }).catch(() => { if (current) setFailed(true); });
     return () => { current = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, sitterId, attempt]);
@@ -54,7 +57,7 @@ function SitterSpace({ client, pets, sitterId, vue, cached, criteria }: {
   </EmptyState>;
   if (vue === 'demander') return <RequestForm client={client} sitter={sitter} pets={pets} criteria={criteria} onBack={back}
     onSent={(r) => go({ vue: 'suivi', demande: r.id })} />;
-  return <SitterFiche client={client} sitter={sitter} service={criteria.service} onBack={back} onAsk={() => go({ vue: 'demander', gardien: sitterId })}
+  return <SitterFiche client={client} sitter={sitter} service={criteria.service} starts={dates?.starts} ends={dates?.ends} onBack={back} onAsk={() => go({ vue: 'demander', gardien: sitterId })}
     onWrite={() => go({ vue: 'conversation', gardien: sitterId, proprio: undefined })} />;
 }
 
