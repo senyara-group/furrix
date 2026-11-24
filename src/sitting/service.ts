@@ -35,17 +35,12 @@ export async function mySitterProfile(client: FurrixClient, userId: string): Pro
   if (absences.error) throw toDataError(absences.error);
   return profile.data ? { profile: profile.data, services: services.data ?? [], absences: absences.data ?? [] } : null;
 }
-/** Jours proposés, capacité et absences : la liste d'absences remplace l'ancienne. */
-export async function saveSitterAvailability(client: FurrixClient, availability: SitterAvailability): Promise<SitterProfile> {
-  const { data, error } = await client.rpc('save_sitter_availability', {
-    p_weekdays: availability.weekdays, p_capacity: availability.capacity, p_periods: availability.absences.map(({ starts_on, ends_on }) => ({ starts_on, ends_on })),
-  });
-  if (error) throw toDataError(error); return data;
-}
-export async function saveSitterProfile(client: FurrixClient, draft: SitterProfileDraft): Promise<SitterProfile> {
-  const { data, error } = await client.rpc('save_sitter_profile', {
+/** Profil et disponibilités ensemble, en une seule transaction : tout est enregistré, ou rien. */
+export async function saveSitterOffer(client: FurrixClient, draft: SitterProfileDraft, availability: SitterAvailability): Promise<SitterProfile> {
+  const { data, error } = await client.rpc('save_sitter_offer', {
     p_kind: draft.kind, p_bio: draft.bio.trim(), p_city: draft.city.trim(), p_lat: Math.round(draft.latitude * 100) / 100, p_lng: Math.round(draft.longitude * 100) / 100,
     p_species: draft.species, p_max_weight: draft.max_weight_kg, p_outdoor: draft.outdoor, p_services: draft.services, p_active: draft.active,
+    p_weekdays: availability.weekdays, p_capacity: availability.capacity, p_periods: availability.absences.map(({ starts_on, ends_on }) => ({ starts_on, ends_on })),
   });
   if (error) throw toDataError(error); return data;
 }

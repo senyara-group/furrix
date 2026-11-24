@@ -8,7 +8,7 @@ import { approximateLocation, locateTown, LocationError, locationMessage } from 
 import { CityInput } from '../places/CityInput';
 import { cityLabel } from '../places/cities';
 import { decimalInput, digitsOnly, euroCents } from '../validation/numbers';
-import { listMySittings, listSittingThreads, mySitterProfile, saveSitterAvailability, saveSitterProfile, setSitterPhoto } from './service';
+import { listMySittings, listSittingThreads, mySitterProfile, saveSitterOffer, setSitterPhoto } from './service';
 import { usePetPhotoUrl } from '../meetings/usePetPhotoUrl';
 import { capacityLabel, dayLong, kindLabel, nameOf, outdoorLabel, phaseOf, SERVICES, serviceLabel, shortPeriod, speciesPlural, statusOf, unitLabel, WEEKDAYS } from './format';
 import { chatHref, gardeHref } from './links';
@@ -182,11 +182,10 @@ export function SitterProfileForm({ client, userId }: { client: FurrixClient; us
     if (Object.keys(problems).length) return;
     setBusy(true); setResult(null);
     try {
-      await saveSitterProfile(client, { kind: form.kind, bio: form.bio, city: form.city, latitude: form.place!.latitude, longitude: form.place!.longitude,
-        species: form.species, max_weight_kg: weight, outdoor: form.outdoor, services, active: form.active });
-      setExists(true);
-      await saveSitterAvailability(client, { weekdays: form.weekdays, capacity, absences: form.absences.filter((a) => a.ends_on >= today()) });
-      setResult('saved');
+      await saveSitterOffer(client, { kind: form.kind, bio: form.bio, city: form.city, latitude: form.place!.latitude, longitude: form.place!.longitude,
+        species: form.species, max_weight_kg: weight, outdoor: form.outdoor, services, active: form.active },
+        { weekdays: form.weekdays, capacity, absences: form.absences.filter((a) => a.ends_on >= today()) });
+      setExists(true); setResult('saved');
     } catch { setResult('failed'); } finally { setBusy(false); }
   };
   const error = (text?: string) => text ? <p className="fx-field__error" role="alert"><Icon name="warning" size={16} />{text}</p> : null;

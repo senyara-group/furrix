@@ -65,8 +65,7 @@ describe('disponibilités : profil du gardien', () => {
   it('enregistre les jours, la capacité et les absences avec le profil', async () => {
     vi.spyOn(service, 'mySitterProfile').mockResolvedValue({ profile, services: [{ service: 'chez_gardien', price_cents: 2000 }],
       absences: [{ starts_on: '2020-01-01', ends_on: '2020-01-05' }] });
-    const saveProfile = vi.spyOn(service, 'saveSitterProfile').mockResolvedValue(profile);
-    const saveAvailability = vi.spyOn(service, 'saveSitterAvailability').mockResolvedValue(profile);
+    const save = vi.spyOn(service, 'saveSitterOffer').mockResolvedValue(profile);
     open('#/garde?vue=profil');
     await screen.findByRole('heading', { name: 'Disponibilités' });
     expect(screen.getByText('Aucune période pour l’instant.')).toBeTruthy();
@@ -84,12 +83,22 @@ describe('disponibilités : profil du gardien', () => {
     expect(await screen.findByRole('button', { name: /Retirer la période/ })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
     await screen.findByText('Profil enregistré');
-    expect(saveProfile).toHaveBeenCalled();
-    expect(saveAvailability).toHaveBeenCalledWith(expect.anything(), { weekdays: [1, 2, 3, 4, 5, 6], capacity: 3, absences: [{ starts_on: from, ends_on: to }] });
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(save).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ city: 'Lille' }), { weekdays: [1, 2, 3, 4, 5, 6], capacity: 3, absences: [{ starts_on: from, ends_on: to }] });
+  });
+  it('si l’enregistrement échoue, rien n’est annoncé comme enregistré', async () => {
+    vi.spyOn(service, 'mySitterProfile').mockResolvedValue({ profile, services: [{ service: 'chez_gardien', price_cents: 2000 }], absences: [] });
+    const save = vi.spyOn(service, 'saveSitterOffer').mockRejectedValue(new Error('Disponibilités invalides'));
+    open('#/garde?vue=profil');
+    await screen.findByRole('heading', { name: 'Disponibilités' });
+    fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+    expect(await screen.findByText('Ton profil n’a pas été enregistré')).toBeTruthy();
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('Profil enregistré')).toBeNull();
   });
   it('refuse une capacité hors limites et un profil sans jour', async () => {
     vi.spyOn(service, 'mySitterProfile').mockResolvedValue({ profile, services: [{ service: 'chez_gardien', price_cents: 2000 }], absences: [] });
-    const saveProfile = vi.spyOn(service, 'saveSitterProfile').mockResolvedValue(profile);
+    const saveProfile = vi.spyOn(service, 'saveSitterOffer').mockResolvedValue(profile);
     open('#/garde?vue=profil');
     await screen.findByRole('heading', { name: 'Disponibilités' });
     fireEvent.change(screen.getByLabelText(/Capacité d’accueil/), { target: { value: '12' } });

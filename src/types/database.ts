@@ -159,6 +159,7 @@ export type Database = {
       create_sitting_request: { Args: { p_sitter: string; p_pet: string; p_service: string; p_starts: string; p_ends: string; p_message: string; p_request: string }; Returns: SittingRequest };
       update_sitting_request: { Args: { p_id: string; p_action: string; p_note?: string }; Returns: SittingRequest };
       save_sitter_availability: { Args: { p_weekdays: number[]; p_capacity: number; p_periods: SitterAbsence[] }; Returns: SitterProfile };
+      save_sitter_offer: { Args: { p_kind: string; p_bio: string; p_city: string; p_lat: number; p_lng: number; p_species: string[]; p_max_weight: number | null; p_outdoor: string; p_services: ServicePrice[]; p_active: boolean; p_weekdays: number[]; p_capacity: number; p_periods: SitterAbsence[] }; Returns: SitterProfile };
       list_my_sittings: { Args: { p_id?: string }; Returns: MySitting[] };
       list_sitting_threads: { Args: Record<string, never>; Returns: SittingThread[] };
       send_sitting_message: { Args: { p_owner: string; p_sitter: string; p_text: string; p_request: string }; Returns: SittingMessage };

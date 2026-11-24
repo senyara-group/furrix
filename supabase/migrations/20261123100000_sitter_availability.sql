@@ -4,6 +4,10 @@
 -- 3. Un gardien est indisponible sur des dates si l'un des jours n'est pas proposé, s'il est absent, ou s'il est complet.
 --    La recherche le masque, une nouvelle demande est refusée ; à l'accord, seule la capacité est vérifiée (le gardien décide).
 -- 4. Le gardien peut revenir sur son accord tant que le propriétaire n'a pas payé (« decline » sur une demande acceptée).
+-- 5. Profil et disponibilités s'enregistrent ensemble (save_sitter_offer) : tout ou rien.
+-- 6. Une demande en attente ou acceptée dont la garde a commencé est expirée côté serveur : elle ne bloque plus
+--    une nouvelle demande, la capacité d'accueil, le retrait d'un animal ni la suppression d'un compte.
+-- 7. Suppression de compte : les absences sont illisibles dès la demande (ancienne session) et effacées au nettoyage.
 
 alter table public.sitter_profiles
   add column if not exists weekdays smallint[] not null default '{1,2,3,4,5,6,7}'
@@ -24,13 +28,87 @@ grant all on public.sitter_unavailability to service_role;
 grant select on public.sitter_unavailability to authenticated;
 drop policy if exists "ses absences de gardien" on public.sitter_unavailability;
 create policy "ses absences de gardien" on public.sitter_unavailability for select to authenticated using (sitter_id=(select auth.uid()));
--- Garde-fou des comptes en suppression, s'il est installé (l'écriture passe aussi par sitter_profiles, déjà protégé).
+-- Suppression de compte (si elle est installée) : comme les autres tables, plus de lecture ni d'écriture par une ancienne
+-- session dès la demande, et absences effacées (jours et capacité remis par défaut) au nettoyage du compte.
+create or replace function public.forget_sitter_availability() returns trigger
+language plpgsql security definer set search_path='' as $$
+begin
+  delete from public.sitter_unavailability where sitter_id=new.user_id;
+  update public.sitter_profiles set weekdays='{1,2,3,4,5,6,7}', capacity=1 where user_id=new.user_id;
+  return new;
+end $$;
+revoke all on function public.forget_sitter_availability() from public, anon, authenticated;
 do $$ begin
   if to_regprocedure('public.guard_open_accounts()') is not null then
     drop trigger if exists account_open_insert on public.sitter_unavailability;
     create trigger account_open_insert before insert or update on public.sitter_unavailability for each row execute function public.guard_open_accounts();
   end if;
+  if to_regprocedure('public.account_is_open()') is not null then
+    drop policy if exists account_not_deleted on public.sitter_unavailability;
+    create policy account_not_deleted on public.sitter_unavailability as restrictive for all to authenticated
+      using (public.account_is_open()) with check (public.account_is_open());
+  end if;
+  if to_regclass('public.account_deletions') is not null then
+    drop trigger if exists forget_sitter_availability on public.account_deletions;
+    create trigger forget_sitter_availability after update of cleaned_at on public.account_deletions for each row
+      when (new.cleaned_at is not null and old.cleaned_at is null) execute function public.forget_sitter_availability();
+  end if;
 end $$;
+
+-- Expirer les demandes sans suite dont la garde a commencé (toutes, ou celles d'un compte). Appelée par les fonctions
+-- de garde, et par un minuteur si on l'active (operations/enable_sitting_expiry_cron.sql). Les deux personnes sont prévenues.
+create or replace function public.expire_sitting_requests(p_user uuid default null)
+returns integer language plpgsql volatile security definer set search_path='' as $$
+declare n integer;
+begin
+  update public.sitting_requests set status='expired', updated_at=now()
+    where status in ('pending','accepted') and starts_at <= now() and (p_user is null or p_user in (owner_id, sitter_id));
+  get diagnostics n = row_count;
+  return n;
+end $$;
+revoke all on function public.expire_sitting_requests(uuid) from public, anon, authenticated;
+grant execute on function public.expire_sitting_requests(uuid) to service_role;
+
+-- Une demande compte comme ouverte si elle est réservée, ou en attente / acceptée avant le début de la garde.
+create or replace function public.sitting_is_open(p_status text, p_starts timestamptz, p_ends timestamptz)
+returns boolean language sql stable set search_path='' as $$
+  select p_status='confirmed' or (p_status in ('pending','accepted') and p_starts > now())
+$$;
+revoke all on function public.sitting_is_open(text,timestamptz,timestamptz) from public, anon, authenticated;
+
+-- Retrait d'un animal : une demande expirée (même pas encore marquée) ne bloque plus.
+create or replace function public.pet_retirement_blockers(p_pet uuid) returns table(section text,total integer)
+language plpgsql stable security definer set search_path='' as $$
+begin
+ if auth.uid() is null or not public.can_use_private_beta() or not exists(select 1 from public.pets where id=p_pet and owner_id=auth.uid()) then raise exception 'Animal non autorisé' using errcode='42501';end if;
+ return query select q.section,q.total from (
+ select 'rencontres'::text section,count(*)::integer total from public.meeting_proposals p join public.matches m on m.id=p.match_id where p_pet in(m.pet_a,m.pet_b) and (p.status='pending' or (p.status='accepted' and p.chosen_slot>now()))
+ union all select 'garde',count(*)::integer from public.sitting_requests where pet_id=p_pet and public.sitting_is_open(status,starts_at,ends_at) and ends_at>now()
+ union all select 'services',count(*)::integer from public.professional_appointments a join public.professional_slots s on s.id=a.slot_id where a.pet_id=p_pet and a.status in('pending','countered','confirmed') and s.ends_at>now()
+ union all select 'animaux_perdus',count(*)::integer from public.lost_pets where pet_id=p_pet and status='lost'
+ ) q where q.total>0;
+end $$;
+
+-- Suppression de compte (si elle est installée) : même règle pour les demandes de garde.
+do $do$ begin
+  if to_regprocedure('public.account_deletion_blockers_for(uuid)') is not null then
+    execute $fn$
+create or replace function public.account_deletion_blockers_for(p_user uuid) returns table(section text,total integer)
+language sql stable security definer set search_path='' as $body$
+ select x.section,sum(x.total)::integer from (
+ select 'rencontres'::text section,count(*)::integer total from public.meeting_proposals mp join public.matches m on m.id=mp.match_id join public.pets a on a.id=m.pet_a join public.pets b on b.id=m.pet_b where p_user in(a.owner_id,b.owner_id) and (mp.status='pending' or (mp.status='accepted' and mp.chosen_slot>now()))
+ union all select 'garde',count(*)::integer from public.sitting_requests where p_user in(owner_id,sitter_id) and public.sitting_is_open(status,starts_at,ends_at) and ends_at>now()
+ union all select 'services',count(*)::integer from public.professional_appointments a join public.professional_slots s on s.id=a.slot_id where p_user in(a.owner_id,a.professional_id) and a.status in('pending','countered','confirmed') and s.ends_at>now()
+ union all select 'services',count(*)::integer from public.appointments where user_id=p_user and status='confirmed' and slot>now()
+ union all select 'animaux_perdus',count(*)::integer from public.lost_pets where reporter_id=p_user and status='lost'
+ union all select 'abonnement',count(*)::integer from public.subscriptions where user_id=p_user and status in('active','trialing','past_due')
+ union all select 'signalements',count(*)::integer from public.sitting_reports sr join public.sitting_requests r on r.id=sr.sitting_id where p_user in(r.owner_id,r.sitter_id) and sr.status in('open','reviewing')
+ union all select 'moderation',count(*)::integer from public.reports where status='open' and (reporter_id=p_user or target_id=p_user::text or target_id in(select id::text from public.pets where owner_id=p_user))
+ ) x group by x.section having sum(x.total)>0;
+$body$
+$fn$;
+  end if;
+end $do$;
 
 -- Pourquoi un gardien n'est pas libre sur ces dates : 'complet', 'jour', 'absence', 'profil', ou null s'il est libre.
 -- La capacité compare le plus grand nombre de gardes simultanées sur la période (acceptées ou réservées).
@@ -38,7 +116,8 @@ create or replace function public.sitter_conflict(p_sitter uuid, p_starts timest
 returns text language sql stable security definer set search_path='' as $$
   with sp as (select weekdays, capacity from public.sitter_profiles where user_id=p_sitter),
   d as (select (p_starts at time zone 'Europe/Paris')::date a, ((p_ends - interval '1 second') at time zone 'Europe/Paris')::date b),
-  r as (select x.starts_at, x.ends_at from public.sitting_requests x where x.sitter_id=p_sitter and x.status in ('accepted','confirmed')
+  r as (select x.starts_at, x.ends_at from public.sitting_requests x where x.sitter_id=p_sitter
+        and (x.status='confirmed' or (x.status='accepted' and x.starts_at > now()))
         and x.starts_at < p_ends and x.ends_at > p_starts)
   select case
     when not exists(select 1 from sp) then 'profil'
@@ -79,6 +158,18 @@ begin
 end $$;
 revoke all on function public.save_sitter_availability(smallint[],integer,jsonb) from public, anon, authenticated;
 grant execute on function public.save_sitter_availability(smallint[],integer,jsonb) to authenticated;
+
+-- Profil et disponibilités en une seule transaction : si les disponibilités sont refusées, le profil n'est pas enregistré
+-- (jamais publié « tous les jours » contre l'avis du gardien).
+create or replace function public.save_sitter_offer(p_kind text, p_bio text, p_city text, p_lat numeric, p_lng numeric, p_species text[],
+  p_max_weight integer, p_outdoor text, p_services jsonb, p_active boolean, p_weekdays smallint[], p_capacity integer, p_periods jsonb default '[]')
+returns public.sitter_profiles language plpgsql volatile security definer set search_path='' as $$
+begin
+  perform public.save_sitter_profile(p_kind, p_bio, p_city, p_lat, p_lng, p_species, p_max_weight, p_outdoor, p_services, p_active);
+  return public.save_sitter_availability(p_weekdays, p_capacity, p_periods);
+end $$;
+revoke all on function public.save_sitter_offer(text,text,text,numeric,numeric,text[],integer,text,jsonb,boolean,smallint[],integer,jsonb) from public, anon, authenticated;
+grant execute on function public.save_sitter_offer(text,text,text,numeric,numeric,text[],integer,text,jsonb,boolean,smallint[],integer,jsonb) to authenticated;
 
 -- Recherche : un gardien est « pris » s'il n'est pas libre (jours, absence, capacité) ; la fiche montre ses jours et sa capacité.
 drop function if exists public.search_sitters(numeric,numeric,integer,text,timestamptz,timestamptz,text,uuid);
@@ -135,6 +226,11 @@ begin
   perform pg_advisory_xact_lock(hashtextextended(uid::text,4));
   perform public.require_sitting_beta();
   if p_request is null then raise exception 'Demande invalide' using errcode='22023'; end if;
+  -- Ses demandes sans suite dont la garde a commencé ne bloquent plus une nouvelle demande.
+  begin
+    perform public.expire_sitting_requests(uid);
+  exception when insufficient_privilege then null; -- l'autre compte est en cours de suppression : la demande reste à expirer par le minuteur
+  end;
   select * into saved from public.sitting_requests where owner_id=uid and request_id=p_request;
   if saved.id is not null then
     if saved.sitter_id is distinct from p_sitter or saved.pet_id is distinct from p_pet or saved.service is distinct from p_service or saved.starts_at is distinct from p_starts or saved.ends_at is distinct from p_ends or saved.message is distinct from nullif(btrim(p_message),'') then raise exception 'Requête différente' using errcode='23505'; end if;
@@ -178,6 +274,11 @@ begin
   perform public.require_sitting_beta();
   select * into current from public.sitting_requests where id=p_id for update;
   if p_note is not null and char_length(btrim(p_note)) > 300 then raise exception 'Message trop long' using errcode='22023'; end if;
+  -- La garde a commencé sans réponse ou sans paiement : la demande est close (expirée), plus aucune action ne la rouvre.
+  if current.status in ('pending','accepted') and current.starts_at <= now() then
+    update public.sitting_requests set status='expired', updated_at=now() where id=p_id returning * into current;
+    return current;
+  end if;
   if p_action='withdraw' and uid=current.owner_id and current.status in ('pending','accepted') then
     update public.sitting_requests set status='withdrawn', updated_at=now() where id=p_id returning * into current;
   elsif p_action='accept' and uid=current.sitter_id and current.status='pending' then
@@ -191,8 +292,9 @@ begin
     update public.sitting_requests set status='cancelled', cancelled_by=uid, cancel_note=nullif(btrim(p_note), ''), updated_at=now()
       where id=p_id returning * into current;
   elsif (p_action='withdraw' and uid=current.owner_id and current.status='withdrawn') or (p_action='accept' and uid=current.sitter_id and current.status='accepted')
-     or (p_action='decline' and uid=current.sitter_id and current.status='declined') or (p_action='cancel' and current.status='cancelled') then
-    null; -- Rejeu d'une action déjà faite : même résultat, sans erreur.
+     or (p_action='decline' and uid=current.sitter_id and current.status='declined') or (p_action='cancel' and current.status='cancelled')
+     or (current.status='expired' and ((p_action='withdraw' and uid=current.owner_id) or (p_action='decline' and uid=current.sitter_id))) then
+    null; -- Rejeu d'une action déjà faite (ou demande déjà expirée) : même résultat, sans erreur.
   else
     raise exception 'Action impossible' using errcode='42501';
   end if;

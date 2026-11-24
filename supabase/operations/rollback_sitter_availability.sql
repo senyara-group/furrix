@@ -1,5 +1,6 @@
 -- Retour arrière de 20261123..._sitter_availability : fonctions précédentes de la garde.
 -- Supprime les jours proposés, la capacité et les absences des gardiens (seules données perdues).
+-- Les demandes déjà passées à « expirée » le restent.
 begin;
 create or replace function public.create_sitting_request(p_sitter uuid, p_pet uuid, p_service text, p_starts timestamptz, p_ends timestamptz,
   p_message text, p_request uuid)
@@ -117,6 +118,44 @@ end $$;
 revoke all on function public.search_sitters(numeric,numeric,integer,text,timestamptz,timestamptz,text,uuid) from public, anon, authenticated;
 grant execute on function public.search_sitters(numeric,numeric,integer,text,timestamptz,timestamptz,text,uuid) to authenticated;
 
+-- Retrait d'animal et suppression de compte : règle précédente des demandes ouvertes.
+create or replace function public.pet_retirement_blockers(p_pet uuid) returns table(section text,total integer)
+language plpgsql stable security definer set search_path='' as $$
+begin
+ if auth.uid() is null or not public.can_use_private_beta() or not exists(select 1 from public.pets where id=p_pet and owner_id=auth.uid()) then raise exception 'Animal non autorisé' using errcode='42501';end if;
+ return query select q.section,q.total from (
+ select 'rencontres'::text section,count(*)::integer total from public.meeting_proposals p join public.matches m on m.id=p.match_id where p_pet in(m.pet_a,m.pet_b) and (p.status='pending' or (p.status='accepted' and p.chosen_slot>now()))
+ union all select 'garde',count(*)::integer from public.sitting_requests where pet_id=p_pet and status in('pending','accepted','confirmed') and ends_at>now()
+ union all select 'services',count(*)::integer from public.professional_appointments a join public.professional_slots s on s.id=a.slot_id where a.pet_id=p_pet and a.status in('pending','countered','confirmed') and s.ends_at>now()
+ union all select 'animaux_perdus',count(*)::integer from public.lost_pets where pet_id=p_pet and status='lost'
+ ) q where q.total>0;
+end $$;
+do $do$ begin
+  if to_regprocedure('public.account_deletion_blockers_for(uuid)') is not null then
+    execute $fn$
+create or replace function public.account_deletion_blockers_for(p_user uuid) returns table(section text,total integer)
+language sql stable security definer set search_path='' as $body$
+ select x.section,sum(x.total)::integer from (
+ select 'rencontres'::text section,count(*)::integer total from public.meeting_proposals mp join public.matches m on m.id=mp.match_id join public.pets a on a.id=m.pet_a join public.pets b on b.id=m.pet_b where p_user in(a.owner_id,b.owner_id) and (mp.status='pending' or (mp.status='accepted' and mp.chosen_slot>now()))
+ union all select 'garde',count(*)::integer from public.sitting_requests where p_user in(owner_id,sitter_id) and status in('pending','accepted','confirmed') and ends_at>now()
+ union all select 'services',count(*)::integer from public.professional_appointments a join public.professional_slots s on s.id=a.slot_id where p_user in(a.owner_id,a.professional_id) and a.status in('pending','countered','confirmed') and s.ends_at>now()
+ union all select 'services',count(*)::integer from public.appointments where user_id=p_user and status='confirmed' and slot>now()
+ union all select 'animaux_perdus',count(*)::integer from public.lost_pets where reporter_id=p_user and status='lost'
+ union all select 'abonnement',count(*)::integer from public.subscriptions where user_id=p_user and status in('active','trialing','past_due')
+ union all select 'signalements',count(*)::integer from public.sitting_reports sr join public.sitting_requests r on r.id=sr.sitting_id where p_user in(r.owner_id,r.sitter_id) and sr.status in('open','reviewing')
+ union all select 'moderation',count(*)::integer from public.reports where status='open' and (reporter_id=p_user or target_id=p_user::text or target_id in(select id::text from public.pets where owner_id=p_user))
+ ) x group by x.section having sum(x.total)>0;
+$body$;
+$fn$;
+  end if;
+  if to_regclass('public.account_deletions') is not null then
+    drop trigger if exists forget_sitter_availability on public.account_deletions;
+  end if;
+end $do$;
+drop function if exists public.forget_sitter_availability();
+drop function if exists public.save_sitter_offer(text,text,text,numeric,numeric,text[],integer,text,jsonb,boolean,smallint[],integer,jsonb);
+drop function if exists public.expire_sitting_requests(uuid);
+drop function if exists public.sitting_is_open(text,timestamptz,timestamptz);
 drop function if exists public.save_sitter_availability(smallint[],integer,jsonb);
 drop function if exists public.sitter_conflict(uuid,timestamptz,timestamptz);
 drop table if exists public.sitter_unavailability;
