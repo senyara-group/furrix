@@ -10,14 +10,19 @@ export type ServicePrice = { service: SittingService; price_cents: number };
 export type SitterResult = {
   sitter_id: string; name: string | null; kind: SitterKind; city: string; bio: string; distance_km: number | null;
   species: string[]; max_weight_kg: number | null; outdoor: SitterOutdoor; services: ServicePrice[]; price_cents: number | null; busy: boolean;
+  /** Jours proposés (1 = lundi … 7 = dimanche) et gardes acceptées en même temps. */
+  weekdays: number[]; capacity: number;
   /** Photo choisie par le gardien (stockage privé, lue avec la session). */
   photo: string | null;
 };
 /** Mon profil de gardien, tel qu'enregistré. */
 export type SitterProfile = {
   user_id: string; kind: SitterKind; bio: string; city: string; latitude: number; longitude: number; species: string[];
-  max_weight_kg: number | null; outdoor: SitterOutdoor; active: boolean; photo: string | null; created_at: string; updated_at: string;
+  max_weight_kg: number | null; outdoor: SitterOutdoor; active: boolean; photo: string | null; weekdays: number[]; capacity: number; created_at: string; updated_at: string;
 };
+/** Période où le gardien ne reçoit pas de demande (dates incluses, AAAA-MM-JJ). Visible de lui seul. */
+export type SitterAbsence = { starts_on: string; ends_on: string };
+export type SitterAvailability = { weekdays: number[]; capacity: number; absences: SitterAbsence[] };
 export type SitterProfileDraft = {
   kind: SitterKind; bio: string; city: string; latitude: number; longitude: number; species: string[];
   max_weight_kg: number | null; outdoor: SitterOutdoor; services: ServicePrice[]; active: boolean;

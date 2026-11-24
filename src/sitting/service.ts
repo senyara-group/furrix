@@ -2,7 +2,7 @@ import type { FurrixClient } from '../services/supabaseClient';
 import { AppError, toDataError, toStorageError } from '../services/errors';
 import { PET_PHOTO_BUCKET, PET_PHOTO_TYPES, validatePhotoFile, type PetPhotoMime } from '../services/petPhotos';
 import type {
-  MySitting, SitterProfile, SitterProfileDraft, SitterResult, SitterSearch, SittingMessage, SittingReport, SittingReportCategory,
+  MySitting, SitterAbsence, SitterAvailability, SitterProfile, SitterProfileDraft, SitterResult, SitterSearch, SittingMessage, SittingReport, SittingReportCategory,
   SittingRequest, SittingService, SittingThread, SittingUpdate, ServicePrice,
 } from './types';
 
@@ -16,36 +16,46 @@ export async function searchSitters(client: FurrixClient, search: SitterSearch):
   if (error) throw toDataError(error); return data ?? [];
 }
 /** Fiche d'un gardien (lien direct) ; la distance n'est calculée que si une position est connue. */
-export async function getSitter(client: FurrixClient, sitterId: string, near?: { latitude: number; longitude: number }, service?: SittingService): Promise<SitterResult | null> {
+export async function getSitter(client: FurrixClient, sitterId: string, near?: { latitude: number; longitude: number }, service?: SittingService,
+  dates?: { starts: string; ends: string }): Promise<SitterResult | null> {
   const { data, error } = await client.rpc('search_sitters', {
     p_sitter: sitterId, ...(near ? { p_lat: near.latitude, p_lng: near.longitude, p_radius: 100 } : {}), ...(service ? { p_service: service } : {}),
+    ...(dates ? { p_starts: dates.starts, p_ends: dates.ends } : {}),
   });
   if (error) throw toDataError(error); return data?.[0] ?? null;
 }
-export async function mySitterProfile(client: FurrixClient, userId: string): Promise<{ profile: SitterProfile; services: ServicePrice[] } | null> {
-  const [profile, services] = await Promise.all([
+export async function mySitterProfile(client: FurrixClient, userId: string): Promise<{ profile: SitterProfile; services: ServicePrice[]; absences: SitterAbsence[] } | null> {
+  const [profile, services, absences] = await Promise.all([
     client.from('sitter_profiles').select('*').eq('user_id', userId).maybeSingle(),
     client.from('sitter_services').select('service,price_cents').eq('sitter_id', userId),
+    client.from('sitter_unavailability').select('starts_on,ends_on').eq('sitter_id', userId).order('starts_on'),
   ]);
   if (profile.error) throw toDataError(profile.error);
   if (services.error) throw toDataError(services.error);
-  return profile.data ? { profile: profile.data, services: services.data ?? [] } : null;
+  if (absences.error) throw toDataError(absences.error);
+  return profile.data ? { profile: profile.data, services: services.data ?? [], absences: absences.data ?? [] } : null;
 }
-export async function saveSitterProfile(client: FurrixClient, draft: SitterProfileDraft): Promise<SitterProfile> {
-  const { data, error } = await client.rpc('save_sitter_profile', {
+/** Profil et disponibilités ensemble, en une seule transaction : tout est enregistré, ou rien. */
+export async function saveSitterOffer(client: FurrixClient, draft: SitterProfileDraft, availability: SitterAvailability): Promise<SitterProfile> {
+  const { data, error } = await client.rpc('save_sitter_offer', {
     p_kind: draft.kind, p_bio: draft.bio.trim(), p_city: draft.city.trim(), p_lat: Math.round(draft.latitude * 100) / 100, p_lng: Math.round(draft.longitude * 100) / 100,
     p_species: draft.species, p_max_weight: draft.max_weight_kg, p_outdoor: draft.outdoor, p_services: draft.services, p_active: draft.active,
+    p_weekdays: availability.weekdays, p_capacity: availability.capacity, p_periods: availability.absences.map(({ starts_on, ends_on }) => ({ starts_on, ends_on })),
   });
   if (error) throw toDataError(error); return data;
 }
 /** Limites anti-spam du serveur (« Trop de … ») : message affichable tel quel ; sinon l'erreur habituelle. */
 const limitError = (error: { message?: string }) =>
   /^Trop de /.test(error.message ?? '') ? new AppError('rate_limited', error.message!, error) : toDataError(error);
+/** Le gardien n'est pas libre (jour non proposé, absence, complet) : message affichable. */
+export const UNAVAILABLE = 'Ce gardien n’est pas disponible à ces dates';
+const requestError = (error: { message?: string }) =>
+  /^Pas disponible à ces dates/.test(error.message ?? '') ? new AppError('forbidden', UNAVAILABLE, error) : limitError(error);
 export async function createSittingRequest(client: FurrixClient, input: { sitter: string; pet: string; service: SittingService; starts: string; ends: string; message: string }, requestId: string): Promise<SittingRequest> {
   const { data, error } = await client.rpc('create_sitting_request', {
     p_sitter: input.sitter, p_pet: input.pet, p_service: input.service, p_starts: input.starts, p_ends: input.ends, p_message: input.message.trim(), p_request: requestId,
   });
-  if (error) throw limitError(error); return data;
+  if (error) throw requestError(error); return data;
 }
 export async function updateSittingRequest(client: FurrixClient, id: string, action: 'withdraw' | 'accept' | 'decline' | 'cancel', note?: string): Promise<SittingRequest> {
   const { data, error } = await client.rpc('update_sitting_request', { p_id: id, p_action: action, ...(note?.trim() ? { p_note: note.trim() } : {}) });

@@ -9,10 +9,21 @@ import { AppError } from '../services/errors';
 import type { FurrixClient } from '../services/supabaseClient';
 import { SlotField } from '../meetings/SlotField';
 import { usePetPhotoUrl } from '../meetings/usePetPhotoUrl';
-import { createSittingRequest } from './service';
-import { countUnits, kindLabel, money, nameOf, outdoorLabel, period, price, serviceLabel, serviceShort, speciesPlural, unitLabel, units } from './format';
+import { createSittingRequest, UNAVAILABLE } from './service';
+import { capacityLabel, countUnits, kindLabel, missingDays, money, nameOf, outdoorLabel, period, price, serviceLabel, serviceShort, speciesPlural, unitLabel, units, weekdaysLabel } from './format';
 import { isoOf, type Criteria } from './Search';
 import type { SitterResult, SittingRequest, SittingService } from './types';
+
+/** « le samedi », « le samedi et le dimanche », « le lundi, le mardi et le mercredi » */
+const theDays = (days: string[]) => days.map((d) => `le ${d}`).join(', ').replace(/, (?=[^,]*$)/, ' et ');
+/** Disponibilité du gardien sur des dates : ce qu'on peut en dire sans dévoiler ses absences. */
+export function availabilityOf(sitter: Pick<SitterResult, 'weekdays' | 'busy'>, starts?: string, ends?: string): { ok: boolean; text: string } {
+  if (!starts || !ends) return { ok: true, text: 'Choisis tes dates pour vérifier ses disponibilités.' };
+  const missing = missingDays(sitter.weekdays ?? [1, 2, 3, 4, 5, 6, 7], starts, ends);
+  if (missing.length) return { ok: false, text: `Ne garde pas ${theDays(missing)}. Jours proposés : ${weekdaysLabel(sitter.weekdays).toLowerCase()}.` };
+  if (sitter.busy) return { ok: false, text: 'Pas disponible sur une partie de tes dates (déjà complet ou absent).' };
+  return { ok: true, text: 'Disponible à tes dates, sous réserve de son accord.' };
+}
 
 const sitterSubtitle = (s: Pick<SitterResult, 'kind' | 'distance_km' | 'city'>, service?: SittingService) =>
   [kindLabel[s.kind], service ? serviceShort[service] : null, s.distance_km !== null ? `≈ ${s.distance_km} km` : s.city].filter(Boolean).join(' · ');
@@ -36,7 +47,10 @@ export function SummaryCard({ client, photo, name, subtitle, service, starts, en
 }
 
 /** Fiche d'un gardien (planche « Fiche du gardien »). */
-export function SitterFiche({ client, sitter, service, onBack, onAsk, onWrite }: { client: FurrixClient; sitter: SitterResult; service: SittingService; onBack: () => void; onAsk: () => void; onWrite: () => void }) {
+export function SitterFiche({ client, sitter, service, starts, ends, onBack, onAsk, onWrite }: {
+  client: FurrixClient; sitter: SitterResult; service: SittingService; starts?: string; ends?: string; onBack: () => void; onAsk: () => void; onWrite: () => void;
+}) {
+  const availability = availabilityOf(sitter, starts, ends);
   const name = nameOf(sitter.name);
   const url = usePetPhotoUrl(client, sitter.photo);
   const offered = sitter.services.find((s) => s.service === service) ?? sitter.services[0];
@@ -51,7 +65,7 @@ export function SitterFiche({ client, sitter, service, onBack, onAsk, onWrite }:
           {sitter.services.map((s) => <li key={s.service}><span>{serviceLabel[s.service]}</span><b className="fx-num">{price(s.price_cents)} / {unitLabel[s.service][0]}</b></li>)}
         </ul></> : null}
         <Separator />
-        <p className="fx-t-body-sm">{sitter.busy ? 'Déjà pris sur une partie de tes dates.' : 'Disponible à tes dates, sous réserve de son accord.'}</p>
+        <p className={availability.ok ? 'fx-t-body-sm' : 'fx-t-body-sm gd-unavailable'}>{availability.ok ? null : <Icon name="warning" size={16} />}{availability.text}</p>
       </Stack></Card>}
       actions={<ActionBar>
         <Button icon="homeDoor" onClick={onAsk}>Demander une garde</Button>
@@ -63,6 +77,8 @@ export function SitterFiche({ client, sitter, service, onBack, onAsk, onWrite }:
         { label: 'Formules', value: sitter.services.map((s) => serviceLabel[s.service]).join(', ') },
         { label: 'Accueille', value: sitter.max_weight_kg ? `${accepts} ≤ ${sitter.max_weight_kg} kg` : accepts },
         { label: 'Extérieur', value: outdoorLabel[sitter.outdoor] },
+        { label: 'Jours', value: weekdaysLabel(sitter.weekdays ?? [1, 2, 3, 4, 5, 6, 7]) },
+        { label: 'Capacité', value: capacityLabel(sitter.capacity ?? 1) },
       ]} />
       <Stack gap={2}><Text variant="h2">Présentation</Text><Text variant="body">« {sitter.bio} »</Text><Text variant="body-sm">Texte rédigé par {name}.</Text></Stack>
       <Stack gap={2}><Text variant="h2">Ce qui est vérifié</Text>
@@ -104,7 +120,8 @@ export function RequestForm({ client, sitter, pets, criteria, onBack, onSent }: 
   });
   const [errors, setErrors] = useState<{ pet?: string; dates?: string }>({});
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState<false | true | string>(false);
+  /** true : envoi non confirmé ; 'limit' : trop de demandes ; 'dates' : le gardien n'est pas libre. */
+  const [failed, setFailed] = useState<false | true | { kind: 'limit' | 'dates'; text: string }>(false);
   useEffect(() => { try { sessionStorage.setItem(storage, JSON.stringify(draft)); } catch { /* sans stockage local */ } }, [draft, storage]);
   const set = (next: Partial<Draft>) => setDraft((d) => ({ ...d, ...next,request:crypto.randomUUID() }));
   const accepted = pets.filter((p) => fits(p, sitter));
@@ -117,6 +134,8 @@ export function RequestForm({ client, sitter, pets, criteria, onBack, onSent }: 
     if (!pet) problems.pet = 'Choisis l’animal à faire garder.';
     if (!datesOk || new Date(draft.starts).getTime() <= Date.now()) problems.dates = 'Choisis un début de garde à venir et une fin après lui.';
     else if (new Date(draft.ends).getTime() - new Date(draft.starts).getTime() > 60 * 86400_000) problems.dates = 'Une garde dure 60 jours au plus.';
+    else if (missingDays(sitter.weekdays ?? [1, 2, 3, 4, 5, 6, 7], isoOf(draft.starts), isoOf(draft.ends)).length)
+      problems.dates = `${name} ne garde pas ${theDays(missingDays(sitter.weekdays, isoOf(draft.starts), isoOf(draft.ends)))}. Choisis des dates parmi ses jours : ${weekdaysLabel(sitter.weekdays).toLowerCase()}.`;
     setErrors(problems);
     if (Object.keys(problems).length) return;
     setBusy(true); setFailed(false);
@@ -124,7 +143,10 @@ export function RequestForm({ client, sitter, pets, criteria, onBack, onSent }: 
       const saved = await createSittingRequest(client, { sitter: sitter.sitter_id, pet: pet!.id, service: draft.service, starts: isoOf(draft.starts), ends: isoOf(draft.ends), message: draft.message }, draft.request);
       try { sessionStorage.removeItem(storage); } catch { /* sans stockage local */ }
       onSent(saved);
-    } catch (e) { setFailed(e instanceof AppError && e.code === 'rate_limited' ? e.message : true); } finally { setBusy(false); }
+    } catch (e) {
+      setFailed(e instanceof AppError && e.code === 'rate_limited' ? { kind: 'limit', text: e.message }
+        : e instanceof AppError && e.message === UNAVAILABLE ? { kind: 'dates', text: e.message } : true);
+    } finally { setBusy(false); }
   };
   return <section aria-label="Demande">
     <PageHeader back={{ label: `Fiche de ${name}`, onClick: onBack }} title={`Demander une garde à ${name}`}
@@ -133,7 +155,8 @@ export function RequestForm({ client, sitter, pets, criteria, onBack, onSent }: 
       aside={<SummaryCard client={client} photo={sitter.photo} name={name} subtitle={sitterSubtitle(sitter, draft.service)} service={draft.service} petName={pet?.name}
         starts={datesOk ? isoOf(draft.starts) : undefined} ends={datesOk ? isoOf(draft.ends) : undefined} unitPrice={unit} count={count} />}
       actions={<ActionBar><Button variant="ink" icon={failed ? 'retry' : 'send'} loading={busy} disabled={!accepted.length} onClick={() => { void send(); }}>{failed ? 'Réessayer l’envoi' : 'Envoyer la demande'}</Button></ActionBar>}>
-      {typeof failed === 'string' ? <Alert tone="err" title="La demande n’est pas partie">{failed}. Réessaie demain ; rien n’a été envoyé ni facturé.</Alert> : failed ? <Alert tone="err" title="Envoi de la demande non confirmé">Une réponse peut s’être perdue, ou une demande est déjà en cours avec {name}. Vérifie <a href={gardeHref({vue:'mes-gardes'})}>Mes gardes</a> avant de modifier les informations. Un nouvel essai identique conserve la même demande. Aucun paiement n’est effectué.</Alert> : null}
+      {typeof failed === 'object' ? <Alert tone="err" title="La demande n’est pas partie">{failed.kind === 'limit' ? `${failed.text}. Réessaie demain ; rien n’a été envoyé ni facturé.`
+        : `${failed.text} : jour non proposé, absence ou plus de place. Essaie d’autres dates, ou un autre gardien. Rien n’a été envoyé ni facturé.`}</Alert> : failed ? <Alert tone="err" title="Envoi de la demande non confirmé">Une réponse peut s’être perdue, ou une demande est déjà en cours avec {name}. Vérifie <a href={gardeHref({vue:'mes-gardes'})}>Mes gardes</a> avant de modifier les informations. Un nouvel essai identique conserve la même demande. Aucun paiement n’est effectué.</Alert> : null}
       <Stack gap={5}>
         {accepted.length ? <Field label="Animal" error={errors.pet}
           hint={accepted.length < pets.length ? `Seuls les animaux que ${name} accepte sont proposés (${acceptsLabel(sitter)}).` : undefined}>
@@ -148,7 +171,8 @@ export function RequestForm({ client, sitter, pets, criteria, onBack, onSent }: 
           <Stack gap={2}><Text variant="label" as="p">Fin de la garde</Text>
             <SlotField label="Fin de la garde" value={draft.ends} min={draft.starts} placeholder="Choisir la fin" onChange={(ends) => set({ ends })} /></Stack>
         </div>
-        {errors.dates ? <p className="fx-field__error" role="alert"><Icon name="warning" size={16} />{errors.dates}</p> : null}
+        {errors.dates ? <p className="fx-field__error" role="alert"><Icon name="warning" size={16} />{errors.dates}</p>
+          : <p className="fx-hint">Jours proposés par {name} : {weekdaysLabel(sitter.weekdays ?? [1, 2, 3, 4, 5, 6, 7]).toLowerCase()}.</p>}
         <Field label="Formule">
           <Select value={draft.service} onChange={(e) => set({ service: e.target.value as SittingService })}>
             {sitter.services.map((x) => <option key={x.service} value={x.service}>{serviceLabel[x.service]} · {price(x.price_cents)} / {unitLabel[x.service][0]}</option>)}

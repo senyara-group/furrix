@@ -182,6 +182,8 @@ test('rencontres : concurrence sur plusieurs sessions PostgreSQL', { skip: url ?
       assert.equal((await admin.query("select count(*)::int n from sitting_requests where sitter_id=$1 and status='accepted'",[guard])).rows[0].n,1);
     });
     await t.test('garde : un rejeu simultané de demande retrouve la demande initiale',async()=>{
+      // Créneau distinct : le scénario précédent a rempli la capacité sur start/end.
+      const start=new Date(Date.now()+86400000*13).toISOString(),end=new Date(Date.now()+86400000*14).toISOString();
       const pet=uuid(),nonce=uuid();await admin.query("insert into pets(id,owner_id,name,species) values($1,$2,'Nouveau','chien')",[pet,a]);const sql='select * from create_sitting_request($1,$2,$3,$4,$5,$6,$7)',args=[guard,pet,'chez_gardien',start,end,'Bonjour',nonce];
       const out=await race(a,sql,args,sql,args);assert.equal(out.next.ok,true);assert.equal(out.first[0].id,out.next.rows[0].id);
     });
@@ -223,10 +225,12 @@ test('rencontres : concurrence sur plusieurs sessions PostgreSQL', { skip: url ?
     });
     const freshPet=async()=>{const id=uuid();await admin.query("insert into pets(id,owner_id,name,species) values($1,$2,'Retrait','chien')",[id,customer]);return id;};
     await t.test('retrait : une garde commencée après le retrait attend puis est refusée',async()=>{
+      const start=new Date(Date.now()+86400000*15).toISOString(),end=new Date(Date.now()+86400000*16).toISOString();
       const p=await freshPet(),sql='select * from create_sitting_request($1,$2,$3,$4,$5,$6,$7)',args=[guard,p,'chez_gardien',start,end,'Bonjour',uuid()];
       const out=await race(customer,'select retire_pet_profile($1)',[p],sql,args,customer,'transactionid');assert.deepEqual(out.next,{ok:false,code:'42501'});
     });
     await t.test('retrait : une garde validée avant le retrait le bloque sans perdre la demande',async()=>{
+      const start=new Date(Date.now()+86400000*17).toISOString(),end=new Date(Date.now()+86400000*18).toISOString();
       const p=await freshPet(),sql='select * from create_sitting_request($1,$2,$3,$4,$5,$6,$7)',args=[guard,p,'chez_gardien',start,end,'Bonjour',uuid()];
       const out=await race(customer,sql,args,'select retire_pet_profile($1)',[p],customer,'transactionid');assert.deepEqual(out.next,{ok:false,code:'23503'});assert.equal((await admin.query('select archived_at from pets where id=$1',[p])).rows[0].archived_at,null);
     });

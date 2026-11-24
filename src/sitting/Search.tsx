@@ -26,7 +26,10 @@ export function useCriteria(pets: PetRow[]) {
   const [criteria, setCriteria] = useState<Criteria>(() => {
     try {
       const saved = JSON.parse(sessionStorage.getItem(KEY) ?? 'null') as Criteria | null;
-      if (saved && future(saved.starts) && new Date(saved.ends) > new Date(saved.starts)) return { ...saved, pet: pets.some((p) => p.id === saved.pet) ? saved.pet : pets[0]?.id ?? null };
+      const pet = saved && pets.some((p) => p.id === saved.pet) ? saved.pet : pets[0]?.id ?? null;
+      if (saved && future(saved.starts) && new Date(saved.ends) > new Date(saved.starts)) return { ...saved, pet };
+      // Dates passées : on garde le lieu, la formule et le rayon, avec de nouvelles dates à venir.
+      if (saved?.place) { const next = fresh(pet); return { ...next, service: saved.service ?? next.service, radius: saved.radius ?? next.radius, place: saved.place }; }
     } catch { /* Sans stockage local : critères par défaut. */ }
     return fresh(pets[0]?.id ?? null);
   });
@@ -179,6 +182,10 @@ export function SearchView({ client, pets, criteria, setCriteria, onOpen }: {
   const whenTitle = criteria.ends ? shortPeriod(isoOf(criteria.starts), isoOf(criteria.ends)) : 'Choisis tes dates';
   const whenSub = [criteria.ends ? units(criteria.service, n) : null, criteria.place?.label.split(' · ')[0]].filter(Boolean).join(' · ') || 'Lieu à préciser';
   const results = applyFilters(state.data, filters, criteria.service);
+  /** Ce qui manque pour lancer la recherche (formulaire fermé). */
+  const missing = !criteria.place ? { icon: 'pin' as const, title: 'Il manque le lieu de la garde', action: 'Indiquer le lieu', text: 'Indique une ville ou ta position pour voir les gardiens autour de toi.' }
+    : !future(criteria.starts) ? { icon: 'calendar' as const, title: 'Tes dates sont passées', action: 'Choisir de nouvelles dates', text: 'Choisis un début de garde à venir pour voir les gardiens disponibles.' }
+    : { icon: 'calendar' as const, title: 'Il manque la fin de la garde', action: 'Choisir la fin', text: 'Indique quand tu récupères ton animal pour voir les gardiens disponibles.' };
   const active = activeFilters(filters);
   const map = <MapFrame className="gd-map" aria-label="Carte illustrative des gardiens">
     <MapMe x={50} y={48} />
@@ -196,9 +203,11 @@ export function SearchView({ client, pets, criteria, setCriteria, onOpen }: {
     </div>
     {editing ? <CriteriaPanel pets={pets} criteria={criteria} onClose={criteria.place ? () => setEditing(false) : undefined}
       onApply={(c) => { setCriteria(c); setEditing(false); list.current?.scrollIntoView?.({ block: 'start' }); }} /> : null}
-    {!ready ? null : state.status === 'error' ? <Alert tone="err" title="La recherche n’a pas abouti." actions={<Button variant="out" size="sm" icon="retry" onClick={() => setAttempt((a) => a + 1)}>Réessayer</Button>} />
+    {!ready ? (editing ? null : <EmptyState icon={missing.icon} title={missing.title}
+        action={<Button variant="ink" size="sm" onClick={() => setEditing(true)}>{missing.action}</Button>}>{missing.text}</EmptyState>)
+      : state.status === 'error' ? <Alert tone="err" title="La recherche n’a pas abouti." actions={<Button variant="out" size="sm" icon="retry" onClick={() => setAttempt((a) => a + 1)}>Réessayer</Button>} />
       : state.status === 'loading' || state.status === 'idle' ? <Loading label="Recherche des gardiens disponibles…" />
-      : !results.length ? <EmptyState icon="search" title="Aucun gardien disponible à ces dates" action={<Row className="gd-empty-acts">
+      : !state.data.length ? <EmptyState icon="search" title="Aucun gardien disponible à ces dates" action={<Row className="gd-empty-acts">
           {criteria.radius < 25 ? <Button variant="ink" size="sm" onClick={() => setCriteria({ ...criteria, radius: 25 })}>Élargir à 25 km</Button> : null}
           <Button variant="out" size="sm" onClick={() => setEditing(true)}>Changer les dates</Button>
           {criteria.service !== 'visite' ? <Button variant="out" size="sm" onClick={() => setCriteria({ ...criteria, service: 'visite' })}>Voir les visites à domicile</Button> : null}

@@ -18,6 +18,7 @@ const iso = (days: number, h: number) => new Date(local(days, h)).toISOString();
 const sam: SitterResult = {
   sitter_id: 's1', name: 'Sam', kind: 'particulier', city: 'Lambersart', bio: 'Maison avec jardin, balades matin et soir le long de la Deûle.', distance_km: 3,
   species: ['chien'], max_weight_kg: 15, outdoor: 'jardin_clos', services: [{ service: 'chez_gardien', price_cents: 2000 }, { service: 'visite', price_cents: 1200 }], price_cents: 2000, busy: false, photo: null,
+  weekdays: [1, 2, 3, 4, 5, 6, 7], capacity: 1,
 };
 const sitting = (over: Partial<MySitting> = {}): MySitting => ({
   id: 'g1', role: 'owner', owner_id: me, sitter_id: 's1', other_name: 'Sam', sitter_kind: 'particulier', sitter_city: 'Lambersart', pet_id: 'pepite', pet_name: 'Pépite',

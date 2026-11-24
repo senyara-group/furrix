@@ -9,7 +9,7 @@ import type { RetirementBlocker } from '../pets/retirement';
 // n'a pas le droit de les écrire (migration 0003) : les types Insert/Update ci-dessous l'expriment.
 
 import type { DiscoveryPet, PetMatch, MatchMessage, NewPetMatch, MyMatch, MeetingProposal } from '../meetings/types';
-import type { MySitting, SitterProfile, SitterResult, SittingMessage, SittingReport, SittingRequest, SittingThread, SittingUpdate, ServicePrice } from '../sitting/types';
+import type { MySitting, SitterAbsence, SitterProfile, SitterResult, SittingMessage, SittingReport, SittingRequest, SittingThread, SittingUpdate, ServicePrice } from '../sitting/types';
 import type { LostAlert, LocalNotification, LostSector, LostSighting, PublishLostArgs } from '../lost-pets/types';
 export type Database = {
   __InternalSupabase: { PostgrestVersion: '14.18' };
@@ -28,6 +28,7 @@ export type Database = {
       messages: { Row: MatchMessage; Insert: never; Update: never; Relationships: [] };
       sitter_profiles: { Row: SitterProfile; Insert: never; Update: never; Relationships: [] };
       sitter_services: { Row: ServicePrice & { sitter_id: string }; Insert: never; Update: never; Relationships: [] };
+      sitter_unavailability: { Row: SitterAbsence & { id: number; sitter_id: string }; Insert: never; Update: never; Relationships: [] };
       sitting_requests: { Row: SittingRequest; Insert: never; Update: never; Relationships: [] };
       sitting_messages: { Row: SittingMessage; Insert: never; Update: never; Relationships: [] };
       sitting_updates: { Row: SittingUpdate; Insert: never; Update: never; Relationships: [] };
@@ -157,6 +158,8 @@ export type Database = {
       save_sitter_profile: { Args: { p_kind: string; p_bio: string; p_city: string; p_lat: number; p_lng: number; p_species: string[]; p_max_weight: number | null; p_outdoor: string; p_services: ServicePrice[]; p_active?: boolean }; Returns: SitterProfile };
       create_sitting_request: { Args: { p_sitter: string; p_pet: string; p_service: string; p_starts: string; p_ends: string; p_message: string; p_request: string }; Returns: SittingRequest };
       update_sitting_request: { Args: { p_id: string; p_action: string; p_note?: string }; Returns: SittingRequest };
+      save_sitter_availability: { Args: { p_weekdays: number[]; p_capacity: number; p_periods: SitterAbsence[] }; Returns: SitterProfile };
+      save_sitter_offer: { Args: { p_kind: string; p_bio: string; p_city: string; p_lat: number; p_lng: number; p_species: string[]; p_max_weight: number | null; p_outdoor: string; p_services: ServicePrice[]; p_active: boolean; p_weekdays: number[]; p_capacity: number; p_periods: SitterAbsence[] }; Returns: SitterProfile };
       list_my_sittings: { Args: { p_id?: string }; Returns: MySitting[] };
       list_sitting_threads: { Args: Record<string, never>; Returns: SittingThread[] };
       send_sitting_message: { Args: { p_owner: string; p_sitter: string; p_text: string; p_request: string }; Returns: SittingMessage };

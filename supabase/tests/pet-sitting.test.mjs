@@ -78,13 +78,14 @@ test('garde : profil, recherche, demande, accord, conversation, nouvelles, annul
  await t.test('réponse : seul le gardien accepte ou refuse ; la réservation ne vient que du paiement',async()=>{
   await assert.rejects(act(A,request.id,'accept'),/Action impossible/);
   await assert.rejects(act(X,request.id,'accept'),/Demande introuvable/);
+  const [other]=await ask(X,PX,at(3),at(5),R(4));
   const [ok]=await act(S,request.id,'accept');assert.equal(ok.status,'accepted');assert.ok(ok.responded_at);
   assert.equal((await act(S,request.id,'accept'))[0].status,'accepted');
   await assert.rejects(act(A,request.id,'cancel'),/Action impossible/);
   assert.equal((await search(A,{starts:at(2),ends:at(4)})).length,0);
   assert.equal((await search(A,{starts:at(20),ends:at(22)})).length,1);
-  const [other]=await ask(X,PX,at(3),at(5),R(4));
   await assert.rejects(act(S,other.id,'accept'),/Dates déjà prises/);
+  await assert.rejects(ask(X,PX,at(3),at(5),R(5)),/Pas disponible à ces dates/);
   assert.equal((await act(S,other.id,'decline'))[0].status,'declined');
   await assert.rejects(as(A,"update sitting_requests set status='confirmed' where id=$1",[request.id]),/permission denied/);
   await db.query("update sitting_requests set status='confirmed', paid_at=now() where id=$1",[request.id]);
@@ -138,6 +139,100 @@ test('garde : profil, recherche, demande, accord, conversation, nouvelles, annul
  await t.test('recherche : le préfiltre par zone garde les gardiens au bord du rayon',async()=>{
   assert.equal((await search(X,{radius:4}))[0]?.sitter_id,S);
   assert.equal((await search(X,{radius:3})).length,0);
+ });
+ await t.test('disponibilités : jours proposés, absences privées, capacité d’accueil, retour sur un accord',async()=>{
+  const U='10000000-0000-0000-0000-000000000005',V='10000000-0000-0000-0000-000000000006',W='10000000-0000-0000-0000-000000000007';
+  const PV='20000000-0000-0000-0000-000000000006',PW='20000000-0000-0000-0000-000000000007';
+  await db.exec(`insert into auth.users(id,raw_user_meta_data) values('${U}','{"name":"Uma"}'),('${V}','{"name":"Vic"}'),('${W}','{"name":"Wen"}');
+   insert into pets(id,owner_id,name,species) values('${PV}','${V}','Rio','chien'),('${PW}','${W}','Oslo','chien');
+   insert into private_beta_members(user_id,expires_at,accepted_at,notice_version,declared_adult) select x,now()+interval '1 day',now(),'2026-11-17',true from unnest(array['${U}','${V}','${W}']::uuid[]) x;`);
+  const avail=(uid,days,cap,periods=[])=>as(uid,'select * from save_sitter_availability($1::smallint[],$2,$3::jsonb)',[days,cap,JSON.stringify(periods)]);
+  await assert.rejects(avail(U,'{1,2}',1),/Profil de gardien requis/);
+  await profile(U,48.85,2.35);
+  const [fresh]=await as(U,'select weekdays,capacity from sitter_profiles');assert.deepEqual(fresh.weekdays,[1,2,3,4,5,6,7]);assert.equal(fresh.capacity,1);
+  await assert.rejects(avail(U,'{}',1),/Disponibilités invalides/);
+  await assert.rejects(avail(U,'{8}',1),/Disponibilités invalides/);
+  await assert.rejects(avail(U,'{1}',11),/Disponibilités invalides/);
+  await assert.rejects(avail(U,'{1}',1,[{starts_on:'2030-01-10',ends_on:'2030-01-05'}]),/Période invalide/);
+  await assert.rejects(avail(U,'{1}',1,[{starts_on:'pas une date',ends_on:'2030-01-05'}]),/Période invalide/);
+  await assert.rejects(avail(U,'{1}',1,[{starts_on:'2020-01-01',ends_on:'2020-01-05'}]),/Période invalide/);
+  // Lundi prochain (heure de Paris) : base des dates du test.
+  const [{monday}]=(await db.query(`select (date_trunc('week',(now() at time zone 'Europe/Paris'))::date+7)::text monday`)).rows;
+  const day=(n,h=10)=>(new Date(`${monday}T${String(h).padStart(2,'0')}:00:00+01:00`).getTime()+n*86400_000);
+  const iso=(n,h)=>new Date(day(n,h)).toISOString();
+  const near={lat:48.85,lng:2.35};
+  const [saved]=await avail(U,'{1,2,3,4,5,3}',2,[{starts_on:iso(14).slice(0,10),ends_on:iso(16).slice(0,10)}]);
+  assert.deepEqual(saved.weekdays,[1,2,3,4,5]);assert.equal(saved.capacity,2);
+  assert.equal((await as(U,'select * from sitter_unavailability')).length,1);
+  assert.equal((await as(V,'select * from sitter_unavailability')).length,0);
+  assert.equal(await db.query("select has_function_privilege('authenticated','public.sitter_conflict(uuid,timestamptz,timestamptz)','execute') ok").then(r=>r.rows[0].ok),false);
+  const found=await search(V,{...near,starts:iso(0),ends:iso(2)});
+  assert.equal(found.length,1);assert.deepEqual(found[0].weekdays,[1,2,3,4,5]);assert.equal(found[0].capacity,2);
+  assert.equal((await search(V,{...near,starts:iso(4),ends:iso(6)})).length,0,'le samedi n’est pas proposé');
+  assert.equal((await search(V,{...near,starts:iso(14),ends:iso(15)})).length,0,'absence');
+  assert.equal((await search(V,{...near,sitter:U,starts:iso(14),ends:iso(15)}))[0].busy,true);
+  await assert.rejects(ask(V,PV,iso(4),iso(6),R(60),'chez_gardien',U),/Pas disponible à ces dates/);
+  await assert.rejects(ask(V,PV,iso(14),iso(15),R(61),'chez_gardien',U),/Pas disponible à ces dates/);
+  const [r1]=await ask(V,PV,iso(0),iso(2),R(62),'chez_gardien',U);
+  const [r2]=await ask(W,PW,iso(1),iso(3),R(63),'chez_gardien',U);
+  assert.equal((await act(U,r1.id,'accept'))[0].status,'accepted');
+  assert.equal((await search(W,{...near,starts:iso(1),ends:iso(2)})).length,1,'une place reste libre');
+  assert.equal((await act(U,r2.id,'accept'))[0].status,'accepted');
+  assert.equal((await search(W,{...near,starts:iso(1),ends:iso(2)})).length,0,'complet');
+  assert.equal((await search(W,{...near,starts:iso(2,12),ends:iso(3)})).length,1,'r1 est finie : une place se libère');
+  // Revenir sur un accord avant le paiement, jamais après.
+  assert.equal((await act(U,r2.id,'decline'))[0].status,'declined');
+  assert.equal((await act(U,r2.id,'decline'))[0].status,'declined');
+  await db.query("update sitting_requests set status='confirmed', paid_at=now() where id=$1",[r1.id]);
+  await assert.rejects(act(U,r1.id,'decline'),/Action impossible/);
+
+  // Demandes sans suite dont la garde a commencé : expirées côté serveur.
+  assert.equal(await db.query("select has_function_privilege('authenticated','public.expire_sitting_requests(uuid)','execute') ok").then(r=>r.rows[0].ok),false);
+  const [stale]=await ask(V,PV,iso(7),iso(8),R(64),'chez_gardien',U);
+  await db.query("update sitting_requests set starts_at=now()-interval '1 hour', ends_at=now()+interval '1 day' where id=$1",[stale.id]);
+  assert.deepEqual((await as(V,'select * from pet_retirement_blockers($1)',[PV])).map(b=>[b.section,b.total]),[['garde',1]],'seule la garde réservée bloque, pas la demande expirée');
+  const [again]=await ask(V,PV,iso(7),iso(8),R(65),'chez_gardien',U);
+  assert.equal(again.status,'pending','une demande expirée ne bloque pas une nouvelle demande');
+  assert.equal((await db.query('select status from sitting_requests where id=$1',[stale.id])).rows[0].status,'expired');
+  const [late]=await ask(W,PW,iso(9),iso(10),R(66),'chez_gardien',U);
+  assert.equal((await act(U,late.id,'accept'))[0].status,'accepted');
+  await db.query("update sitting_requests set starts_at=now()-interval '1 hour', ends_at=now()+interval '30 days' where id=$1",[late.id]);
+  assert.equal((await search(V,{...near,starts:iso(1),ends:iso(2)})).length,1,'une acceptée non payée et commencée ne prend plus de place');
+  assert.equal((await act(W,late.id,'withdraw'))[0].status,'expired');
+  assert.equal((await act(W,late.id,'withdraw'))[0].status,'expired');
+  await db.query("update sitting_requests set starts_at=now()-interval '1 hour', ends_at=now()+interval '1 day' where id=$1",[again.id]);
+  assert.equal(Number((await db.query('select public.expire_sitting_requests() n')).rows[0].n),1);
+  assert.ok((await db.query("select count(*)::int n from app_notifications where kind='sitting_expired' and target_id=$1",[again.id])).rows[0].n>=1,'les deux personnes sont prévenues');
+ });
+ await t.test('enregistrement du gardien : profil et disponibilités ensemble, tout ou rien',async()=>{
+  const Y='10000000-0000-0000-0000-000000000008';
+  await db.exec(`insert into auth.users(id,raw_user_meta_data) values('${Y}','{"name":"Yoan"}');
+   insert into private_beta_members(user_id,expires_at,accepted_at,notice_version,declared_adult) values('${Y}',now()+interval '1 day',now(),'2026-11-17',true);`);
+  const offer=(days,cap)=>as(Y,'select * from save_sitter_offer($1,$2,$3,$4,$5,$6::text[],$7,$8,$9::jsonb,true,$10::smallint[],$11,$12::jsonb)',
+   ['particulier','Maison avec jardin, balades matin et soir.','Lille',50.63,3.06,'{chien}',null,'jardin',services,days,cap,'[]']);
+  await assert.rejects(offer('{}',1),/Disponibilités invalides/);
+  assert.equal((await db.query('select count(*)::int n from sitter_profiles where user_id=$1',[Y])).rows[0].n,0,'aucun profil publié « tous les jours »');
+  await assert.rejects(offer('{6,7}',0),/Disponibilités invalides/);
+  assert.equal((await db.query('select count(*)::int n from sitter_profiles where user_id=$1',[Y])).rows[0].n,0);
+  const [saved]=await offer('{6,7}',3);
+  assert.deepEqual(saved.weekdays,[6,7]);assert.equal(saved.capacity,3);assert.equal(saved.active,true);
+ });
+ await t.test('suppression du compte : absences illisibles dès la demande, effacées au nettoyage',async()=>{
+  const U='10000000-0000-0000-0000-000000000005';
+  assert.equal((await as(U,'select * from sitter_unavailability')).length,1);
+  await db.query('insert into account_deletions(user_id) values($1)',[U]);
+  assert.equal((await as(U,'select * from sitter_unavailability')).length,0,'une ancienne session ne lit plus rien');
+  assert.equal((await db.query('select count(*)::int n from sitter_unavailability where sitter_id=$1',[U])).rows[0].n,1);
+  await db.query('update account_deletions set cleaned_at=now() where user_id=$1',[U]);
+  assert.equal((await db.query('select count(*)::int n from sitter_unavailability where sitter_id=$1',[U])).rows[0].n,0);
+  const [p]=(await db.query('select weekdays,capacity from sitter_profiles where user_id=$1',[U])).rows;
+  assert.deepEqual(p.weekdays,[1,2,3,4,5,6,7]);assert.equal(p.capacity,1);
+ });
+ await t.test('retour arrière puis réapplication des disponibilités',async()=>{
+  await db.exec(await readFile(new URL('../operations/rollback_sitter_availability.sql',import.meta.url),'utf8'));
+  assert.equal((await db.query("select to_regclass('public.sitter_unavailability') t")).rows[0].t,null);
+  await db.exec(await readFile(new URL('../migrations/20261123100000_sitter_availability.sql',import.meta.url),'utf8'));
+  assert.equal((await search(A,{lat:48.85,lng:2.35}))[0]?.capacity,1);
  });
  await t.test('retour arrière puis réapplication de la correction de concurrence',async()=>{await db.exec(await readFile(new URL('../operations/rollback_sitting_concurrency_recovery.sql',import.meta.url),'utf8'));await db.exec(await readFile(new URL('../migrations/20261120093317_sitting_concurrency_recovery.sql',import.meta.url),'utf8'));});
 }finally{await db.close();}

@@ -222,6 +222,50 @@
   margin-top: 2px;
 }
 
+/* Fiche : gardien pas libre sur les dates choisies (texte + icône, jamais la couleur seule). */
+.gd-unavailable {
+  display: flex;
+  gap: var(--fx-space-2);
+  align-items: flex-start;
+  color: var(--fx-color-alert-warn-fg, inherit);
+  font-weight: 600;
+}
+.gd-unavailable svg {
+  flex: none;
+  margin-top: 2px;
+}
+/* Confirmation d'un retrait ou d'un refus, à la place des boutons. */
+.gd-confirm__text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.45;
+}
+/* Disponibilités du gardien : périodes indisponibles (liste, puis ajout). */
+.gd-absences {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--fx-space-2);
+}
+.gd-absences li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--fx-space-3);
+  min-width: 0;
+}
+.gd-absences li > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.gd-absence-add {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--fx-space-3);
+  align-items: end;
+}
+
 @media (min-width: 900px) {
   .gd-qbar {
     flex-direction: row;
@@ -234,6 +278,9 @@
   }
   .gd-dates {
     grid-template-columns: 1fr 1fr;
+  }
+  .gd-absence-add {
+    grid-template-columns: 1fr 1fr auto;
   }
   .gd-map .fx-map__note {
     display: block;

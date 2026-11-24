@@ -49,22 +49,50 @@ export const shortPeriod = (from: string, to: string) => {
 export const stamp = (iso: string) => fmt({ weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
 export const clock = (iso: string) => fmt({ hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
 /** Nuits (garde de nuit) ou jours (une visite, une promenade par jour), comme la base, à l'heure de Paris. */
+/** Numéro du jour calendaire à Paris (jours depuis le 1er janvier 1970). */
+const parisDay = (time: number) => { const [y = 0, m = 1, d = 1] = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(time)).split('-').map(Number); return Date.UTC(y, m - 1, d) / 86400_000; };
 export function countUnits(service: SittingService, from: string, to: string) {
-  const day = (iso: string) => { const [y = 0, m = 1, d = 1] = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso)).split('-').map(Number); return Date.UTC(y, m - 1, d) / 86400_000; };
+  const day = (iso: string) => parisDay(new Date(iso).getTime());
   const diff = day(to) - day(from);
   return service === 'chez_gardien' || service === 'domicile' ? Math.max(1, diff) : diff + 1;
 }
 
-/** Où en est la garde : phase lisible, à partir du statut et des dates. */
-export type Phase = 'pending' | 'withdrawn' | 'declined' | 'expired' | 'accepted' | 'booked' | 'ongoing' | 'done' | 'cancelled';
+/** Jours de la semaine (1 = lundi … 7 = dimanche), comme la base. */
+export const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7] as const;
+export const dayLong = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+export const dayShort = ['Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.', 'Dim.'];
+/** « Tous les jours », « Du lundi au vendredi », « Le week-end », « Lun., mer., sam. » */
+export function weekdaysLabel(days: readonly number[]) {
+  const list = [...new Set(days)].filter((d) => d >= 1 && d <= 7).sort((a, b) => a - b);
+  if (list.length === 7) return 'Tous les jours';
+  if (list.join() === '6,7') return 'Le week-end';
+  const first = list[0] ?? 1, last = list[list.length - 1] ?? 1;
+  if (list.length >= 3 && last - first === list.length - 1) return `Du ${dayLong[first - 1]} au ${dayLong[last - 1]}`;
+  return list.map((d, i) => i ? dayShort[d - 1]!.toLowerCase() : dayShort[d - 1]).join(', ');
+}
+/** Jours de la période (heure de Paris) que le gardien ne propose pas, sans doublon : [« samedi », « dimanche »]. */
+export function missingDays(weekdays: readonly number[], from: string, to: string): string[] {
+  const a = parisDay(new Date(from).getTime()), b = parisDay(new Date(to).getTime() - 1000);
+  if (!Number.isFinite(a) || !Number.isFinite(b) || b < a) return [];
+  const missing = new Set<number>();
+  for (let d = a; d <= Math.min(b, a + 61); d++) { const iso = ((d + 3) % 7 + 7) % 7 + 1; if (!weekdays.includes(iso)) missing.add(iso); }
+  return [...missing].sort((x, y) => x - y).map((d) => dayLong[d - 1]!);
+}
+export const capacityLabel = (n: number) => n > 1 ? `Jusqu’à ${n} gardes en même temps` : 'Une garde à la fois';
+
+/** Où en est la garde : phase lisible, à partir du statut et des dates. Une demande sans suite avant son début n'est plus active. */
+export type Phase = 'pending' | 'withdrawn' | 'declined' | 'expired' | 'accepted' | 'lapsed' | 'booked' | 'ongoing' | 'done' | 'cancelled';
 export function phaseOf(s: Pick<MySitting, 'status' | 'starts_at' | 'ends_at'>, now = Date.now()): Phase {
+  const started = now >= new Date(s.starts_at).getTime();
+  if (s.status === 'pending' && started) return 'expired';
+  if (s.status === 'accepted' && started) return 'lapsed';
   if (s.status !== 'confirmed') return s.status;
   if (now >= new Date(s.ends_at).getTime()) return 'done';
   return now >= new Date(s.starts_at).getTime() ? 'ongoing' : 'booked';
 }
-const STEPS = ['Demande', 'Accord', 'Paiement', 'Garde', 'Terminée'];
+const STEPS = ['Envoyée', 'Acceptée', 'Confirmée', 'Garde', 'Terminée'];
 const reachedOf: Record<Phase, [number, boolean?]> = {
-  pending: [1], withdrawn: [1, true], declined: [1, true], expired: [1, true], accepted: [2], booked: [3], ongoing: [3], done: [5], cancelled: [3, true],
+  pending: [1], withdrawn: [1, true], declined: [1, true], expired: [1, true], accepted: [2], lapsed: [2, true], booked: [3], ongoing: [3], done: [5], cancelled: [3, true],
 };
 export const stepsOf = (phase: Phase) => {
   const [reached, stopped] = reachedOf[phase];
@@ -72,12 +100,13 @@ export const stepsOf = (phase: Phase) => {
 };
 export function statusOf(phase: Phase, role: 'owner' | 'sitter', other: string, cancelledByMe?: boolean): { status: Status; label: string } {
   switch (phase) {
-    case 'pending': return role === 'owner' ? { status: 'wait', label: `En attente de ${other}` } : { status: 'todo', label: 'À toi de répondre' };
+    case 'pending': return role === 'owner' ? { status: 'wait', label: 'Envoyée · réponse attendue' } : { status: 'todo', label: 'Reçue · à toi de répondre' };
     case 'withdrawn': return { status: 'stop', label: 'Retirée' };
     case 'declined': return { status: 'stop', label: 'Refusée' };
     case 'expired': return { status: 'stop', label: 'Expirée sans réponse' };
-    case 'accepted': return role === 'owner' ? { status: 'todo', label: 'Acceptée · paiement à faire' } : { status: 'wait', label: `Acceptée · paiement de ${other} attendu` };
-    case 'booked': return { status: 'ok', label: 'Réservée' };
+    case 'lapsed': return { status: 'stop', label: 'Expirée sans paiement' };
+    case 'accepted': return role === 'owner' ? { status: 'todo', label: 'Acceptée · paiement à faire' } : { status: 'wait', label: 'Acceptée · paiement attendu' };
+    case 'booked': return { status: 'ok', label: 'Confirmée' };
     case 'ongoing': return { status: 'ok', label: 'Garde en cours' };
     case 'done': return { status: 'ok', label: 'Terminée' };
     case 'cancelled': return { status: 'stop', label: cancelledByMe ? 'Annulée par toi' : `Annulée par ${other}` };
