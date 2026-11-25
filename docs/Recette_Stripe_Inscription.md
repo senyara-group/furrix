@@ -30,7 +30,7 @@ Aucun appel à l'API Stripe n'a été fait, et le compte n'a pas été consulté
 | Version d'API | La page de versionnage annonce `2026-11-18.endive` comme version courante. Les guides montrent aussi `.preview`, sans opt-in documenté. | Conforme (`endive`). |
 | Paiement par carte | `configuration.merchant.capabilities.card_payments.requested` est valide. | Conforme. |
 | Versements | `stripe_balance.payouts` n'est pas demandable : il est appliqué avec la configuration marchand et ne peut pas être retiré. | Conforme : seule la carte est demandée ; `ready` exige `card_payments` **et** `stripe_balance.payouts` à `active`. |
-| **Tableau de bord Express + responsabilités Stripe** | Erreur `account_controller_express_dash_without_application_losses_or_fees` : avec `dashboard: express`, `fees_collector` **et** `losses_collector` doivent valoir `application`. | **Bloquant** : la création actuelle (`express`, `stripe`/`stripe`) sera refusée. Décision requise (§ 2). |
+| **Tableau de bord Express + responsabilités Stripe** | Erreur `account_controller_express_dash_without_application_losses_or_fees` : avec `dashboard: express`, `fees_collector` **et** `losses_collector` doivent valoir `application`. | Corrigé : option A retenue (§ 2), création en `full` avec `stripe`/`stripe`. |
 | Plateforme en France | Erreur documentée `account_token_required` pour les plateformes de pays « mandatés » (exemple : France). | À vérifier en recette : la création n'envoie que le pays. Si Stripe exige un jeton de compte, il faudra Stripe.js et une clé publiable, donc un changement d'architecture. |
 | Accès Accounts v2 | Erreur `accounts_v2_access_blocked` si Accounts v2 n'est pas activé pour la plateforme. | Prérequis manuel. |
 | Lien d'inscription v2 | Champs requis : `account`, `use_case.type`, `use_case.account_onboarding.refresh_url`. `collection_options.fields: eventually_due` est valide. `configurations` apparaît dans la réponse, mais n'a pas été trouvé dans les paramètres de requête. | À vérifier en recette : si Stripe refuse `configurations`, le retirer de `stripe.ts`. |
@@ -44,7 +44,7 @@ Sources :
 - [configuration des comptes connectés](https://docs.stripe.com/connect/accounts-v2/connected-account-configuration)
 - [capacités v2](https://docs.stripe.com/connect/account-capabilities?accounts-namespace=v2)
 
-## 2. Décision requise avant toute correction du code
+## 2. Décision : option A (25 novembre 2026)
 
 Le choix « tableau de bord Express » et le choix « Stripe responsable des frais et des soldes négatifs » (Paiements_Garde.md) sont incompatibles. Le type de tableau de bord et les responsabilités sont **définitifs** pour un compte créé : il faut trancher avant de créer le moindre compte de test.
 
@@ -53,7 +53,7 @@ Le choix « tableau de bord Express » et le choix « Stripe responsable des fra
 | A | `full` | `stripe` / `stripe` | Le gardien a le tableau de bord Stripe complet et sa propre relation tarifaire avec Stripe. Stripe couvre les soldes négatifs, sous réserve des exigences de risque géré de Stripe. C'est la combinaison de l'exemple officiel d'inscription hébergée. |
 | B | `express` | `application` / `application` | Tableau de bord Express. Furrix paie les frais Stripe et répond des soldes négatifs et des litiges non recouvrés. Il faut alors décider qui supporte ces frais, ce qui interagit avec la commission encore à définir. |
 
-Une fois l'option choisie, la correction tient à `supabase/functions/sitter-stripe-onboarding/stripe.ts` (corps de création), à son test et à la documentation. Elle sera préparée sur cette branche, sans toucher aux migrations.
+**Option A retenue.** `stripe.ts` crée désormais les comptes avec `dashboard: full` et les responsabilités `stripe`/`stripe` ; le test de l'adaptateur le fige. Aucun compte n'ayant encore été créé, la clé d'idempotence existante ne peut pas entrer en conflit avec l'ancien corps de requête. Aucune migration n’est modifiée.
 
 ## 3. Prérequis manuels (titulaire du compte Stripe Furrix DEV)
 
@@ -92,7 +92,7 @@ Une liaison bloque ensuite la suppression du compte Furrix de test : c'est voulu
 
 | # | Scénario | Attendu côté Furrix | Contrôle |
 |---|---|---|---|
-| R1 | Création : « Commencer l'inscription Stripe » | Stripe s'ouvre. Une liaison est créée, avec `stripe_account_id` renseigné. | Postflight : `liaisons = 1`, `comptes_relies = 1`. Dans le sandbox : un seul compte, mode test, pays FR, configuration marchand, tableau de bord et responsabilités conformes à l'option retenue. |
+| R1 | Création : « Commencer l'inscription Stripe » | Stripe s'ouvre. Une liaison est créée, avec `stripe_account_id` renseigné. | Postflight : `liaisons = 1`, `comptes_relies = 1`. Dans le sandbox : un seul compte, mode test, pays FR, configuration marchand, tableau de bord complet et responsabilités Stripe (frais et pertes). |
 | R2 | Reprise sans doublon : fermer Stripe, puis « Reprendre » ; double clic ; second appareil pendant la préparation | Même compte Stripe. Le second appel reçoit « Préparation déjà en cours ». | Après plusieurs reprises, `stripe_account_id` est inchangé et le sandbox contient toujours un seul compte pour ce gardien. |
 | R3 | Inscription interrompue : quitter au milieu | Retour : « Inscription pas encore terminée », badge « À compléter ». | `GET /v2/core/accounts/{id}?include[0]=configuration.merchant` montre `card_payments` différent de `active`. |
 | R4 | Lien expiré ou déjà utilisé : rouvrir un lien après expiration ou une seconde fois | Stripe redirige vers `refresh_url` (profil). Aucun lien n'est recréé automatiquement ; « Reprendre » en prépare un nouveau. Un nouvel essai dans les 30 secondes affiche « Préparation déjà en cours ». | Aucun nouveau compte. `last_link_at` est mis à jour seulement après un clic. |

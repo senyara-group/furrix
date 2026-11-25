@@ -4,7 +4,7 @@
 
 Le gardien vend et encaisse la prestation ; Furrix retient une commission sur son tarif. Aucun supplément propriétaire n'a été décidé. Le pourcentage reste à définir : aucune valeur par défaut, même zéro, ne doit être utilisée lors de l'activation.
 
-Stripe Connect et Checkout hébergé sont retenus pour le web, Android et iOS. L'inscription du gardien sera hébergée par Stripe ; son suivi passera par le tableau de bord Express. La disponibilité des portefeuilles Apple Pay et Google Pay dépendra de la configuration Stripe et de l'appareil. Le paiement des gardes est distinct du prototype RevenueCat d'abonnement numérique.
+Stripe Connect et Checkout hébergé sont retenus pour le web, Android et iOS. L'inscription du gardien sera hébergée par Stripe ; son suivi passera par le tableau de bord Stripe complet du gardien (décision du 25 novembre 2026, voir « Préparation de la recette sandbox » ; le tableau de bord Express initialement retenu est incompatible avec des frais et pertes à la charge de Stripe). La disponibilité des portefeuilles Apple Pay et Google Pay dépendra de la configuration Stripe et de l'appareil. Le paiement des gardes est distinct du prototype RevenueCat d'abonnement numérique.
 
 ## Environnement
 
@@ -39,7 +39,7 @@ La fonction `sitter-stripe-onboarding` est ajoutée, désactivée par défaut. E
 
 La migration `20261125105925_sitter_stripe_onboarding.sql` conserve une liaison privée par gardien. Une clé permanente rend les nouveaux essais idempotents. Un bail de deux minutes empêche les appels simultanés de préparer deux inscriptions ; une temporisation de trente secondes limite la création de liens. Une création sans compte confirmé après vingt-trois heures est bloquée pour rapprochement manuel, sans nouvelle clé automatique. Le compte est conservé avant la création d'un lien ; un échec du lien ne relance donc pas sa création.
 
-L'adaptateur est limité à une clé `sk_test_` et au compte plateforme `acct_1UfdgzLRlPFxqD3K`. Accounts v2 utilise la version `2026-11-18.endive`. Les comptes de test sont créés en France, avec le tableau de bord Express, Stripe responsable de la collecte des frais et des soldes négatifs du gardien. Ce choix de test ne vaut pas activation commerciale. Aucune adresse e-mail, pièce d'identité ni coordonnée bancaire n'est préremplie ; le gardien les renseigne chez Stripe. Le statut « prêt » exige les capacités de paiement et de versement lues chez Stripe. Il ne confirme aucune réservation.
+L'adaptateur est limité à une clé `sk_test_` et au compte plateforme `acct_1UfdgzLRlPFxqD3K`. Accounts v2 utilise la version `2026-11-18.endive`. Les comptes de test sont créés en France, avec le tableau de bord complet (initialement Express, voir la décision du 25 novembre), Stripe responsable de la collecte des frais et des soldes négatifs du gardien. Ce choix de test ne vaut pas activation commerciale. Aucune adresse e-mail, pièce d'identité ni coordonnée bancaire n'est préremplie ; le gardien les renseigne chez Stripe. Le statut « prêt » exige les capacités de paiement et de versement lues chez Stripe. Il ne confirme aucune réservation.
 
 Les liens temporaires ne sont ni stockés ni envoyés par e-mail. La réponse interdit leur mise en cache. Seuls les hôtes exacts `connect.stripe.com` et `accounts.stripe.com` en HTTPS sont acceptés. Le retour et le renouvellement conduisent vers le profil gardien de `furrix.fr` ; il faudra un bouton explicite pour reprendre, sans création automatique au retour.
 
@@ -88,4 +88,6 @@ Documentation consultée le 25 novembre 2026 : [inscription hébergée, Accounts
 
 ## Préparation de la recette sandbox
 
-Voir [Recette_Stripe_Inscription.md](Recette_Stripe_Inscription.md) : état DEV constaté en lecture seule, plan d'activation, scénarios et **décision bloquante**. Stripe refuse `dashboard: express` avec `fees_collector`/`losses_collector` à `stripe`. Il faut choisir entre le tableau de bord complet avec des responsabilités Stripe, et Express avec des responsabilités Furrix, avant de créer un compte de test.
+Voir [Recette_Stripe_Inscription.md](Recette_Stripe_Inscription.md) : état DEV constaté en lecture seule, plan d'activation, scénarios et décision prise. Stripe refuse `dashboard: express` avec `fees_collector`/`losses_collector` à `stripe`. Il faut choisir entre le tableau de bord complet avec des responsabilités Stripe, et Express avec des responsabilités Furrix, avant de créer un compte de test.
+
+**Décision du 25 novembre 2026 : option A.** Les comptes gardiens sont créés avec `dashboard: full`, `fees_collector: stripe` et `losses_collector: stripe`. Le gardien dispose du tableau de bord Stripe complet et de sa propre relation tarifaire avec Stripe ; Stripe couvre les soldes négatifs, sous réserve de ses exigences de risque géré. Seul `card_payments` est demandé ; les versements accompagnent la configuration marchand. Ces paramètres sont définitifs pour chaque compte créé.

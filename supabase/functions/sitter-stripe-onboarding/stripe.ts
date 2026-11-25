@@ -39,7 +39,9 @@ export function stripeOnboarding(
     async create(key) {
       const account = await call("/v2/core/accounts", {
         display_name: "Gardien Furrix",
-        dashboard: "express",
+        // Décidé le 25/11/2026 : tableau de bord complet, frais et pertes à la charge de Stripe.
+        // Stripe refuse « express » avec ces responsabilités ; les deux sont définitifs pour un compte.
+        dashboard: "full",
         identity: { country: "fr" },
         configuration: {
           merchant: { capabilities: { card_payments: { requested: true } } },
