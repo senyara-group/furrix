@@ -85,3 +85,7 @@ Limites connues :
 - Fonction serveur : `deno check` réussi avec Deno 2.9.6 (paquet npm officiel installé localement dans `.mobile-tools/deno`). `deno fmt --check` est propre sur les fichiers versionnés. `deno lint` signale seulement `no-import-prefix` sur l'import `npm:@supabase/supabase-js` de `index.ts`, déjà présent avant ce lot.
 
 Documentation consultée le 25 novembre 2026 : [inscription hébergée, Accounts v2](https://docs.stripe.com/connect/hosted-onboarding?accounts-namespace=v2) (navigateurs pris en charge, liens à usage unique, `refresh_url`/`return_url`, ne pas transmettre les liens hors de l'application), [création de lien](https://docs.stripe.com/api/v2/core/account-links/create), [suivi de l'inscription v2](https://docs.stripe.com/connect/track-account-onboarding?dashboard-or-api=api&accounts-namespace=v2), [plugin Browser de Capacitor](https://capacitorjs.com/docs/apis/browser).
+
+## Préparation de la recette sandbox
+
+Voir [Recette_Stripe_Inscription.md](Recette_Stripe_Inscription.md) : état DEV constaté en lecture seule, plan d'activation, scénarios et **décision bloquante**. Stripe refuse `dashboard: express` avec `fees_collector`/`losses_collector` à `stripe`. Il faut choisir entre le tableau de bord complet avec des responsabilités Stripe, et Express avec des responsabilités Furrix, avant de créer un compte de test.
