@@ -1,6 +1,6 @@
 import { messagesHref } from "../meetings/links";
 import { chatHref, gardeHref } from "../sitting/links";
-import { appointmentHref } from "../professionals/appointments/types";
+import { appointmentChatHref, appointmentHref } from "../professionals/appointments/types";
 import { lostHref } from "../lost-pets/links";
 export const categories = {
   rencontres: "Rencontres",
@@ -27,7 +27,7 @@ export type Preference = { category: Category; push_enabled: boolean };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /** Aucun lien libre venu du réseau : seulement des destinations connues et des UUID validés. */
 export function notificationHref(
-  n: Pick<Notification, "target_type" | "target_id" | "context_id">,
+  n: Pick<Notification, "target_type" | "target_id" | "context_id"> & { kind?: string },
 ) {
   if (!uuid.test(n.target_id)) return null;
   switch (n.target_type) {
@@ -44,7 +44,7 @@ export function notificationHref(
         ? chatHref(n.target_id, n.context_id)
         : null;
     case "appointment":
-      return appointmentHref(n.target_id);
+      return n.kind === "appointment_message" ? appointmentChatHref(n.target_id) : appointmentHref(n.target_id);
     case "lost":
       return lostHref("notifications", n.target_id);
     default:

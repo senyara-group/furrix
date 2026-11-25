@@ -1,5 +1,5 @@
 import type {Professional,OwnProfessional,SaveProfessionalArgs} from '../professionals/types';
-import type { Appointment, Slot } from '../professionals/appointments/types';
+import type { Appointment, ProMessage, ProThread, Slot } from '../professionals/appointments/types';
 import type { Notification, Preference } from '../notifications/types';
 import type { RetirementBlocker } from '../pets/retirement';
 // Contrat de base de données — extrait limité aux tables de ce lot (profiles, pets).
@@ -30,6 +30,7 @@ export type Database = {
       sitter_services: { Row: ServicePrice & { sitter_id: string }; Insert: never; Update: never; Relationships: [] };
       sitter_unavailability: { Row: SitterAbsence & { id: number; sitter_id: string }; Insert: never; Update: never; Relationships: [] };
       sitting_requests: { Row: SittingRequest; Insert: never; Update: never; Relationships: [] };
+      professional_messages: { Row: ProMessage; Insert: never; Update: never; Relationships: [] };
       sitting_messages: { Row: SittingMessage; Insert: never; Update: never; Relationships: [] };
       sitting_updates: { Row: SittingUpdate; Insert: never; Update: never; Relationships: [] };
       sitting_reports: { Row: SittingReport; Insert: never; Update: never; Relationships: [] };
@@ -134,6 +135,8 @@ export type Database = {
       request_professional_appointment: {Args:{p_slot:string;p_pet:string;p_service:string;p_message:string;p_share:boolean;p_request:string};Returns:string};
       update_professional_appointment: {Args:{p_id:string;p_action:string;p_slot?:string;p_note?:string};Returns:undefined};
       list_professional_appointments: {Args:{p_id?:string};Returns:Appointment[]};
+      send_professional_message: {Args:{p_appointment:string;p_text:string;p_request:string};Returns:ProMessage};
+      list_professional_threads: {Args:Record<string,never>;Returns:ProThread[]};
       search_professionals: {Args:{p_lat?:number;p_lng?:number;p_radius?:number;p_category?:string;p_professional?:string};Returns:Professional[]};
       save_professional_profile: {Args:SaveProfessionalArgs;Returns:OwnProfessional};
       set_professional_active: {Args:{p_active:boolean};Returns:undefined};
