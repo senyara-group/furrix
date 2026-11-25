@@ -59,3 +59,19 @@ Vérifications exécutées sur ce lot : 341/341 tests Vitest (dont dix nouveaux 
 - [Paiements directs avec Checkout](https://docs.stripe.com/connect/direct-charges.md?platform=web&ui=stripe-hosted)
 - [Comptes Connect et Accounts v2](https://docs.stripe.com/connect/accounts-v2)
 - [Checkout hébergé](https://docs.stripe.com/payments/checkout)
+
+## Lot suivant : inscription Stripe dans le profil gardien (web, Android, iOS)
+
+Le profil gardien (`#/garde?vue=profil`, une fois le profil publié) affiche une carte « Versements ». Elle lit l'état réel avec `action: status` à l'ouverture et propose une action explicite : « Commencer l’inscription Stripe », « Reprendre l’inscription Stripe » ou « Compléter chez Stripe » selon l'état `not_started`, `incomplete` ou `pending`. L'état `ready` n'affiche plus d'action. Aucune création n'a lieu sans ce clic, ni au retour de Stripe. Le client réutilise uniquement `sitter-stripe-onboarding` (`src/sitting/payouts.ts`) et n'envoie que l'action.
+
+Messages distincts : service désactivé ou indisponible (503, fonction absente), préparation déjà en cours (`busy`), vérification par l'équipe (`reconciliation_required`, sans bouton de relance), accès refusé, session expirée et absence de réseau. Le lien reçu est revérifié côté client (HTTPS, `connect.stripe.com` ou `accounts.stripe.com`, sans identifiant ni port) puis remis directement au navigateur. Il n'est conservé ni dans l'état de l'écran, ni dans les brouillons, ni dans `sessionStorage`/`localStorage`.
+
+Ouverture (`src/platform/secureBrowser.ts`) : Stripe n'accepte pas l'inscription hébergée dans une WebView embarquée. Sur iOS et Android, `@capacitor/browser` **8.0.5** (version figée, compatible Capacitor 8) ouvre SFSafariViewController ou Chrome Custom Tabs ; la fermeture déclenche une relecture de l'état. Sur le web, Stripe remplace la page ; le retour recharge le profil et relit l'état, y compris depuis le cache arrière. Sur le web, le bouton est bloqué tant que le formulaire du profil a des modifications non enregistrées. Un retour de Stripe n'est jamais présenté comme une inscription terminée : seul l'état lu par le serveur compte.
+
+Limites connues :
+
+- L'URL de retour serveur pointe vers `https://furrix.fr/#/garde?vue=profil`. Sans lien universel ni App Link pour `furrix.fr`, le gardien mobile voit cette page dans le navigateur sécurisé et doit le fermer pour revenir dans l'application. Le texte de la carte l'indique.
+- Le serveur lit l'état avec `GET /v1/accounts/{id}` (`charges_enabled`, `payouts_enabled`, `details_submitted`) pour un compte créé avec Accounts v2. La documentation v2 consultée décrit plutôt `configuration.merchant.capabilities.*.status` et `requirements` (`GET /v2/core/accounts/{id}` avec `include`). La compatibilité de la lecture v1 n'a pas été vérifiée dans le sandbox : à confirmer lors du premier essai réel, et à faire évoluer côté serveur si besoin.
+- Aucun appel Stripe réel, aucun essai sur appareil ou simulateur, aucune activation de la fonction ni migration appliquée dans ce lot. Aucune commission, aucun Checkout ni paiement n'est activé.
+
+Documentation consultée le 25 novembre 2026 : [inscription hébergée, Accounts v2](https://docs.stripe.com/connect/hosted-onboarding?accounts-namespace=v2) (navigateurs pris en charge, liens à usage unique, `refresh_url`/`return_url`, ne pas transmettre les liens hors de l'application), [création de lien](https://docs.stripe.com/api/v2/core/account-links/create), [suivi de l'inscription v2](https://docs.stripe.com/connect/track-account-onboarding?dashboard-or-api=api&accounts-namespace=v2), [plugin Browser de Capacitor](https://capacitorjs.com/docs/apis/browser).
