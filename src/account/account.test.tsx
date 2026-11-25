@@ -6,6 +6,7 @@ import * as lost from '../lost-pets/service';
 import * as overviewService from '../app/accountOverview';
 import { useAccountOverview } from '../app/useAccountOverview';
 import { createFakeSupabase } from '../test/fakeSupabase';
+import { AppError } from '../services/errors';
 
 const owner='owner-a';
 const saved={id:owner,name:'Alice',city:'Lille'};
@@ -71,6 +72,14 @@ const createFake=createFakeSupabase();
 it('une déconnexion échouée reste visible et peut être réessayée',async()=>{
  const {onSignOut}=mount();fireEvent.click(screen.getByRole('button',{name:'Déconnecter cet appareil'}));
  await screen.findByText('La déconnexion n’a pas abouti. Réessaie.');expect(onSignOut).toHaveBeenCalledTimes(1);
+});
+it('explique pourquoi le retrait des notifications empêche la déconnexion',async()=>{
+ const {onSignOut}=mount();
+ const message='La déconnexion n’est pas confirmée. Rétablis ta connexion pour retirer les notifications de cet appareil, puis réessaie.';
+ onSignOut.mockRejectedValueOnce(new AppError('network',message));
+ fireEvent.click(screen.getByRole('button',{name:'Déconnecter cet appareil'}));
+ await screen.findByText(message);
+ expect((screen.getByRole('button',{name:'Déconnecter cet appareil'}) as HTMLButtonElement).disabled).toBe(false);
 });
 
 it('un secteur non chargé ne passe pas pour désactivé et peut être rechargé',async()=>{

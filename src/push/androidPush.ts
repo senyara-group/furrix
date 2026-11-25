@@ -5,6 +5,7 @@ import type { FurrixClient } from "../services/supabaseClient";
 import { lostHref } from "../lost-pets/links";
 import { listNotifications as listAppNotifications, readNotification as readAppNotification } from '../notifications/service';
 import { notificationHref } from '../notifications/types';
+import { AppError } from '../services/errors';
 export type PushPhase =
   | "loading"
   | "off"
@@ -33,6 +34,9 @@ export class AndroidPush {
   private active = true;
   private wanted = false;
   private enabling = false;
+  private closing = false;
+  private disabling?: Promise<boolean>;
+  private registrations = new Set<Promise<void>>();
   private handles: PluginListenerHandle[] = [];
   private waiter?: {
     resolve: () => void;
@@ -87,7 +91,9 @@ export class AndroidPush {
     if (!androidPushSupported()) return;
     try {
       await this.listen("registration", (value) => {
-        void this.registered(value);
+        const task = this.registered(value);
+        this.registrations.add(task);
+        void task.finally(() => this.registrations.delete(task));
       });
       await this.listen("registrationError", () => {
         if (this.active) {
@@ -111,13 +117,16 @@ export class AndroidPush {
         return;
       }
       const permission = await PushNotifications.checkPermissions();
-      if (!this.active) return;
+      if (!this.active || this.closing || this.disabling) return;
       if (id && data && permission.receive === "granted") {
         this.wanted = true;
         this.phase("busy");
         await this.register();
       } else {
-        if (id && !data) await PushNotifications.unregister();
+        if (id && !data) {
+          await PushNotifications.unregister();
+          await PushNotifications.removeAllDeliveredNotifications();
+        }
         this.phase(permission.receive === "denied" ? "denied" : "off");
       }
     } catch {
@@ -174,7 +183,7 @@ export class AndroidPush {
     }
   }
   async enable() {
-    if (!this.active || !androidPushSupported() || this.enabling) return;
+    if (!this.active || !androidPushSupported() || this.enabling || this.disabling || this.closing) return;
     this.enabling = true;
     this.phase("busy");
     this.wanted = true;
@@ -182,7 +191,7 @@ export class AndroidPush {
       let permission = await PushNotifications.checkPermissions();
       if (permission.receive !== "granted")
         permission = await PushNotifications.requestPermissions();
-      if (!this.active) return;
+      if (!this.active || !this.wanted || this.closing || this.disabling) return;
       if (permission.receive !== "granted") {
         this.wanted = false;
         this.phase("denied");
@@ -195,7 +204,7 @@ export class AndroidPush {
         visibility: 0,
         vibration: true,
       });
-      if (!this.active) return;
+      if (!this.active || !this.wanted || this.closing || this.disabling) return;
       await this.register();
     } catch {
       if (this.active) this.phase("error");
@@ -203,13 +212,21 @@ export class AndroidPush {
       this.enabling = false;
     }
   }
-  async disable() {
-    if (!androidPushSupported()) return;
+  async disable(): Promise<boolean> {
+    if (this.disabling) return this.disabling;
+    const task = this.disableDevice();
+    this.disabling = task;
+    try { return await task; } finally { this.disabling = undefined; }
+  }
+  private async disableDevice(): Promise<boolean> {
+    if (!androidPushSupported()) return true;
     this.wanted = false;
     this.phase("busy");
     this.settle(Error("Activation annulée"));
     let failed = false;
     try {
+      // Une inscription déjà envoyée doit finir avant le dernier retrait serveur.
+      await Promise.all(this.registrations);
       const id = await this.device();
       if (id) {
         const { error } = await this.client.rpc("remove_android_push", {
@@ -223,10 +240,22 @@ export class AndroidPush {
     }
     try {
       await PushNotifications.unregister();
+      await PushNotifications.removeAllDeliveredNotifications();
     } catch {
       failed = true;
     }
     if (this.active) this.phase(failed ? "error" : "off");
+    return !failed;
+  }
+  /** Ne ferme pas la session tant que le retrait serveur et natif n'est pas confirmé. */
+  async signOut(action: () => Promise<boolean>): Promise<boolean> {
+    if (this.closing) return false;
+    this.closing = true;
+    try {
+      if (!await this.disable()) throw new AppError('network',
+        'La déconnexion n’est pas confirmée. Rétablis ta connexion pour retirer les notifications de cet appareil, puis réessaie.');
+      return await action();
+    } finally { this.closing = false; }
   }
   private async open(value: unknown) {
     const target = pushTarget(
