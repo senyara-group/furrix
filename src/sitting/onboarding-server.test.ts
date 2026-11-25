@@ -174,6 +174,9 @@ describe("Adaptateur Stripe de test", () => {
       "Idempotency-Key": "furrix-sitter-stable",
     });
     const body = JSON.parse(String(create.body));
+    // Express exigerait des responsabilités « application » : combinaison refusée par Stripe.
+    expect(body.dashboard).toBe("full");
+    expect(body.configuration.merchant.capabilities).toEqual({ card_payments: { requested: true } });
     expect(body.defaults.responsibilities).toEqual({
       fees_collector: "stripe",
       losses_collector: "stripe",
