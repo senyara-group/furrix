@@ -174,6 +174,6 @@ describe('garde', () => {
       sitting_id: 'g1', sitting_status: 'accepted', starts_at: null, ends_at: null }]);
     render(<MessagesArea client={createFakeSupabase().client} ownerId={me} />);
     const row = await screen.findByRole('link', { name: /Sam/ });
-    expect(row.getAttribute('href')).toBe(`#/garde?vue=conversation&gardien=s1&proprio=${me}`);
+    expect(row.getAttribute('href')).toBe(`#/garde?vue=conversation&gardien=s1&proprio=${me}&depuis=messages`);
   });
 });

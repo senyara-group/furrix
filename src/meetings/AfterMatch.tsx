@@ -1,8 +1,8 @@
 import {AppError} from '../services/errors';
-import {useMessageDraft} from './messageDrafts';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {useInbox,useMessageDraft,type InboxFilter} from './messageDrafts';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import {
-  ActionBar, Alert, Button, Card, ChatLayout, ChatThread, CheckList, Composer, DetailLayout, EmptyState, Field, FurrixScope, Icon,
+  ActionBar, Alert, Button, Card, ChatLayout, ChipGroup, ChatThread, CheckList, Composer, DetailLayout, EmptyState, Field, FurrixScope, Icon,
   Input, ListHeader, Loading, MessageBubble, Note, OptionGroup, Page, PageHeader, ResultList, ResultRow, Separator, SlotGrid, Stack, StatusBadge,
   Steps, SystemMessage, Text, Textarea, Who, type StepState,
 } from '../design-system';
@@ -18,6 +18,7 @@ import { listProfessionalThreads } from '../professionals/appointments/service';
 import { appointmentChatHref, labels as appointmentLabels, type ProThread } from '../professionals/appointments/types';
 import { chatHref } from '../sitting/links';
 import type { SittingThread } from '../sitting/types';
+import { phaseOf as sittingPhase, shortPeriod, statusOf as sittingStatus } from '../sitting/format';
 import './after-match.css';
 
 const activityLabel = { balade: 'Balade', jeu: 'Jeu au parc' } as const;
@@ -69,55 +70,137 @@ const statusOf: Record<string, { status: 'wait' | 'todo' | 'ok' | 'stop'; label:
   declined: { status: 'stop', label: 'Proposition déclinée' }, cancelled: { status: 'stop', label: 'Rencontre annulée' },
 };
 
+/** Date du dernier échange : « 14:05 », « Hier », « Lun. », « 12 nov. » ou « 12 nov. 2025 ». */
+export function inboxDate(iso: string, now = new Date()) {
+  const d = new Date(iso), start = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const days = Math.round((start(now) - start(d)) / 86400_000);
+  if (days <= 0) return time(iso);
+  if (days === 1) return 'Hier';
+  if (days < 7) return cap(new Intl.DateTimeFormat('fr-FR', { weekday: 'short' }).format(d));
+  return new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', ...(d.getFullYear() !== now.getFullYear() ? { year: 'numeric' as const } : {}) }).format(d);
+}
+const clip = (text: string, max = 80) => { const t = text.trim().replace(/\s+/g, ' '); return t.length > max ? `${t.slice(0, max)}…` : t; };
+/** Deux lignes sous le nom : le contexte (catégorie, animal, prestation) puis le dernier message ou le brouillon. */
+function InboxMeta({ context, last, draft, empty }: { context: string; last: string | null; draft: string; empty: string }) {
+  return <><span className="am-inbox__ctx">{context}</span>
+    <span className="am-inbox__last">{draft.trim() ? <><b>Brouillon :</b> {clip(draft)}</> : last?.trim() ? `« ${clip(last)} »` : empty}</span></>;
+}
+const dateAside = (iso: string | null) => iso ? <time dateTime={iso}>{inboxDate(iso)}</time> : undefined;
+const badges = (draft: string, status?: { status: ComponentProps<typeof StatusBadge>['status']; label: string }) => draft.trim() || status
+  ? <span className="am-inbox__tags">{draft.trim() ? <StatusBadge status="todo">Brouillon</StatusBadge> : null}{status ? <StatusBadge status={status.status}>{status.label}</StatusBadge> : null}</span>
+  : undefined;
+
 function MatchRow({ client, match }: { client: FurrixClient; match: MyMatch }) {
   const url = usePetPhotoUrl(client, match.photo);
-  const [draft]=useMessageDraft(match.match_id);
+  const [draft] = useMessageDraft(match.match_id);
   const status = match.proposal_status ? statusOf[match.proposal_status] : undefined;
-  return <ResultRow as="a" href={messagesHref(match.match_id)} photo={url ? { src: url, alt: '' } : undefined} initials={url ? undefined : match.name.charAt(0).toUpperCase()}
-    name={`${match.name} et ${ownerOf(match)}`}
-    tag={draft.trim()||status?<>{draft.trim()&&<StatusBadge status="todo">Brouillon</StatusBadge>}{status&&<StatusBadge status={status.status}>{status.label}</StatusBadge>}</>:undefined}
-    meta={draft.trim() ? `Brouillon : ${draft.trim().slice(0,80)}` : match.last_text ? `« ${match.last_text.length > 80 ? `${match.last_text.slice(0, 80)}…` : match.last_text} »` : `Match avec ${match.my_pet_name} · ${day(match.matched_at)}`} />;
+  return <li><ResultRow as="a" href={messagesHref(match.match_id)} className="am-inbox" photo={url ? { src: url, alt: '' } : undefined} initials={url ? undefined : match.name.charAt(0).toUpperCase()}
+    name={`${match.name} et ${ownerOf(match)}`} aside={dateAside(match.last_at ?? match.matched_at)} tag={badges(draft, status)}
+    meta={<InboxMeta context={`Rencontre · avec ${match.my_pet_name}`} last={match.last_text} draft={draft} empty={`Match le ${day(match.matched_at)} · dis bonjour !`} />} /></li>;
 }
 
-function MatchList({client}:{client:FurrixClient}) {
- const [state,setState]=useState<{status:'loading'|'ready'|'error';data:MyMatch[]}>({status:'loading',data:[]});
- const [garde,setGarde]=useState<SittingThread[]>([]),[gardeError,setGardeError]=useState(false);
- const [services,setServices]=useState<ProThread[]>([]),[servicesError,setServicesError]=useState(false);
- const [attempt,setAttempt]=useState(0),[refreshing,setRefreshing]=useState(false),[query,setQuery]=useState('');
- useEffect(()=>{let current=true,running=false;const load=async()=>{if(running)return;running=true;if(current)setRefreshing(true);
- const [matches,threads,pro]=await Promise.allSettled([listMyMatches(client),listSittingThreads(client),listProfessionalThreads(client)]);
- if(current){if(matches.status==='fulfilled')setState({status:'ready',data:matches.value});else setState(old=>({status:'error',data:matches.reason instanceof AppError&&matches.reason.code==='network'?old.data:[]}));
- if(threads.status==='fulfilled'){setGarde(threads.value);setGardeError(false);}else{setGardeError(true);if(!(threads.reason instanceof AppError&&threads.reason.code==='network'))setGarde([]);}
- if(pro.status==='fulfilled'){setServices(pro.value);setServicesError(false);}else{setServicesError(true);if(!(pro.reason instanceof AppError&&pro.reason.code==='network'))setServices([]);}setRefreshing(false);}running=false;};void load();return poll(load,15_000,()=>{current=false;});},[client,attempt]);
- const normalize=(v:string)=>v.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('fr-FR');
- const words=normalize(query).trim().split(/\s+/).filter(Boolean),find=(v:string)=>words.every(w=>normalize(v).includes(w));
- const filtered=state.data.filter(m=>find([m.name,m.owner_name,m.my_pet_name].filter(Boolean).join(' '))),filteredGarde=garde.filter(t=>find(t.other_name??'')),filteredServices=services.filter(t=>find([t.other_name,t.service_name].filter(Boolean).join(' ')));
- const count=filtered.length+filteredGarde.length+filteredServices.length,total=state.data.length+garde.length+services.length,partial=gardeError||servicesError;
- const retry=<Button variant="out" size="sm" icon="retry" loading={refreshing} onClick={()=>setAttempt(a=>a+1)}>Actualiser</Button>;
- return <><PageHeader title="Messages" subtitle="Tes conversations de rencontres, de garde et de services, au même endroit."/>
- {(state.status==='error'||partial)&&<Alert tone="err" title={total?'Actualisation indisponible':'Tes conversations n’ont pas pu être chargées.'} actions={retry}>{gardeError?'Les conversations de garde n’ont pas pu être actualisées. ':''}{servicesError?'Les conversations de services n’ont pas pu être actualisées. ':''}{state.status==='error'?'Les conversations de rencontres n’ont pas pu être actualisées. ':''}Les derniers échanges restent affichés en cas de panne réseau.</Alert>}
- {state.status==='loading'?<Loading label="Chargement de tes conversations…"/>:<>
- {total>0&&<Stack gap={3}><Field label="Rechercher une conversation"><Input type="search" value={query} maxLength={100} placeholder="Animal ou propriétaire" onChange={e=>setQuery(e.target.value)}/></Field>
- {state.data.length===100&&<Note>La recherche de rencontres porte sur tes 100 conversations les plus récentes.</Note>}
- <div className="app-message-tools"><Note>{count} conversation{count>1?'s':''}</Note>{state.status!=='error'&&!partial&&retry}</div></Stack>}
- {count>0?<Stack gap={8}>
- {filtered.length>0&&<Stack gap={2}>{(garde.length>0||services.length>0)&&<ListHeader title="Rencontres"/>}<ResultList>{filtered.map(m=><MatchRow key={m.match_id} client={client} match={m}/>)}</ResultList></Stack>}
- {filteredGarde.length>0&&<Stack gap={2}><ListHeader title="Garde"/><ResultList>{filteredGarde.map(t=><SittingInboxRow key={t.owner_id+':'+t.sitter_id} thread={t}/>)}</ResultList></Stack>}
- {filteredServices.length>0&&<Stack gap={2}><ListHeader title="Services"/><ResultList>{filteredServices.map(t=><ServiceInboxRow key={t.appointment_id} thread={t}/>)}</ResultList></Stack>}
- </Stack>:total>0?<EmptyState icon="search" title="Aucune conversation trouvée" action={<Button variant="quiet" onClick={()=>setQuery('')}>Effacer la recherche</Button>}>Essaie le prénom du propriétaire, le nom d’un animal ou celui du gardien.</EmptyState>:state.status!=='error'&&!partial&&<EmptyState icon="message" title="Pas encore de conversation" action={<Button as="a" href="#/rencontres" variant="out" size="sm">Découvrir des compagnons</Button>}>Un j’aime de chaque côté, un premier contact avec un gardien ou un message sur une demande de service, et la conversation s’ouvre ici.</EmptyState>}
- </>}</>;
+function SittingInboxRow({ thread: t }: { thread: SittingThread }) {
+  const [draft] = useMessageDraft('garde:' + t.owner_id + ':' + t.sitter_id);
+  const name = t.other_name?.trim() || (t.role === 'owner' ? 'Le gardien' : 'Le propriétaire');
+  const phase = t.sitting_status && t.starts_at && t.ends_at ? sittingPhase({ status: t.sitting_status, starts_at: t.starts_at, ends_at: t.ends_at }) : null;
+  const status = !phase ? undefined : phase === 'cancelled' ? { status: 'stop' as const, label: 'Garde annulée' } : sittingStatus(phase, t.role, name);
+  const context = ['Garde', t.role === 'owner' ? 'ton gardien' : 'te confie un animal', t.starts_at && t.ends_at ? shortPeriod(t.starts_at, t.ends_at) : null].filter(Boolean).join(' · ');
+  return <li><ResultRow as="a" href={chatHref(t.owner_id, t.sitter_id, true)} className="am-inbox" initials={name.charAt(0).toUpperCase()} name={name}
+    aside={dateAside(t.last_at)} tag={badges(draft, status)}
+    meta={<InboxMeta context={context} last={t.last_text} draft={draft} empty="Pas encore de message" />} /></li>;
 }
-/** Une conversation Services : l'autre personne, la prestation et le dernier message (ou le brouillon). */
-function ServiceInboxRow({thread:t}:{thread:ProThread}){
- const [draft]=useMessageDraft('services:'+t.appointment_id);
- const name=t.other_name?.trim()||(t.role==='owner'?'L’établissement':'Le propriétaire');
- return <li><ResultRow as="a" href={appointmentChatHref(t.appointment_id)} initials={name.charAt(0).toUpperCase()} name={name}
-  tag={<StatusBadge status={draft?'todo':t.status==='confirmed'?'ok':t.status==='pending'||t.status==='countered'?'wait':'stop'}>{draft?'Brouillon':appointmentLabels[t.status]}</StatusBadge>}
-  meta={draft?'Brouillon : '+draft.trim().slice(0,80):t.last_text?t.service_name+' · « '+t.last_text.slice(0,80)+' »':t.service_name}/></li>;
+
+/** Une conversation Services : l'autre personne, la prestation et son créneau, le dernier message (ou le brouillon). */
+function ServiceInboxRow({ thread: t }: { thread: ProThread }) {
+  const [draft] = useMessageDraft('services:' + t.appointment_id);
+  const name = t.other_name?.trim() || (t.role === 'owner' ? 'L’établissement' : 'Le propriétaire');
+  const tone = t.status === 'confirmed' ? 'ok' : t.status === 'pending' || t.status === 'countered' ? 'wait' : 'stop';
+  return <li><ResultRow as="a" href={appointmentChatHref(t.appointment_id, true)} className="am-inbox" initials={name.charAt(0).toUpperCase()} name={name}
+    aside={dateAside(t.last_at)} tag={badges(draft, { status: tone, label: appointmentLabels[t.status] })}
+    meta={<InboxMeta context={`Services · ${t.service_name} · ${shortSlot(t.starts_at)}`} last={t.last_text} draft={draft} empty="Pas encore de message" />} /></li>;
 }
-function SittingInboxRow({thread:t}:{thread:SittingThread}){
- const [draft]=useMessageDraft('garde:'+t.owner_id+':'+t.sitter_id);
- return <li><ResultRow as="a" href={chatHref(t.owner_id,t.sitter_id)} initials={(t.other_name?.trim()||'?').charAt(0).toUpperCase()} name={t.other_name?.trim()||(t.role==='owner'?'Le gardien':'Le propriétaire')} tag={<StatusBadge status={draft?'todo':'draft'}>{draft?'Brouillon':t.role==='owner'?'Ton gardien':'Te confie un animal'}</StatusBadge>} meta={draft?'Brouillon : '+draft.trim().slice(0,80):t.last_text?'« '+t.last_text.slice(0,80)+' »':'Conversation de garde'}/></li>;
+
+type Kind = Exclude<InboxFilter, 'toutes'>;
+type Source<T> = { status: 'loading' | 'ready' | 'error'; data: T[] };
+const KINDS: Kind[] = ['rencontres', 'garde', 'services'];
+const kindLabel: Record<Kind, string> = { rencontres: 'Rencontres', garde: 'Garde', services: 'Services' };
+const filterOptions: Array<{ value: InboxFilter; label: string }> = [{ value: 'toutes', label: 'Toutes' }, ...KINDS.map((k) => ({ value: k, label: kindLabel[k] }))];
+const emptyOf: Record<Kind, { title: string; text: string; action: string; href: string }> = {
+  rencontres: { title: 'Pas encore de rencontre', text: 'Un j’aime de chaque côté et la conversation s’ouvre ici.', action: 'Découvrir des compagnons', href: '#/rencontres' },
+  garde: { title: 'Pas encore de conversation de garde', text: 'Écris à un gardien depuis sa fiche : vos échanges arrivent ici.', action: 'Trouver un gardien', href: '#/garde' },
+  services: { title: 'Pas encore de conversation de service', text: 'Un message sur une demande de rendez-vous ouvre la conversation ici.', action: 'Voir les services', href: '#/services' },
+};
+const searchHint: Record<InboxFilter, string> = {
+  toutes: 'Essaie le prénom d’un propriétaire, le nom d’un animal, d’un gardien, d’un établissement ou d’une prestation.',
+  rencontres: 'Essaie le prénom du propriétaire ou le nom d’un des deux animaux.',
+  garde: 'Essaie le prénom du gardien ou du propriétaire.',
+  services: 'Essaie le nom de l’établissement, du propriétaire ou de la prestation.',
+};
+const normalize = (v: string) => v.normalize('NFD').replace(/[̀-ͯ]/g, '').toLocaleLowerCase('fr-FR');
+/** Une panne réseau garde les dernières conversations ; un refus ou une erreur inconnue les retire. */
+const settle = <T,>(result: PromiseSettledResult<T[]>, old: Source<T>): Source<T> =>
+  result.status === 'fulfilled' ? { status: 'ready', data: result.value }
+    : { status: 'error', data: result.reason instanceof AppError && result.reason.code === 'network' ? old.data : [] };
+const timeOf = (iso: string | null) => iso ? new Date(iso).getTime() : 0;
+
+function MatchList({ client }: { client: FurrixClient }) {
+  const [matches, setMatches] = useState<Source<MyMatch>>({ status: 'loading', data: [] });
+  const [garde, setGarde] = useState<Source<SittingThread>>({ status: 'loading', data: [] });
+  const [services, setServices] = useState<Source<ProThread>>({ status: 'loading', data: [] });
+  const [attempt, setAttempt] = useState(0), [refreshing, setRefreshing] = useState(false);
+  const [{ filter, query }, setInbox] = useInbox();
+  useEffect(() => {
+    let current = true, running = false;
+    const load = async () => {
+      if (running) return; running = true; if (current) setRefreshing(true);
+      const [m, g, s] = await Promise.allSettled([listMyMatches(client), listSittingThreads(client), listProfessionalThreads(client)]);
+      if (current) { setMatches((old) => settle(m, old)); setGarde((old) => settle(g, old)); setServices((old) => settle(s, old)); setRefreshing(false); }
+      running = false;
+    };
+    void load();
+    return poll(load, 15_000, () => { current = false; });
+  }, [client, attempt]);
+
+  const words = normalize(query).trim().split(/\s+/).filter(Boolean);
+  const find = (...v: Array<string | null | undefined>) => { const text = normalize(v.filter(Boolean).join(' ')); return words.every((w) => text.includes(w)); };
+  const sources: Record<Kind, Source<unknown>> = { rencontres: matches, garde, services };
+  const rows: Array<{ kind: Kind; at: string | null; node: ReactNode }> = [
+    ...matches.data.filter((m) => find(m.name, m.owner_name, m.my_pet_name))
+      .map((m) => ({ kind: 'rencontres' as const, at: m.last_at ?? m.matched_at, node: <MatchRow key={'r:' + m.match_id} client={client} match={m} /> })),
+    ...garde.data.filter((t) => find(t.other_name))
+      .map((t) => ({ kind: 'garde' as const, at: t.last_at ?? t.starts_at, node: <SittingInboxRow key={`g:${t.owner_id}:${t.sitter_id}`} thread={t} /> })),
+    ...services.data.filter((t) => find(t.other_name, t.service_name))
+      .map((t) => ({ kind: 'services' as const, at: t.last_at ?? t.starts_at, node: <ServiceInboxRow key={'s:' + t.appointment_id} thread={t} /> })),
+  ];
+  // « Toutes » mélange les trois catégories, de l'échange le plus récent au plus ancien.
+  const visible = (filter === 'toutes' ? rows : rows.filter((r) => r.kind === filter)).sort((a, b) => timeOf(b.at) - timeOf(a.at));
+  const shown: Kind[] = filter === 'toutes' ? KINDS : [filter];
+  const failed = shown.filter((k) => sources[k].status === 'error');
+  const loading = shown.some((k) => sources[k].status === 'loading');
+  const total = shown.reduce((n, k) => n + sources[k].data.length, 0), all = KINDS.reduce((n, k) => n + sources[k].data.length, 0);
+  const capped = shown.filter((k) => sources[k].data.length >= 100);
+  const retry = <Button variant="out" size="sm" icon="retry" loading={refreshing} onClick={() => setAttempt((a) => a + 1)}>Actualiser</Button>;
+  const failedText = failed.map((k) => kindLabel[k].toLocaleLowerCase('fr-FR')).join(', ').replace(/, ([^,]*)$/, ' et $1');
+  const empty = filter === 'toutes'
+    ? <EmptyState icon="message" title="Pas encore de conversation" action={<Button as="a" href="#/rencontres" variant="out" size="sm">Découvrir des compagnons</Button>}>Un j’aime de chaque côté, un premier contact avec un gardien ou un message sur une demande de service, et la conversation s’ouvre ici.</EmptyState>
+    : <EmptyState icon="message" title={emptyOf[filter].title} action={<Button as="a" href={emptyOf[filter].href} variant="out" size="sm">{emptyOf[filter].action}</Button>}>{emptyOf[filter].text}</EmptyState>;
+
+  return <><PageHeader title="Messages" subtitle="Tes conversations de rencontres, de garde et de services, au même endroit." />
+    <Stack gap={3}>
+      <ChipGroup aria-label="Catégorie de conversations" className="am-inbox-filters" options={filterOptions} value={filter} onChange={(value) => setInbox({ filter: value })} />
+      {all > 0 && <Field label="Rechercher une conversation"><Input type="search" value={query} maxLength={100} placeholder="Nom, animal ou prestation" onChange={(e) => setInbox({ query: e.target.value })} /></Field>}
+      {failed.length > 0 && <Alert tone="err" title={total ? 'Actualisation indisponible' : failed.length === shown.length ? 'Tes conversations n’ont pas pu être chargées.' : 'Une partie de tes conversations n’a pas pu être chargée.'} actions={retry}>
+        {`Les conversations de ${failedText} n’ont pas pu être actualisées. `}{shown.length > failed.length ? 'Les autres catégories restent à jour. ' : ''}Les derniers échanges restent affichés en cas de panne réseau.
+      </Alert>}
+      {loading && !visible.length ? <Loading label="Chargement de tes conversations…" /> : <>
+        {total > 0 && <div className="app-message-tools"><Note>{visible.length} conversation{visible.length > 1 ? 's' : ''}{loading ? ' · chargement en cours…' : ''}</Note>{!failed.length && retry}</div>}
+        {capped.length > 0 && <Note>La recherche porte sur tes 100 conversations les plus récentes{filter === 'toutes' ? ` de ${capped.map((k) => kindLabel[k].toLocaleLowerCase('fr-FR')).join(', ')}` : ''}.</Note>}
+        {visible.length > 0 ? <ResultList>{visible.map((r) => r.node)}</ResultList>
+          : total > 0 ? <EmptyState icon="search" title="Aucune conversation trouvée" action={<Button variant="quiet" onClick={() => setInbox({ query: '' })}>Effacer la recherche</Button>}>{searchHint[filter]}</EmptyState>
+          : failed.length ? null : empty}
+      </>}
+    </Stack>
+  </>;
 }
 
 /* ───────── Un match ───────── */

@@ -25,7 +25,7 @@ function useGardeParams(): GardeParams & { vue: GardeView } {
   const raw = params.get('vue') ?? '';
   const gardien = params.get('gardien') ?? undefined, demande = params.get('demande') ?? undefined, proprio = params.get('proprio') ?? undefined;
   const vue: GardeView = (views as readonly string[]).includes(raw) ? raw as GardeView : demande ? 'suivi' : gardien ? 'fiche' : 'recherche';
-  return { vue, gardien, demande, proprio };
+  return { vue, gardien, demande, proprio, ...(params.get('depuis') === 'messages' ? { depuis: 'messages' as const } : {}) };
 }
 const go = (p: GardeParams) => { window.location.hash = gardeHref(p); };
 /** Actualisation légère d'une demande : la réponse de l'autre personne s'affiche sans recharger la page. */
@@ -96,14 +96,15 @@ export default function GardeArea({ client, ownerId, pets }: { client: FurrixCli
   const [criteria, setCriteria] = useCriteria(pets);
   const [opened, setOpened] = useState<SitterResult | null>(null);
   useEffect(() => { window.scrollTo({ top: 0 }); }, [params.vue, params.gardien, params.demande]);
-  const back = useCallback(() => go({}), []);
+  const fromMessages = params.vue === 'conversation' && params.depuis === 'messages';
+  const back = useCallback(() => { if (fromMessages) window.location.hash = '#/messages'; else go({}); }, [fromMessages]);
   const listTitle = params.vue === 'mes-gardes' ? 'Mes gardes' : params.vue === 'profil' ? 'Profil de gardien' : params.vue === 'conversation' ? 'Conversation' : null;
-  usePhoneBar(useMemo(() => listTitle ? { title: listTitle, back: { label: 'Faire garder', onClick: back } } : null, [listTitle, back]));
+  usePhoneBar(useMemo(() => listTitle ? { title: listTitle, back: { label: fromMessages ? 'Messages' : 'Faire garder', onClick: back } } : null, [listTitle, back, fromMessages]));
 
   let content;
   if (params.vue === 'mes-gardes') content = <MySittings client={client} />;
   else if (params.vue === 'profil') content = <SitterProfileForm client={client} userId={ownerId} />;
-  else if (params.vue === 'conversation' && params.gardien) content = <SittingChat key={`${params.proprio ?? ownerId}:${params.gardien}`} client={client} me={ownerId} owner={params.proprio ?? ownerId} sitter={params.gardien} />;
+  else if (params.vue === 'conversation' && params.gardien) content = <SittingChat key={`${params.proprio ?? ownerId}:${params.gardien}`} client={client} me={ownerId} owner={params.proprio ?? ownerId} sitter={params.gardien} fromMessages={params.depuis === 'messages'} />;
   else if (params.demande) content = <SittingSpace key={params.demande} client={client} id={params.demande} vue={params.vue} />;
   else if (params.gardien) content = <SitterSpace key={params.gardien} client={client} pets={pets} sitterId={params.gardien} vue={params.vue} cached={opened} criteria={criteria} />;
   else content = <SearchView client={client} pets={pets} criteria={criteria} setCriteria={setCriteria}

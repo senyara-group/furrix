@@ -39,10 +39,12 @@ export interface ResultRowProps extends Clickable {
   tag?: ReactNode;
   meta?: ReactNode;
   price?: { value: ReactNode; unit?: ReactNode };
+  /** Information discrète en haut à droite, à la place du prix (date du dernier message). */
+  aside?: ReactNode;
 }
 
 /** Ligne de résultat (gardien, professionnel) avec prix à droite. */
-export function ResultRow({ photo, initials, name, tag, meta, price, as: Tag = 'button', className, ...rest }: ResultRowProps) {
+export function ResultRow({ photo, initials, name, tag, meta, price, aside, as: Tag = 'button', className, ...rest }: ResultRowProps) {
   return (
     <Tag className={cx('fx-res', className)} {...(Tag === 'button' ? { type: 'button' } : {})} {...rest}>
       {photo
@@ -58,7 +60,7 @@ export function ResultRow({ photo, initials, name, tag, meta, price, as: Tag = '
           <b>{price.value}</b>
           {price.unit ? <span>{price.unit}</span> : null}
         </span>
-      ) : null}
+      ) : aside ? <span className="fx-res__aside">{aside}</span> : null}
     </Tag>
   );
 }
