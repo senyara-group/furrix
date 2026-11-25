@@ -46,14 +46,14 @@ Sources :
 
 ## 2. Décision : option A (25 novembre 2026)
 
-Le choix « tableau de bord Express » et le choix « Stripe responsable des frais et des soldes négatifs » (Paiements_Garde.md) sont incompatibles. Le type de tableau de bord et les responsabilités sont **définitifs** pour un compte créé : il faut trancher avant de créer le moindre compte de test.
+Le choix « tableau de bord Express » et le choix « frais prélevés par Stripe au gardien, soldes négatifs attribués à Stripe » (Paiements_Garde.md) sont incompatibles. Le type de tableau de bord et les responsabilités sont **définitifs** pour un compte créé : il faut trancher avant de créer le moindre compte de test.
 
 | Option | `dashboard` | `fees_collector` / `losses_collector` | Conséquences |
 |---|---|---|---|
-| A | `full` | `stripe` / `stripe` | Le gardien a le tableau de bord Stripe complet et sa propre relation tarifaire avec Stripe. Stripe couvre les soldes négatifs, sous réserve des exigences de risque géré de Stripe. C'est la combinaison de l'exemple officiel d'inscription hébergée. |
-| B | `express` | `application` / `application` | Tableau de bord Express. Furrix paie les frais Stripe et répond des soldes négatifs et des litiges non recouvrés. Il faut alors décider qui supporte ces frais, ce qui interagit avec la commission encore à définir. |
+| A | `full` | `stripe` / `stripe` | Tableau de bord complet. Stripe prélève ses frais au gardien et répond des soldes négatifs de son compte, sous réserve de ses exigences de risque géré. C'est la combinaison de l'exemple officiel d'inscription hébergée. |
+| B | `express` | `application` / `application` | Tableau de bord Express. Les frais Stripe sont facturés à Furrix, qui répond des soldes négatifs et des litiges non recouvrés. Il faut alors décider qui supporte ces frais, ce qui interagit avec la commission encore à définir. |
 
-**Option A retenue.** `stripe.ts` crée désormais les comptes avec `dashboard: full` et les responsabilités `stripe`/`stripe` ; le test de l'adaptateur le fige. Aucun compte n'ayant encore été créé, la clé d'idempotence existante ne peut pas entrer en conflit avec l'ancien corps de requête. Aucune migration n’est modifiée.
+**Option A retenue : tableau de bord complet, frais Stripe prélevés au gardien et responsabilité des soldes négatifs de son compte attribuée à Stripe.** `stripe.ts` crée désormais les comptes avec `dashboard: full`, `fees_collector: stripe` et `losses_collector: stripe` ; le test de l'adaptateur le fige. Aucun compte n'ayant encore été créé, la clé d'idempotence existante ne peut pas entrer en conflit avec l'ancien corps de requête. Aucune migration n’est modifiée.
 
 ## 3. Prérequis manuels (titulaire du compte Stripe Furrix DEV)
 
@@ -92,7 +92,7 @@ Une liaison bloque ensuite la suppression du compte Furrix de test : c'est voulu
 
 | # | Scénario | Attendu côté Furrix | Contrôle |
 |---|---|---|---|
-| R1 | Création : « Commencer l'inscription Stripe » | Stripe s'ouvre. Une liaison est créée, avec `stripe_account_id` renseigné. | Postflight : `liaisons = 1`, `comptes_relies = 1`. Dans le sandbox : un seul compte, mode test, pays FR, configuration marchand, tableau de bord complet et responsabilités Stripe (frais et pertes). |
+| R1 | Création : « Commencer l'inscription Stripe » | Stripe s'ouvre. Une liaison est créée, avec `stripe_account_id` renseigné. | Postflight : `liaisons = 1`, `comptes_relies = 1`. Dans le sandbox : un seul compte, mode test, pays FR, configuration marchand, tableau de bord complet, `fees_collector: stripe` (frais prélevés au gardien) et `losses_collector: stripe` (soldes négatifs attribués à Stripe). |
 | R2 | Reprise sans doublon : fermer Stripe, puis « Reprendre » ; double clic ; second appareil pendant la préparation | Même compte Stripe. Le second appel reçoit « Préparation déjà en cours ». | Après plusieurs reprises, `stripe_account_id` est inchangé et le sandbox contient toujours un seul compte pour ce gardien. |
 | R3 | Inscription interrompue : quitter au milieu | Retour : « Inscription pas encore terminée », badge « À compléter ». | `GET /v2/core/accounts/{id}?include[0]=configuration.merchant` montre `card_payments` différent de `active`. |
 | R4 | Lien expiré ou déjà utilisé : rouvrir un lien après expiration ou une seconde fois | Stripe redirige vers `refresh_url` (profil). Aucun lien n'est recréé automatiquement ; « Reprendre » en prépare un nouveau. Un nouvel essai dans les 30 secondes affiche « Préparation déjà en cours ». | Aucun nouveau compte. `last_link_at` est mis à jour seulement après un clic. |
