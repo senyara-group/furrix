@@ -286,3 +286,23 @@
     display: block;
   }
 }
+
+/* Versements : titre et état de l'inscription Stripe sur une ligne, boutons qui passent à la ligne. */
+.gd-payout__head {
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--fx-space-2);
+}
+.gd-payout .fx-row {
+  flex-wrap: wrap;
+  gap: var(--fx-space-2);
+}
+
+/* Versements : titre et état de l'inscription Stripe sur une ligne ; boutons qui passent à la ligne. */
+.gd-payout .fx-row {
+  flex-wrap: wrap;
+  gap: var(--fx-space-2);
+}
+.gd-payout__head {
+  justify-content: space-between;
+}

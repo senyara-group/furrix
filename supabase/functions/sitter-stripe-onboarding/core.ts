@@ -15,7 +15,7 @@ export type OnboardingProvider = {
   create(key: string): Promise<string>;
   status(
     account: string,
-  ): Promise<{ charges: boolean; payouts: boolean; submitted: boolean }>;
+  ): Promise<{ charges: boolean; payouts: boolean; reviewing: boolean }>;
   link(account: string): Promise<string>;
 };
 export class OnboardingError extends Error {
@@ -91,7 +91,7 @@ export function onboardingHandler(
       // Un retour navigateur ne suffit jamais : seules les capacités lues chez Stripe déterminent cet état.
       const result = status.charges && status.payouts
         ? "ready"
-        : status.submitted
+        : status.reviewing
         ? "pending"
         : "incomplete";
       if (body.action === "status" || result === "ready") {

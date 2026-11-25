@@ -57,12 +57,22 @@ export function stripeOnboarding(
       return accountId(account.id);
     },
     async status(account) {
-      const result = await call("/v1/accounts/" + accountId(account));
+      // Compte créé avec Accounts v2 : Stripe recommande de suivre l'inscription par le statut des
+      // capacités v2. Les champs v1 (charges_enabled…) ne sont pas documentés pour ces comptes.
+      const result = await call(
+        "/v2/core/accounts/" + accountId(account) +
+          "?include[0]=configuration.merchant",
+      );
       if (result.id !== account) throw Error("wrong_account");
+      if (result.livemode !== false) throw Error("test_account_required");
+      const capabilities = result.configuration?.merchant?.capabilities ?? {};
+      // Capacité absente (jamais demandée ou pas encore créée) : jamais considérée active.
+      const card = capabilities.card_payments?.status;
+      const payouts = capabilities.stripe_balance?.payouts?.status;
       return {
-        charges: result.charges_enabled === true,
-        payouts: result.payouts_enabled === true,
-        submitted: result.details_submitted === true,
+        charges: card === "active",
+        payouts: payouts === "active",
+        reviewing: card === "pending" || payouts === "pending",
       };
     },
     async link(account) {

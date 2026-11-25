@@ -12,6 +12,7 @@ import { listMySittings, listSittingThreads, mySitterProfile, saveSitterOffer, s
 import { usePetPhotoUrl } from '../meetings/usePetPhotoUrl';
 import { capacityLabel, dayLong, kindLabel, nameOf, outdoorLabel, phaseOf, SERVICES, serviceLabel, shortPeriod, speciesPlural, statusOf, unitLabel, WEEKDAYS } from './format';
 import { chatHref, gardeHref } from './links';
+import { PayoutOnboarding } from './PayoutOnboarding';
 import type { MySitting, ServicePrice, SitterAbsence, SitterKind, SitterOutdoor, SittingService, SittingThread } from './types';
 
 function SittingRow({ s }: { s: MySitting }) {
@@ -116,6 +117,8 @@ export function SitterProfileForm({ client, userId }: { client: FurrixClient; us
   const [errors, setErrors] = useState<{ bio?: string; place?: string; species?: string; prices?: string; weight?: string; availability?: string }>({});
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<'saved' | 'failed' | null>(null);
+  /** Modifications non enregistrées : sur le web, l'inscription Stripe quitterait la page. */
+  const [unsaved, setUnsaved] = useState(false);
   const [locating, setLocating] = useState<'town' | 'device' | null>(null);
   const locationVersion=useRef(0);
   useEffect(()=>()=>{locationVersion.current++;},[]);
@@ -144,7 +147,7 @@ export function SitterProfileForm({ client, userId }: { client: FurrixClient; us
   if (loadError) return <Alert tone="err" title="Ton profil de gardien n’a pas pu être chargé." actions={<Button variant="out" size="sm" icon="retry" onClick={() => setLoadAttempt((a) => a + 1)}>Réessayer</Button>}>
     Vérifie ta connexion. Rien n’a été modifié.</Alert>;
   if (!form) return <Loading label="Chargement de ton profil de gardien…" />;
-  const set = (next: Partial<Form>) => { setForm(current=>current?{...current,...next}:current); setResult(null); };
+  const set = (next: Partial<Form>) => { setForm(current=>current?{...current,...next}:current); setResult(null); setUnsaved(true); };
   const locate = async (how: 'town' | 'device') => {
     const version=++locationVersion.current;setLocating(how); setLocError('');
     try {
@@ -185,7 +188,7 @@ export function SitterProfileForm({ client, userId }: { client: FurrixClient; us
       await saveSitterOffer(client, { kind: form.kind, bio: form.bio, city: form.city, latitude: form.place!.latitude, longitude: form.place!.longitude,
         species: form.species, max_weight_kg: weight, outdoor: form.outdoor, services, active: form.active },
         { weekdays: form.weekdays, capacity, absences: form.absences.filter((a) => a.ends_on >= today()) });
-      setExists(true); setResult('saved');
+      setExists(true); setResult('saved'); setUnsaved(false);
     } catch { setResult('failed'); } finally { setBusy(false); }
   };
   const error = (text?: string) => text ? <p className="fx-field__error" role="alert"><Icon name="warning" size={16} />{text}</p> : null;
@@ -205,6 +208,7 @@ export function SitterProfileForm({ client, userId }: { client: FurrixClient; us
       {result === 'failed' ? <Alert tone="err" title="Ton profil n’a pas été enregistré">Vérifie les informations et réessaie.</Alert> : null}
       {exists ? <Stack gap={2}><Text variant="label" as="p">Visibilité</Text>
         <Segmented aria-label="Visibilité" value={form.active ? 'on' : 'off'} onChange={(v) => set({ active: v === 'on' })} options={[{ value: 'on', label: 'Je reçois des demandes' }, { value: 'off', label: 'En pause' }]} /></Stack> : null}
+      {exists ? <div className="gd-payout"><PayoutOnboarding client={client} unsaved={unsaved} /></div> : null}
       <Stack gap={5}>
         <Stack gap={2}><Text variant="label" as="p">Photo de ta fiche</Text>
           {exists ? <div className="gd-photoedit">
