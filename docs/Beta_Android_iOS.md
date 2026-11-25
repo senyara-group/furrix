@@ -86,3 +86,15 @@ L'icône reprend la patte de `src/design-system/icons/Icon.tsx`, le fond clair, 
 Installer le nouvel APK par-dessus le précédent, signé avec le même certificat de test, pour conserver la session. Ne pas désinstaller pour actualiser l'icône ; si le lanceur conserve une ancienne image, le relancer. Les écrans de lancement restent ceux du squelette.
 
 Contrôles de la version 1.0.1 : types et compilation web OK, 159/159 tests. Aperçu local sans données de compte dans Chrome à 320, 390 et 1280 px : aucun débordement horizontal ni erreur JavaScript ; cibles des onglets téléphone de 64 × 49 px minimum. Compilation Android réussie ; signature identique à la première bêta, vérifiée avec apksigner. SHA-256 de l'APK : 4cf200c7590bf6ad715e2d3b569cc43081795b856ac85fd7efbafd0a7f0cc8ff. Cette mise à jour reste à essayer sur l'Honor ; aucune compilation iOS réalisée.
+
+## Bêta Android 1.0.5 du 25 novembre 2026
+
+Version 1.0.5, code Android 6, construite depuis `main` au commit `9d194bf` avec la mise à jour du numéro de version. Elle inclut les disponibilités de garde, les corrections d'expiration et d'enregistrement, le retrait des notifications avant déconnexion et le parcours de suppression du compte. Les travaux non encore fusionnés sur la messagerie des services n'y figurent pas.
+
+APK de recette : `Furrix-beta-1.0.5.apk`, 14 606 095 octets. SHA-256 : `6157c07185ba35ebd0a04e2870550cfdc9635b5791624227dc8b5cf636a9a5cb`.
+
+Signature de test vérifiée : même certificat que la version 1.0.4, empreinte SHA-256 `4f06e7824bc5405cccfa9f612420a30574d427b98b29a7189bc2aa70ab455e17`. Installer par-dessus la version précédente, sans désinstallation. Les ressources web sont embarquées et ciblent la bêta privée sur le projet Supabase DEV existant.
+
+Contrôles exécutés : types TypeScript, 325 tests applicatifs, trois tests de configuration mobile, compilation web, préparation Capacitor Android et compilation native réussis. Package `fr.furrix.app`, version 1.0.5/code 6 et signature vérifiés dans l'APK final. Recherche des marqueurs de clés privées dans les ressources textuelles : aucun détecté. Ce contrôle ne constitue pas un audit exhaustif du binaire.
+
+Aucun essai sur téléphone, aucune compilation iOS ni publication en magasin lors de cette préparation. La recette Android reste à effectuer, notamment notifications application fermée, déconnexion sans réseau, changement de compte et suppression sur un compte dédié.
