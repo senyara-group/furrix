@@ -222,7 +222,7 @@ export function SearchView({ client, pets, criteria, setCriteria, onOpen }: {
             : <EmptyState icon="sliders" title="Aucun gardien avec ces filtres" action={<Button variant="out" size="sm" onClick={() => setFilters(noFilters)}>Retirer les filtres</Button>}>
                 {state.data.length} gardien{state.data.length > 1 ? 's sont disponibles' : ' est disponible'} à ces dates sans filtre.
               </EmptyState>}
-          <Note className="gd-note">Tarifs fixés par chaque gardien, hors frais de service. Les frais, encore à définir, seront affichés avant toute demande.</Note>
+          <Note className="gd-note">Tarifs fixés par chaque gardien. Le paiement en ligne n’est pas encore disponible.</Note>
         </>} /></div>}
   </section>;
 }

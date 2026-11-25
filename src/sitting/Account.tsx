@@ -249,7 +249,7 @@ export function SitterProfileForm({ client, userId }: { client: FurrixClient; us
             <Input value={form.prices[s]} inputMode="decimal" maxLength={7} placeholder="20" className="fx-num" onChange={(e) => set({ prices: { ...form.prices, [s]: decimalInput(e.target.value, { integers: 4 }) } })} />
           </Field>)}
           {error(errors.prices)}
-          <Note>Tes tarifs sont affichés hors frais de service Furrix, encore à définir.</Note>
+          <Note>La commission Furrix sera retenue sur tes tarifs. Son montant et les frais de paiement seront précisés avant l’activation du paiement.</Note>
         </Stack>
         <AvailabilityFields form={form} set={set} error={errors.availability} />
       </Stack>

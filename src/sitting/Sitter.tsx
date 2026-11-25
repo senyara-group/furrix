@@ -28,7 +28,7 @@ export function availabilityOf(sitter: Pick<SitterResult, 'weekdays' | 'busy'>, 
 const sitterSubtitle = (s: Pick<SitterResult, 'kind' | 'distance_km' | 'city'>, service?: SittingService) =>
   [kindLabel[s.kind], service ? serviceShort[service] : null, s.distance_km !== null ? `≈ ${s.distance_km} km` : s.city].filter(Boolean).join(' · ');
 
-/** Carte latérale : le gardien, les dates, l'animal et le montant (frais encore à définir). */
+/** Carte latérale : le gardien, les dates, l'animal et le tarif de la garde. */
 export function SummaryCard({ client, photo, name, subtitle, service, starts, ends, petName, unitPrice, count, paid }: {
   client: FurrixClient; photo?: string | null; name: string; subtitle: string; service: SittingService; starts?: string; ends?: string; petName?: string; unitPrice?: number; count?: number; paid?: boolean;
 }) {
@@ -41,7 +41,7 @@ export function SummaryCard({ client, photo, name, subtitle, service, starts, en
     {unitPrice && count ? <><Separator /><Recap>
       <RecapRow label={`${serviceLabel[service]} · ${units(service, count)} × ${price(unitPrice)}`} value={money(unitPrice * count)} />
       <RecapRow label="Frais de service Furrix" value="à définir" open />
-      <RecapRow label={paid ? 'Payé' : 'Total'} value={`${money(unitPrice * count)} + frais`} total />
+      <RecapRow label={paid ? 'Payé' : 'Total'} value={money(unitPrice * count)} total />
     </Recap></> : null}
   </Stack></Card>;
 }
@@ -60,7 +60,7 @@ export function SitterFiche({ client, sitter, service, starts, ends, onBack, onA
     <DetailLayout
       aside={<Card calm><Stack gap={3}>
         <Text variant="kicker">Tarif fixé par {name}</Text>
-        {offered ? <p className="gd-price fx-num"><span className="gd-price__v">{price(offered.price_cents)}</span> <span className="fx-t-body-sm">/ {unitLabel[offered.service][0]}, hors frais de service</span></p> : null}
+        {offered ? <p className="gd-price fx-num"><span className="gd-price__v">{price(offered.price_cents)}</span> <span className="fx-t-body-sm">/ {unitLabel[offered.service][0]}</span></p> : null}
         {sitter.services.length > 1 ? <><Separator /><ul className="gd-prices">
           {sitter.services.map((s) => <li key={s.service}><span>{serviceLabel[s.service]}</span><b className="fx-num">{price(s.price_cents)} / {unitLabel[s.service][0]}</b></li>)}
         </ul></> : null}
