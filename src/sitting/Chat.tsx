@@ -21,7 +21,7 @@ function poll(run: () => unknown, every: number, stop: () => void) {
 const merge = (old: SittingMessage[], incoming: SittingMessage[]) => [...new Map([...old, ...incoming].map((m) => [m.id, m])).values()].sort((a, b) => a.id - b.id);
 
 /** Conversation de garde entre un propriétaire et un gardien (planche « Conversation »), avant ou après une demande. */
-export function SittingChat({ client, me, owner, sitter }: { client: FurrixClient; me: string; owner: string; sitter: string }) {
+export function SittingChat({ client, me, owner, sitter, fromMessages = false }: { client: FurrixClient; me: string; owner: string; sitter: string; fromMessages?: boolean }) {
   const role = me === owner ? 'owner' : 'sitter';
   const [info, setInfo] = useState<{ name: string; sitting: MySitting | null } | null | 'error' | undefined>();
   const [infoAttempt, setInfoAttempt] = useState(0);
@@ -100,7 +100,7 @@ export function SittingChat({ client, me, owner, sitter }: { client: FurrixClien
     node: <MessageBubble key={`m${m.id}`} from={m.sender_id === me ? 'me' : 'them'} time={clock(m.created_at)}>{m.text}</MessageBubble> }))]
     .sort((x, y) => new Date(x.at).getTime() - new Date(y.at).getTime());
   return <section aria-label="Conversation">
-    <PageHeader back={{ label: 'Mes gardes', onClick: () => { window.location.hash = gardeHref({ vue: 'mes-gardes' }); } }} title={`Conversation avec ${name}`}
+    <PageHeader back={fromMessages ? { label: 'Messages', onClick: () => { window.location.hash = '#/messages'; } } : { label: 'Mes gardes', onClick: () => { window.location.hash = gardeHref({ vue: 'mes-gardes' }); } }} title={`Conversation avec ${name}`}
       status={badge ? <StatusBadge status={badge.status}>{badge.label}</StatusBadge> : undefined} />
     <ChatLayout
       context={<div className="gd-ctx"><Icon name="homeDoor" size={20} />

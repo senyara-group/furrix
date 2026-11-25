@@ -368,7 +368,8 @@ export default function AppointmentsArea({
   const view = params.get("vue"),
     id = params.get("rendezvous"),
     professional = params.get("professionnel") ?? "",
-    slot = params.get("creneau") ?? "";
+    slot = params.get("creneau") ?? "",
+    fromMessages = params.get("depuis") === "messages";
   return (
     <>
       <PageHeader
@@ -383,11 +384,11 @@ export default function AppointmentsArea({
         }
         showTitleOnPhone
         back={{
-          label: view === "conversation" && id ? "Retour à la demande" : "Services",
+          label: view === "conversation" && id ? (fromMessages ? "Messages" : "Retour à la demande") : "Services",
           onClick: () => {
             window.location.hash =
               view === "conversation" && id
-                ? appointmentHref(id)
+                ? fromMessages ? "#/messages" : appointmentHref(id)
                 : view === "rendez-vous" && id
                   ? appointmentHref()
                   : "#/services";

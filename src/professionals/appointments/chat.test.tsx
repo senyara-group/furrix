@@ -112,7 +112,7 @@ describe("accès à la conversation", () => {
       service_name: "Consultation", status: "pending", starts_at: item.starts_at, last_text: "On prendra le temps.", last_at: item.created_at, last_sender: "pro" }]);
     render(<MessagesArea client={client} ownerId="owner" />);
     const row = await screen.findByRole("link", { name: /Cabinet des Oyats/ });
-    expect(row.getAttribute("href")).toBe("#/services?vue=conversation&rendezvous=" + item.id);
+    expect(row.getAttribute("href")).toBe("#/services?vue=conversation&rendezvous=" + item.id + "&depuis=messages");
     expect(screen.getByText("Services")).toBeTruthy();
   });
   it("une erreur des conversations de services n’efface pas les autres", async () => {

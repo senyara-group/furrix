@@ -52,8 +52,8 @@ export const appointmentHref = (id?: string) =>
   (id ? "&rendezvous=" + encodeURIComponent(id) : "");
 export const slotsHref = "#/services?vue=creneaux";
 /** Conversation rattachée à une demande de rendez-vous (participants seulement). */
-export const appointmentChatHref = (id: string) =>
-  "#/services?vue=conversation&rendezvous=" + encodeURIComponent(id);
+export const appointmentChatHref = (id: string, fromMessages = false) =>
+  "#/services?vue=conversation&rendezvous=" + encodeURIComponent(id) + (fromMessages ? "&depuis=messages" : "");
 export type ProMessage = {
   id: number;
   appointment_id: string;
