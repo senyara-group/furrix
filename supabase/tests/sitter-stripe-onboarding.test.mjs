@@ -38,7 +38,7 @@ test("inscription Stripe : accès, reprise, bail et suppression", async () => {
     await db.exec(
       await readFile(
         new URL(
-          "../migrations/20261125105925_sitter_stripe_onboarding.sql",
+          "../migrations/20261125135930_sitter_stripe_onboarding.sql",
           import.meta.url,
         ),
         "utf8",

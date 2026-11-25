@@ -1,4 +1,4 @@
--- Contrôle de catalogue après application de 20261125105925_sitter_stripe_onboarding.sql.
+-- Contrôle de catalogue après application de 20261125135930_sitter_stripe_onboarding.sql.
 -- Lecture seule : aucune création de compte, aucune donnée lue hors comptage.
 begin read only;
 do $$

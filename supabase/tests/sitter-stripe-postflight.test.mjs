@@ -6,7 +6,7 @@ const read = (path) => readFile(new URL(path, import.meta.url), "utf8");
 test("contrôle après application de l’inscription Stripe", async (t) => {
   const db = await meetingsFixture();
   const check = await read("../checks/sitter-stripe-onboarding-postflight.sql");
-  const migration = await read("../migrations/20261125105925_sitter_stripe_onboarding.sql");
+  const migration = await read("../migrations/20261125135930_sitter_stripe_onboarding.sql");
   const rollback = await read("../operations/rollback_sitter_stripe_onboarding.sql");
   try {
     await t.test("accepte la migration telle que versionnée", async () => {
