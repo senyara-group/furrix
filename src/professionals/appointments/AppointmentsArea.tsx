@@ -16,10 +16,13 @@ import type { FurrixClient } from "../../services/supabaseClient";
 import type { PetRow } from "../../types/database";
 import { servicePrice } from "../types";
 import AppointmentRequest from "./Request";
+import { AppointmentChat } from "./Chat";
 import { SlotManager } from "./Slots";
 import { listAppointments, listSlots, updateAppointment } from "./service";
 import {
+  appointmentChatHref,
   appointmentHref,
+  canWrite,
   labels,
   slotLabel,
   slotsHref,
@@ -169,6 +172,13 @@ export function AppointmentDetail({
               .{item.cancel_note ? " " + item.cancel_note : ""}
             </p>
           )}
+          <Button as="a" href={appointmentChatHref(item.id)} variant="out" icon="message">
+            {canWrite(item)
+              ? pro
+                ? "Écrire au propriétaire"
+                : "Écrire à l’établissement"
+              : "Voir la conversation"}
+          </Button>
         </Stack>
       </Card>
       {open && pro && (
@@ -367,14 +377,20 @@ export default function AppointmentsArea({
             ? "Mes créneaux"
             : view === "demander"
               ? "Demander un rendez-vous"
-              : "Mes rendez-vous"
+              : view === "conversation"
+                ? "Conversation"
+                : "Mes rendez-vous"
         }
         showTitleOnPhone
         back={{
-          label: "Services",
+          label: view === "conversation" && id ? "Retour à la demande" : "Services",
           onClick: () => {
             window.location.hash =
-              view === "rendez-vous" && id ? appointmentHref() : "#/services";
+              view === "conversation" && id
+                ? appointmentHref(id)
+                : view === "rendez-vous" && id
+                  ? appointmentHref()
+                  : "#/services";
           },
         }}
       />
@@ -388,6 +404,8 @@ export default function AppointmentsArea({
           selected={slot}
           pets={pets}
         />
+      ) : view === "conversation" && id ? (
+        <AppointmentChat key={id} client={client} me={owner} id={id} />
       ) : id ? (
         <AppointmentDetail key={id} client={client} id={id} />
       ) : (
