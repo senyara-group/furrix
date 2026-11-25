@@ -122,3 +122,84 @@ La création d'une liaison il y a plus de 23 heures sans compte confirmé produi
   - lecture du compte Stripe ;
   - écriture Supabase ;
   - essai sur appareil.
+
+## 7. Activation réalisée (25 novembre 2026)
+
+- **Migration :** appliquée seule, sans `db push`, sous la version `20261125135930`. Le fichier local a été renommé en conséquence (PR #54).
+- **Contrôle postflight :** sans exception, `liaisons = 0`.
+- **Fonction :** `sitter-stripe-onboarding` déployée avec `verify_jwt: true`. Le code relu après déploiement est identique à `main`.
+- **Appels sans authentification :** 401 (sans en-tête, jeton invalide, GET).
+- **Contrôle « fonction indisponible » :** fait avec un gardien bêta de test au profil publié (données fictives) et l'interrupteur absent.
+  - La carte affiche « Inscription aux versements pas encore disponible ».
+  - `POST {"action":"status"}` renvoie `503 {"status":"unavailable"}`, avec `Cache-Control: no-store`.
+  - `liaisons = 0`.
+  - Ce contrôle a révélé un blocage de la carte sous `React.StrictMode`, corrigé dans la PR #55.
+- **Clé sandbox :** saisie par le titulaire dans les secrets Supabase. Sa valeur n'a jamais transité ici.
+  - Indice indirect : toutes les fonctions ont pris une version de plus, avec une empreinte de code (`ezbr_sha256`) inchangée.
+  - Sa validité ne peut être prouvée qu'à la première action « start », pendant la fenêtre.
+
+## 8. Fenêtre de recette (préparée, non ouverte)
+
+### État vérifié avant ouverture (lecture seule)
+
+- Dernière migration : `20261125135930`. `liaisons = 0`. Quatre profils de gardien, tous avec un accès bêta actif.
+- `sitter-stripe-onboarding` : version 2 (redémarrage dû aux secrets), `verify_jwt: true`, code identique à `main`.
+  - Sans authentification : 401.
+  - Avec la session du gardien de test : `503 {"status":"unavailable"}`, l'interrupteur est donc coupé.
+- `https://furrix.fr` sert l'application compilée pour Furrix DEV : son code référence `jemikzqgbpaivlujnfgl` et contient l'appel `sitter-stripe-onboarding`. C'est aussi l'URL de retour et de renouvellement configurée côté serveur.
+
+### Plateforme de la fenêtre
+
+- **Web, sur `https://furrix.fr`** : c'est la seule configuration où le retour de Stripe ramène dans la même session. Le serveur local `localhost:5173` reste utilisable pour observer, mais le retour de Stripe y ouvre `furrix.fr`, qui demande une connexion séparée.
+- **Android et iOS** : hors de cette fenêtre. Ils demandent une version de recette pointant sur DEV et un essai sur appareil, prévus dans une fenêtre distincte.
+
+### Prérequis Stripe à confirmer par le titulaire avant l'ouverture
+
+Dans le sandbox `acct_1UfdgzLRlPFxqD3K` uniquement :
+
+1. Questionnaire Connect validé et accès à Accounts v2.
+2. Options d'inscription hébergée : France, français, marque Furrix.
+3. Savoir ouvrir **Développeurs → Journaux** (ou Workbench). La fonction ne journalise volontairement ni réponse ni erreur Stripe. Un échec n'est visible côté Furrix que sous la forme générique « pas encore disponible » ; son code exact se lit dans ces journaux.
+
+### Ouverture (par le titulaire, après accord)
+
+1. Dans Supabase, projet `furrix`, Edge Functions → Secrets : ajouter `FURRIX_STRIPE_ONBOARDING_ENABLED` = `true`.
+2. Contrôle immédiat (sans appel à Stripe) : avec la session du gardien de test, `POST {"action":"status"}` doit renvoyer `200 {"status":"not_started"}`. Sans compte relié, le serveur répond avant toute lecture chez Stripe.
+
+### Déroulé et critères d'arrêt
+
+Contrôles côté base, en lecture seule, après chaque étape :
+
+```sql
+select count(*) as liaisons, count(stripe_account_id) as comptes_relies,
+       count(*) filter (where stripe_account_id is null) as sans_compte,
+       count(*) filter (where lease_until > clock_timestamp()) as baux_actifs,
+       max(last_link_at) as dernier_lien
+from public.sitter_stripe_accounts;
+```
+
+| Étape | Action | Attendu | Arrêt si |
+|---|---|---|---|
+| E1 (clé et plateforme) | « Commencer l'inscription Stripe » | `GET /v1/account` réussit dans les journaux Stripe, puis la création du compte et du lien. | 503 avec `liaisons = 0` : clé invalide ou mauvais sandbox, car `verifyPlatform` passe avant toute réservation. Fermer la fenêtre et vérifier la clé. |
+| E2 (création) | Suite de E1 | `POST /v2/core/accounts` réussit (compte test, `dashboard: full`, FR). `comptes_relies = 1`. | 503 avec `sans_compte = 1`. Lire le code Stripe (`account_token_required`, `accounts_v2_access_blocked`, etc.) et fermer la fenêtre. Un nouvel essai réutilise la même clé d'idempotence. Au-delà de 23 h sans compte relié, la liaison passe en rapprochement manuel. |
+| E3 (lien) | Suite de E2 | `POST /v2/core/account_links` réussit et Stripe s'ouvre. | 503 avec `comptes_relies = 1`. Si Stripe refuse `configurations`, corriger `stripe.ts`, puis redéployer après un nouvel accord. |
+| R2 à R7 | Scénarios du § 5 | Voir § 5. | Tout doublon de compte dans le sandbox pour un même gardien. |
+
+Règles pendant la fenêtre :
+- données de test Stripe uniquement ;
+- aucun lien, aucune clé ni capture contenant une URL `connect.stripe.com` dans le chat, Git ou les tickets ;
+- noter l'identifiant `acct_…` de test et les codes d'erreur.
+
+### Fermeture
+
+1. Remettre `FURRIX_STRIPE_ONBOARDING_ENABLED` à `false`, ou le supprimer.
+2. Contrôle : la session du gardien de test doit recevoir `503 {"status":"unavailable"}`.
+3. Décider de garder ou de supprimer `STRIPE_FURRIX_TEST_SECRET_KEY`. Le plus prudent entre deux fenêtres : la supprimer, ou la révoquer dans Stripe.
+4. Conserver les liaisons et les comptes de test. Ne pas exécuter `rollback_sitter_stripe_onboarding.sql`, qui refuse de toute façon de supprimer une liaison. Les comptes Furrix de test liés restent bloqués à la suppression : c'est voulu.
+5. Consigner les résultats dans le journal ci-dessous.
+
+### Journal de recette
+
+| Date / heure | Étape | Plateforme | Résultat | `acct_…` de test | Code Stripe éventuel |
+|---|---|---|---|---|---|
+| | | | | | |
