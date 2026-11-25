@@ -51,7 +51,8 @@ export function PayoutOnboarding({ client, unsaved = false }: {
   const [returned, setReturned] = useState(false);
   const alive = useRef(true);
   const stopListening = useRef<() => void>(() => {});
-  useEffect(() => () => { alive.current = false; stopListening.current(); }, []);
+  // Remis à vrai au montage : React (StrictMode, remontage) peut démonter puis remonter le même composant.
+  useEffect(() => { alive.current = true; return () => { alive.current = false; stopListening.current(); }; }, []);
 
   const refresh = useCallback(async () => {
     setChecking(true); setProblem(null);
