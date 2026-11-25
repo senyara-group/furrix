@@ -51,6 +51,33 @@ export const appointmentHref = (id?: string) =>
   "#/services?vue=rendez-vous" +
   (id ? "&rendezvous=" + encodeURIComponent(id) : "");
 export const slotsHref = "#/services?vue=creneaux";
+/** Conversation rattachée à une demande de rendez-vous (participants seulement). */
+export const appointmentChatHref = (id: string) =>
+  "#/services?vue=conversation&rendezvous=" + encodeURIComponent(id);
+export type ProMessage = {
+  id: number;
+  appointment_id: string;
+  sender_id: string;
+  text: string;
+  request_id: string;
+  created_at: string;
+};
+/** Une conversation Services, telle que la rubrique Messages la liste. */
+export type ProThread = {
+  appointment_id: string;
+  role: "owner" | "professional";
+  other_name: string | null;
+  service_name: string;
+  status: Appointment["status"];
+  starts_at: string;
+  last_text: string | null;
+  last_at: string | null;
+  last_sender: string | null;
+};
+/** On écrit tant que la demande est ouverte, ou confirmée jusqu'à 30 jours après le rendez-vous (comme la base). */
+export const canWrite = (a: Pick<Appointment, "status" | "ends_at">, now = Date.now()) =>
+  a.status === "pending" || a.status === "countered" ||
+  (a.status === "confirmed" && new Date(a.ends_at).getTime() > now - 30 * 86400_000);
 export const slotLabel = (s: { starts_at: string; ends_at: string }) =>
   new Intl.DateTimeFormat("fr-FR", {
     dateStyle: "medium",

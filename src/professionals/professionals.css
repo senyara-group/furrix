@@ -79,3 +79,33 @@
     text-align: left;
   }
 }
+/* Conversation d'une demande de service : même présentation que la conversation de garde. */
+.app-pro-ctx {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.app-pro-ctx > svg {
+  flex: none;
+}
+.app-pro-ctx__b {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.app-pro-ctx__b p {
+  margin: 0;
+  overflow-wrap: break-word;
+}
+.app-pro-root .fx-chatlay__main > .fx-note {
+  margin-bottom: var(--fx-space-4);
+}
+.app-pro-chat {
+  gap: 12px;
+  margin-top: 0;
+  padding: var(--fx-space-2) 0;
+}
+.app-pro-root .fx-composer {
+  margin-top: var(--fx-space-5);
+}

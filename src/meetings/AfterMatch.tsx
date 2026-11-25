@@ -14,6 +14,8 @@ import { usePetPhotoUrl } from './usePetPhotoUrl';
 import { messagesHref, views, type View } from './links';
 import { cap, longSlot, nextSlotInput, SlotField } from './SlotField';
 import { listSittingThreads } from '../sitting/service';
+import { listProfessionalThreads } from '../professionals/appointments/service';
+import { appointmentChatHref, labels as appointmentLabels, type ProThread } from '../professionals/appointments/types';
 import { chatHref } from '../sitting/links';
 import type { SittingThread } from '../sitting/types';
 import './after-match.css';
@@ -80,27 +82,38 @@ function MatchRow({ client, match }: { client: FurrixClient; match: MyMatch }) {
 function MatchList({client}:{client:FurrixClient}) {
  const [state,setState]=useState<{status:'loading'|'ready'|'error';data:MyMatch[]}>({status:'loading',data:[]});
  const [garde,setGarde]=useState<SittingThread[]>([]),[gardeError,setGardeError]=useState(false);
+ const [services,setServices]=useState<ProThread[]>([]),[servicesError,setServicesError]=useState(false);
  const [attempt,setAttempt]=useState(0),[refreshing,setRefreshing]=useState(false),[query,setQuery]=useState('');
  useEffect(()=>{let current=true,running=false;const load=async()=>{if(running)return;running=true;if(current)setRefreshing(true);
- const [matches,threads]=await Promise.allSettled([listMyMatches(client),listSittingThreads(client)]);
+ const [matches,threads,pro]=await Promise.allSettled([listMyMatches(client),listSittingThreads(client),listProfessionalThreads(client)]);
  if(current){if(matches.status==='fulfilled')setState({status:'ready',data:matches.value});else setState(old=>({status:'error',data:matches.reason instanceof AppError&&matches.reason.code==='network'?old.data:[]}));
- if(threads.status==='fulfilled'){setGarde(threads.value);setGardeError(false);}else{setGardeError(true);if(!(threads.reason instanceof AppError&&threads.reason.code==='network'))setGarde([]);}setRefreshing(false);}running=false;};void load();return poll(load,15_000,()=>{current=false;});},[client,attempt]);
+ if(threads.status==='fulfilled'){setGarde(threads.value);setGardeError(false);}else{setGardeError(true);if(!(threads.reason instanceof AppError&&threads.reason.code==='network'))setGarde([]);}
+ if(pro.status==='fulfilled'){setServices(pro.value);setServicesError(false);}else{setServicesError(true);if(!(pro.reason instanceof AppError&&pro.reason.code==='network'))setServices([]);}setRefreshing(false);}running=false;};void load();return poll(load,15_000,()=>{current=false;});},[client,attempt]);
  const normalize=(v:string)=>v.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('fr-FR');
  const words=normalize(query).trim().split(/\s+/).filter(Boolean),find=(v:string)=>words.every(w=>normalize(v).includes(w));
- const filtered=state.data.filter(m=>find([m.name,m.owner_name,m.my_pet_name].filter(Boolean).join(' '))),filteredGarde=garde.filter(t=>find(t.other_name??''));
- const count=filtered.length+filteredGarde.length,total=state.data.length+garde.length;
+ const filtered=state.data.filter(m=>find([m.name,m.owner_name,m.my_pet_name].filter(Boolean).join(' '))),filteredGarde=garde.filter(t=>find(t.other_name??'')),filteredServices=services.filter(t=>find([t.other_name,t.service_name].filter(Boolean).join(' ')));
+ const count=filtered.length+filteredGarde.length+filteredServices.length,total=state.data.length+garde.length+services.length,partial=gardeError||servicesError;
  const retry=<Button variant="out" size="sm" icon="retry" loading={refreshing} onClick={()=>setAttempt(a=>a+1)}>Actualiser</Button>;
- return <><PageHeader title="Messages" subtitle="Tes conversations de rencontres et de garde, au même endroit."/>
- {(state.status==='error'||gardeError)&&<Alert tone="err" title={total?'Actualisation indisponible':'Tes conversations n’ont pas pu être chargées.'} actions={retry}>{gardeError?'Les conversations de garde n’ont pas pu être actualisées. ':''}{state.status==='error'?'Les conversations de rencontres n’ont pas pu être actualisées. ':''}Les derniers échanges restent affichés en cas de panne réseau.</Alert>}
+ return <><PageHeader title="Messages" subtitle="Tes conversations de rencontres, de garde et de services, au même endroit."/>
+ {(state.status==='error'||partial)&&<Alert tone="err" title={total?'Actualisation indisponible':'Tes conversations n’ont pas pu être chargées.'} actions={retry}>{gardeError?'Les conversations de garde n’ont pas pu être actualisées. ':''}{servicesError?'Les conversations de services n’ont pas pu être actualisées. ':''}{state.status==='error'?'Les conversations de rencontres n’ont pas pu être actualisées. ':''}Les derniers échanges restent affichés en cas de panne réseau.</Alert>}
  {state.status==='loading'?<Loading label="Chargement de tes conversations…"/>:<>
  {total>0&&<Stack gap={3}><Field label="Rechercher une conversation"><Input type="search" value={query} maxLength={100} placeholder="Animal ou propriétaire" onChange={e=>setQuery(e.target.value)}/></Field>
  {state.data.length===100&&<Note>La recherche de rencontres porte sur tes 100 conversations les plus récentes.</Note>}
- <div className="app-message-tools"><Note>{count} conversation{count>1?'s':''}</Note>{state.status!=='error'&&!gardeError&&retry}</div></Stack>}
+ <div className="app-message-tools"><Note>{count} conversation{count>1?'s':''}</Note>{state.status!=='error'&&!partial&&retry}</div></Stack>}
  {count>0?<Stack gap={8}>
- {filtered.length>0&&<Stack gap={2}>{garde.length>0&&<ListHeader title="Rencontres"/>}<ResultList>{filtered.map(m=><MatchRow key={m.match_id} client={client} match={m}/>)}</ResultList></Stack>}
+ {filtered.length>0&&<Stack gap={2}>{(garde.length>0||services.length>0)&&<ListHeader title="Rencontres"/>}<ResultList>{filtered.map(m=><MatchRow key={m.match_id} client={client} match={m}/>)}</ResultList></Stack>}
  {filteredGarde.length>0&&<Stack gap={2}><ListHeader title="Garde"/><ResultList>{filteredGarde.map(t=><SittingInboxRow key={t.owner_id+':'+t.sitter_id} thread={t}/>)}</ResultList></Stack>}
- </Stack>:total>0?<EmptyState icon="search" title="Aucune conversation trouvée" action={<Button variant="quiet" onClick={()=>setQuery('')}>Effacer la recherche</Button>}>Essaie le prénom du propriétaire, le nom d’un animal ou celui du gardien.</EmptyState>:state.status!=='error'&&!gardeError&&<EmptyState icon="message" title="Pas encore de conversation" action={<Button as="a" href="#/rencontres" variant="out" size="sm">Découvrir des compagnons</Button>}>Un j’aime de chaque côté, ou un premier contact avec un gardien, et la conversation s’ouvre ici.</EmptyState>}
+ {filteredServices.length>0&&<Stack gap={2}><ListHeader title="Services"/><ResultList>{filteredServices.map(t=><ServiceInboxRow key={t.appointment_id} thread={t}/>)}</ResultList></Stack>}
+ </Stack>:total>0?<EmptyState icon="search" title="Aucune conversation trouvée" action={<Button variant="quiet" onClick={()=>setQuery('')}>Effacer la recherche</Button>}>Essaie le prénom du propriétaire, le nom d’un animal ou celui du gardien.</EmptyState>:state.status!=='error'&&!partial&&<EmptyState icon="message" title="Pas encore de conversation" action={<Button as="a" href="#/rencontres" variant="out" size="sm">Découvrir des compagnons</Button>}>Un j’aime de chaque côté, un premier contact avec un gardien ou un message sur une demande de service, et la conversation s’ouvre ici.</EmptyState>}
  </>}</>;
+}
+/** Une conversation Services : l'autre personne, la prestation et le dernier message (ou le brouillon). */
+function ServiceInboxRow({thread:t}:{thread:ProThread}){
+ const [draft]=useMessageDraft('services:'+t.appointment_id);
+ const name=t.other_name?.trim()||(t.role==='owner'?'L’établissement':'Le propriétaire');
+ return <li><ResultRow as="a" href={appointmentChatHref(t.appointment_id)} initials={name.charAt(0).toUpperCase()} name={name}
+  tag={<StatusBadge status={draft?'todo':t.status==='confirmed'?'ok':t.status==='pending'||t.status==='countered'?'wait':'stop'}>{draft?'Brouillon':appointmentLabels[t.status]}</StatusBadge>}
+  meta={draft?'Brouillon : '+draft.trim().slice(0,80):t.last_text?t.service_name+' · « '+t.last_text.slice(0,80)+' »':t.service_name}/></li>;
 }
 function SittingInboxRow({thread:t}:{thread:SittingThread}){
  const [draft]=useMessageDraft('garde:'+t.owner_id+':'+t.sitter_id);
