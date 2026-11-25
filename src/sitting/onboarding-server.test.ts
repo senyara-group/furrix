@@ -171,7 +171,8 @@ describe("Adaptateur Stripe de test", () => {
     await stripe.link("acct_created");
     const create = send.mock.calls[1]![1]!;
     expect(create.headers).toMatchObject({
-      "Idempotency-Key": "furrix-sitter-stable",
+      // Clé versionnée : le premier corps (avec display_name) a été envoyé sous « furrix-sitter-<clé> ».
+      "Idempotency-Key": "furrix-sitter-v2-stable",
     });
     const body = JSON.parse(String(create.body));
     // Express exigerait des responsabilités « application » : combinaison refusée par Stripe.
@@ -181,7 +182,9 @@ describe("Adaptateur Stripe de test", () => {
       fees_collector: "stripe",
       losses_collector: "stripe",
     });
-    expect(body).not.toHaveProperty("contact_email");
+    // Plateforme française : sans jeton de compte, seule identity.country est permise (400 account_token_required).
+    for (const field of ["display_name", "contact_email", "contact_phone"]) expect(body).not.toHaveProperty(field);
+    expect(body.identity).toEqual({ country: "fr" });
     const link = JSON.parse(String(send.mock.calls[2]![1]!.body));
     expect(link.use_case.account_onboarding.return_url).toBe(
       "https://furrix.fr/#/garde?vue=profil",

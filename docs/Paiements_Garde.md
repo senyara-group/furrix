@@ -91,3 +91,31 @@ Documentation consultée le 25 novembre 2026 : [inscription hébergée, Accounts
 Voir [Recette_Stripe_Inscription.md](Recette_Stripe_Inscription.md) : état DEV constaté en lecture seule, plan d'activation, scénarios et décision prise. Stripe refuse `dashboard: express` avec `fees_collector`/`losses_collector` à `stripe`. Il faut choisir entre le tableau de bord complet avec des responsabilités Stripe, et Express avec des responsabilités Furrix, avant de créer un compte de test.
 
 **Décision du 25 novembre 2026 : option A.** Les comptes gardiens sont créés avec `dashboard: full`, `fees_collector: stripe` et `losses_collector: stripe`. Choix validé : tableau de bord complet, frais Stripe prélevés au gardien et responsabilité des soldes négatifs de son compte attribuée à Stripe, sous réserve des exigences de risque géré de Stripe. Le gardien dispose donc du tableau de bord Stripe complet et d'une relation tarifaire directe avec Stripe. Seul `card_payments` est demandé ; les versements accompagnent la configuration marchand. Ces paramètres sont définitifs pour chaque compte créé.
+
+## Recette DEV du 25 novembre 2026 : première création refusée
+
+Fenêtre ouverte sur `https://furrix.fr` avec un gardien de test aux données fictives.
+
+- **E1 réussie** : la clé sandbox est valide et `verifyPlatform` confirme `acct_1UfdgzLRlPFxqD3K`.
+- **E2 refusée par Stripe**, requête `req_v2iaos7C9yEPzyR8Z` à 14:32:22 UTC : `POST /v2/core/accounts` renvoie **400 `account_token_required`**, paramètre `display_name`.
+  - Message de Stripe : les plateformes établies en France ne peuvent renseigner certaines informations d'identité d'un compte v2 à configuration marchand que par jeton de compte.
+  - **Aucun compte n'a été créé chez Stripe.**
+  - Côté Furrix : une réservation sans compte (`liaisons = 1`, `sans_compte = 1`), bail libéré.
+- **Fenêtre refermée** : l'interrupteur est coupé, la fonction renvoie 503.
+
+**Règle documentée** ([jetons de compte](https://docs.stripe.com/connect/account-tokens)) : pour une plateforme française, `display_name`, `contact_email`, `contact_phone` et tout `identity`, **sauf `identity.country`**, passent obligatoirement par un jeton de compte. `dashboard`, `defaults` et `configuration` restent envoyés directement.
+
+**Correctif (branche `fix/stripe-account-token-fr`)** :
+- La création n'envoie plus `display_name`. Le gardien saisit ces informations dans l'inscription hébergée par Stripe. Le test fige l'absence de `display_name`, `contact_email` et `contact_phone`, ainsi que `identity = { country: "fr" }`.
+- La clé d'idempotence de création devient `furrix-sitter-v2-<clé permanente>`.
+  - En v2, Stripe peut refuser (`409 idempotency_error`) une clé réutilisée avec d'autres paramètres, pendant jusqu'à 30 jours.
+  - Le premier corps a été envoyé sous `furrix-sitter-<clé>`. Le préfixe versionné évite ce conflit tout en gardant une clé déterministe pour chaque gardien.
+- Aucune migration n'est nécessaire.
+
+**Risque restant, non vérifiable sans appel réel** : Stripe documente aussi `account_terms_of_service_not_accepted` (« Terms of service must be accepted before adding merchant configuration »). Pour une plateforme française, l'acceptation des conditions passe par le jeton de compte (`identity.attestations`). Si cette erreur apparaît au prochain essai, l'inscription demandera :
+- un jeton de compte créé côté client avec la clé publiable ;
+- ou une création en deux temps : configuration marchand ajoutée après l'inscription.
+
+Ce changement d'architecture serait à décider séparément.
+
+**Délai** : la réservation date du 25/11 à 14:32 UTC. Sans compte relié avant le **26/11 vers 13:32 UTC**, elle passe en rapprochement manuel et ne déclenche aucune nouvelle création automatique.
