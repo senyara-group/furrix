@@ -128,3 +128,30 @@ Ce changement d'architecture serait à décider séparément.
 - **Correctif (branche `fix/stripe-account-link-configurations`)** : le champ est retiré.
   - Le corps envoyé se limite à `type`, `collection_options.fields = eventually_due`, `return_url` et `refresh_url`, et le test fige exactement ce contenu.
   - Le lien ne porte pas de clé d'idempotence Furrix : un nouvel essai crée simplement un nouveau lien pour le même compte.
+
+## Statut « Vérification en cours » et relecture après retour (suivi n° 1 de la recette)
+
+La recette du 25 novembre a révélé un délai : juste après la fin de l'inscription, Stripe n'avait pas encore activé les capacités, et la carte restait sur « À compléter » jusqu'à un rechargement manuel.
+
+**Serveur** : `stripe.ts` lit désormais `GET /v2/core/accounts/{id}?include[0]=configuration.merchant&include[1]=requirements`. Trois états :
+
+- **`ready` (« Complète »)** : `card_payments` **et** `stripe_balance.payouts` sont `active`. Une capacité absente n'est jamais considérée active.
+- **`pending` (« Vérification en cours »)** : il faut, ensemble,
+  - des `requirements` lisibles ;
+  - **aucune** exigence attendant le gardien maintenant (`awaiting_action_from` différent de `stripe`, avec `minimum_deadline.status` à `currently_due` ou `past_due`) ;
+  - et, pour chaque capacité non active : présente, non `unsupported`, sans résolution `provide_info`, `contact_stripe` ni `no_resolution`.
+  - Une exigence `eventually_due` n'est pas due maintenant.
+- **`incomplete` (« À compléter »)** : tous les autres cas, y compris des exigences illisibles. Dans le doute, la carte ne promet pas une vérification.
+
+**Client** : relecture automatique limitée après un retour de Stripe, à 3, 6, 12 puis 20 s (≈ 41 s au total), tant que l'état n'est pas « Complète ».
+
+- **Fonctionnement** :
+  - une seule lecture à la fois : la minuterie comme « Actualiser » ignorent un appel pendant qu'une lecture est en cours ;
+  - arrêt dès « Complète », sur erreur et au démontage ;
+  - au-delà, le message renvoie au bouton « Actualiser », désormais affiché dans tous les états sauf « Pas commencée ».
+- **Détection du retour** :
+  - mobile : la fermeture du navigateur sécurisé ;
+  - web : une marque `furrix:stripe-onboarding-return` en `sessionStorage`. Elle ne contient qu'un horodatage, jamais le lien. Elle est consommée au retour et valable 30 minutes.
+- **En « Vérification en cours »**, rien n'est attendu du gardien : la carte ne propose plus d'action d'inscription.
+
+Non déployé : la fonction DEV reste en version 8 et l'interrupteur reste coupé. Ce comportement serveur n'a pas encore été observé sur un vrai compte Stripe.

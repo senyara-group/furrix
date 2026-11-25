@@ -14,7 +14,7 @@ vi.mock('../platform/secureBrowser', () => ({
 }));
 
 import { isStripeOnboardingUrl, PayoutError, payoutStatus, startPayout } from './payouts';
-import { PayoutOnboarding } from './PayoutOnboarding';
+import { AUTO_REFRESH_DELAYS, PayoutOnboarding, STRIPE_RETURN_KEY } from './PayoutOnboarding';
 
 const LINK = 'https://connect.stripe.com/setup/e/acct_test/abc';
 type Reply = { data?: unknown; error?: unknown } | Error;
@@ -184,5 +184,130 @@ describe('Inscription Stripe : profil gardien', () => {
 
     render(<PayoutOnboarding client={fakeClient({ error: httpError(503, { status: 'unavailable' }) }).client} />);
     expect(await screen.findByText('Inscription aux versements pas encore disponible')).toBeTruthy();
+  });
+});
+
+describe('Inscription Stripe : trois états et relecture après retour', () => {
+  afterEach(() => { vi.useRealTimers(); });
+  const actions = (invoke: ReturnType<typeof vi.fn>) =>
+    invoke.mock.calls.map((c) => (c as unknown as [string, { body: { action: string } }])[1].body.action);
+
+  it('distingue « À compléter », « Vérification en cours » et « Complète »', async () => {
+    render(<PayoutOnboarding client={fakeClient({ data: { status: 'incomplete' } }).client} />);
+    expect(await screen.findByText('À compléter')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reprendre l’inscription Stripe' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Actualiser' })).toBeTruthy();
+    cleanup();
+
+    render(<PayoutOnboarding client={fakeClient({ data: { status: 'pending' } }).client} />);
+    expect(await screen.findByText('Vérification en cours')).toBeTruthy();
+    expect(screen.getByText(/Rien n’est à faire pour l’instant/)).toBeTruthy();
+    // Rien n'est attendu du gardien : aucune action d'inscription proposée.
+    expect(screen.queryByRole('button', { name: /Stripe/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Actualiser' })).toBeTruthy();
+    cleanup();
+
+    render(<PayoutOnboarding client={fakeClient({ data: { status: 'ready' } }).client} />);
+    expect(await screen.findByText('Complète')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /inscription Stripe/ })).toBeNull();
+  });
+
+  it('relit automatiquement après le retour, sans requête concurrente, et s’arrête à « Complète »', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    native.value = true;
+    let release!: () => void;
+    const slow = new Promise<void>((r) => { release = r; });
+    const replies: Array<() => Promise<{ data: unknown; error: null }>> = [
+      async () => ({ data: { status: 'incomplete' }, error: null }),
+      async () => ({ data: { status: 'incomplete', url: LINK }, error: null }),
+      async () => ({ data: { status: 'pending' }, error: null }),
+      // Première relecture automatique, volontairement lente.
+      async () => { await slow; return { data: { status: 'pending' }, error: null }; },
+      async () => ({ data: { status: 'ready' }, error: null }),
+    ];
+    const invoke = vi.fn(async () => replies.shift()!());
+    const client = { functions: { invoke } } as unknown as FurrixClient;
+    render(<PayoutOnboarding client={client} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Reprendre l’inscription Stripe' }));
+    await waitFor(() => expect(browser.closed).not.toBeNull());
+    browser.closed!();
+    expect(await screen.findByText('Vérification en cours')).toBeTruthy();
+    expect(screen.getByText('Nouvelle vérification automatique dans quelques secondes.')).toBeTruthy();
+    expect(invoke).toHaveBeenCalledTimes(3);
+
+    await vi.advanceTimersByTimeAsync(AUTO_REFRESH_DELAYS[0]);
+    expect(invoke).toHaveBeenCalledTimes(4);
+    // Pendant la lecture lente : ni « Actualiser » ni la minuterie ne lancent une seconde requête.
+    fireEvent.click(screen.getByRole('button', { name: 'Actualiser' }));
+    await vi.advanceTimersByTimeAsync(AUTO_REFRESH_DELAYS[1] * 2);
+    expect(invoke).toHaveBeenCalledTimes(4);
+    release();
+
+    await vi.advanceTimersByTimeAsync(AUTO_REFRESH_DELAYS[1]);
+    expect(await screen.findByText('Complète')).toBeTruthy();
+    expect(invoke).toHaveBeenCalledTimes(5);
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(invoke).toHaveBeenCalledTimes(5);
+    expect(actions(invoke)).toEqual(['status', 'start', 'status', 'status', 'status']);
+  });
+
+  it('limite le nombre de relectures, puis laisse « Actualiser »', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    native.value = true;
+    const { client, invoke } = fakeClient(
+      { data: { status: 'incomplete' } },
+      { data: { status: 'incomplete', url: LINK } },
+      { data: { status: 'pending' } },
+    );
+    render(<PayoutOnboarding client={client} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Reprendre l’inscription Stripe' }));
+    await waitFor(() => expect(browser.closed).not.toBeNull());
+    browser.closed!();
+    expect(await screen.findByText('Vérification en cours')).toBeTruthy();
+    for (const delay of AUTO_REFRESH_DELAYS) await vi.advanceTimersByTimeAsync(delay);
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(invoke).toHaveBeenCalledTimes(3 + AUTO_REFRESH_DELAYS.length);
+    expect(await screen.findByText('Stripe peut mettre quelques minutes à confirmer : utilise « Actualiser ».')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Actualiser' }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledTimes(4 + AUTO_REFRESH_DELAYS.length));
+  });
+
+  it('arrête la relecture automatique au démontage', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    native.value = true;
+    const { client, invoke } = fakeClient(
+      { data: { status: 'incomplete' } },
+      { data: { status: 'incomplete', url: LINK } },
+      { data: { status: 'pending' } },
+    );
+    const view = render(<PayoutOnboarding client={client} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Reprendre l’inscription Stripe' }));
+    await waitFor(() => expect(browser.closed).not.toBeNull());
+    browser.closed!();
+    expect(await screen.findByText('Vérification en cours')).toBeTruthy();
+    view.unmount();
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(invoke).toHaveBeenCalledTimes(3);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('web : reconnaît le retour de Stripe par une marque horodatée, consommée une fois et sans lien', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    sessionStorage.setItem(STRIPE_RETURN_KEY, String(Date.now() - 5_000));
+    const { client, invoke } = fakeClient({ data: { status: 'pending' } }, { data: { status: 'ready' } });
+    render(<PayoutOnboarding client={client} />);
+    expect(await screen.findByText('Vérification en cours')).toBeTruthy();
+    expect(sessionStorage.getItem(STRIPE_RETURN_KEY)).toBeNull();
+    await vi.advanceTimersByTimeAsync(AUTO_REFRESH_DELAYS[0]);
+    expect(await screen.findByText('Complète')).toBeTruthy();
+    expect(invoke).toHaveBeenCalledTimes(2);
+    cleanup();
+
+    // Ouverture ordinaire (sans marque) : aucune relecture automatique.
+    const plain = fakeClient({ data: { status: 'pending' } });
+    render(<PayoutOnboarding client={plain.client} />);
+    expect(await screen.findByText('Vérification en cours')).toBeTruthy();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(plain.invoke).toHaveBeenCalledTimes(1);
   });
 });

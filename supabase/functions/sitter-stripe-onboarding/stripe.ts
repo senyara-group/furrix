@@ -8,6 +8,49 @@ const RETURN_URL = "https://furrix.fr/#/garde?vue=profil";
  * avec d'autres paramètres. « v2 » : corps sans display_name (première version refusée en 400).
  */
 export const CREATE_KEY_PREFIX = "furrix-sitter-v2-";
+type Capability = {
+  status?: string;
+  status_details?: { code?: string; resolution?: string }[];
+};
+type Requirements =
+  | {
+    entries?: {
+      awaiting_action_from?: string;
+      minimum_deadline?: { status?: string };
+    }[];
+  }
+  | null
+  | undefined;
+/**
+ * Vrai seulement si Stripe vérifie et que rien n'est attendu du gardien (« Vérification en cours »).
+ * Faux dès qu'une exigence attend le gardien maintenant (`awaiting_action_from: user`, échéance
+ * `currently_due` ou `past_due`), qu'une capacité demande une action (`provide_info`, `contact_stripe`)
+ * ou ne peut pas aboutir (`unsupported`, `no_resolution`), ou que les exigences sont illisibles.
+ * Une exigence `eventually_due` n'est pas due maintenant et n'empêche pas l'activation.
+ */
+export function awaitingStripeOnly(
+  requirements: Requirements,
+  capabilities: (Capability | undefined)[],
+): boolean {
+  if (!requirements || !Array.isArray(requirements.entries)) return false;
+  const userAction = requirements.entries.some((e) =>
+    e?.awaiting_action_from !== "stripe" &&
+    ["currently_due", "past_due"].includes(e?.minimum_deadline?.status ?? "")
+  );
+  if (userAction) return false;
+  for (const c of capabilities) {
+    if (c?.status === "active") continue;
+    if (!c || c.status === "unsupported") return false;
+    if (
+      c.status_details?.some((d) =>
+        ["provide_info", "contact_stripe", "no_resolution"].includes(
+          d?.resolution ?? "",
+        )
+      )
+    ) return false;
+  }
+  return true;
+}
 /** Adaptateur de test exclusivement : aucun secret ni réponse Stripe n'est journalisé. */
 export function stripeOnboarding(
   secret: string,
@@ -72,18 +115,18 @@ export function stripeOnboarding(
       // capacités v2. Les champs v1 (charges_enabled…) ne sont pas documentés pour ces comptes.
       const result = await call(
         "/v2/core/accounts/" + accountId(account) +
-          "?include[0]=configuration.merchant",
+          "?include[0]=configuration.merchant&include[1]=requirements",
       );
       if (result.id !== account) throw Error("wrong_account");
       if (result.livemode !== false) throw Error("test_account_required");
       const capabilities = result.configuration?.merchant?.capabilities ?? {};
       // Capacité absente (jamais demandée ou pas encore créée) : jamais considérée active.
-      const card = capabilities.card_payments?.status;
-      const payouts = capabilities.stripe_balance?.payouts?.status;
+      const card = capabilities.card_payments;
+      const payouts = capabilities.stripe_balance?.payouts;
       return {
-        charges: card === "active",
-        payouts: payouts === "active",
-        reviewing: card === "pending" || payouts === "pending",
+        charges: card?.status === "active",
+        payouts: payouts?.status === "active",
+        reviewing: awaitingStripeOnly(result.requirements, [card, payouts]),
       };
     },
     async link(account) {

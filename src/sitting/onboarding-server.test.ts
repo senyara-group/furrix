@@ -123,37 +123,74 @@ describe("Adaptateur Stripe de test", () => {
     await expect(stripeOnboarding("sk_test_fake", send).verifyPlatform())
       .rejects.toThrow("wrong_sandbox");
   });
-  it("lit l’état par les capacités Accounts v2, sans supposer une capacité absente active", async () => {
-    const account = (card?: string, payouts?: string, livemode = false) =>
+  it("lit l’état par les capacités et les exigences Accounts v2", async () => {
+    type Cap = { status: string; status_details?: { code: string; resolution: string }[] };
+    type Entry = { awaiting_action_from: string; minimum_deadline: { status: string } };
+    const account = (card?: Cap, payouts?: Cap, entries: Entry[] | null = [], livemode = false) =>
       Response.json({
         id: "acct_v2",
         livemode,
         configuration: {
           merchant: {
             capabilities: {
-              ...(card ? { card_payments: { status: card } } : {}),
-              ...(payouts ? { stripe_balance: { payouts: { status: payouts } } } : {}),
+              ...(card ? { card_payments: card } : {}),
+              ...(payouts ? { stripe_balance: { payouts } } : {}),
             },
           },
         },
+        requirements: entries === null ? null : { entries },
       });
+    const active = { status: "active" };
+    const reviewing: Cap = { status: "pending", status_details: [{ code: "requirements_pending_verification", resolution: "" }] };
+    const restricted: Cap = { status: "restricted", status_details: [{ code: "requirements_past_due", resolution: "provide_info" }] };
+    const user = (status: string): Entry => ({ awaiting_action_from: "user", minimum_deadline: { status } });
+    const byStripe: Entry = { awaiting_action_from: "stripe", minimum_deadline: { status: "currently_due" } };
     const send = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(account("active", "active"))
-      .mockResolvedValueOnce(account("active"))
-      .mockResolvedValueOnce(account("pending", "restricted"))
-      .mockResolvedValueOnce(account("restricted", "restricted"))
-      .mockResolvedValueOnce(account("active", "active", true));
+      // Complète : les deux capacités actives.
+      .mockResolvedValueOnce(account(active, active))
+      // Versements absents : jamais « Complète », jamais « Vérification » sans preuve.
+      .mockResolvedValueOnce(account(active))
+      // Vérification en cours : capacités en attente, seules des exigences traitées par Stripe.
+      .mockResolvedValueOnce(account({ status: "pending" }, reviewing, [byStripe]))
+      // Exigence encore due par le gardien : « À compléter », même si une capacité est « pending ».
+      .mockResolvedValueOnce(account({ status: "pending" }, { status: "pending" }, [user("currently_due")]))
+      .mockResolvedValueOnce(account({ status: "pending" }, { status: "pending" }, [user("past_due")]))
+      // Exigence future (eventually_due) : pas une action à faire maintenant.
+      .mockResolvedValueOnce(account({ status: "pending" }, active, [user("eventually_due")]))
+      // Capacité restreinte, résolution « provide_info » : action du gardien.
+      .mockResolvedValueOnce(account(restricted, restricted))
+      // Exigences illisibles : prudence, « À compléter ».
+      .mockResolvedValueOnce(account({ status: "pending" }, { status: "pending" }, null))
+      .mockResolvedValueOnce(account(active, active, [], true));
     const stripe = stripeOnboarding("sk_test_fake", send);
-    expect(await stripe.status("acct_v2")).toEqual({ charges: true, payouts: true, reviewing: false });
+    expect(await stripe.status("acct_v2")).toEqual({ charges: true, payouts: true, reviewing: true });
     expect(await stripe.status("acct_v2")).toEqual({ charges: true, payouts: false, reviewing: false });
     expect(await stripe.status("acct_v2")).toEqual({ charges: false, payouts: false, reviewing: true });
     expect(await stripe.status("acct_v2")).toEqual({ charges: false, payouts: false, reviewing: false });
+    expect(await stripe.status("acct_v2")).toEqual({ charges: false, payouts: false, reviewing: false });
+    expect(await stripe.status("acct_v2")).toEqual({ charges: false, payouts: true, reviewing: true });
+    expect(await stripe.status("acct_v2")).toEqual({ charges: false, payouts: false, reviewing: false });
+    expect(await stripe.status("acct_v2")).toEqual({ charges: false, payouts: false, reviewing: false });
     await expect(stripe.status("acct_v2")).rejects.toThrow("test_account_required");
     expect(String(send.mock.calls[0]![0])).toBe(
-      "https://api.stripe.com/v2/core/accounts/acct_v2?include[0]=configuration.merchant",
+      "https://api.stripe.com/v2/core/accounts/acct_v2?include[0]=configuration.merchant&include[1]=requirements",
     );
     expect(send.mock.calls[0]![1]!.method).toBe("GET");
     expect(send.mock.calls[0]![1]!.headers).toMatchObject({ "Stripe-Version": "2026-11-18.endive" });
+  });
+  it("traduit les capacités et exigences en trois états, « ready » d’abord", async () => {
+    const { store, provider, run } = setup();
+    store.prepare.mockResolvedValue({ ...claim, account: "acct_existing" });
+    const cases: Array<[{ charges: boolean; payouts: boolean; reviewing: boolean }, string]> = [
+      [{ charges: true, payouts: true, reviewing: true }, "ready"],
+      [{ charges: true, payouts: false, reviewing: true }, "pending"],
+      [{ charges: false, payouts: false, reviewing: false }, "incomplete"],
+      [{ charges: true, payouts: false, reviewing: false }, "incomplete"],
+    ];
+    for (const [state, expected] of cases) {
+      provider.status.mockResolvedValueOnce(state);
+      expect(await (await run(req({ action: "status" }))).json()).toEqual({ status: expected });
+    }
   });
   it("fige le périmètre, la clé d’idempotence et les URLs de retour serveur", async () => {
     const send = vi.fn<typeof fetch>().mockResolvedValueOnce(
