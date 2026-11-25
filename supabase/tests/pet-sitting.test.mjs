@@ -231,7 +231,7 @@ test('garde : profil, recherche, demande, accord, conversation, nouvelles, annul
  await t.test('retour arrière puis réapplication des disponibilités',async()=>{
   await db.exec(await readFile(new URL('../operations/rollback_sitter_availability.sql',import.meta.url),'utf8'));
   assert.equal((await db.query("select to_regclass('public.sitter_unavailability') t")).rows[0].t,null);
-  await db.exec(await readFile(new URL('../migrations/20261123100000_sitter_availability.sql',import.meta.url),'utf8'));
+  await db.exec(await readFile(new URL('../migrations/20261125090833_sitter_availability.sql',import.meta.url),'utf8'));
   assert.equal((await search(A,{lat:48.85,lng:2.35}))[0]?.capacity,1);
  });
  await t.test('retour arrière puis réapplication de la correction de concurrence',async()=>{await db.exec(await readFile(new URL('../operations/rollback_sitting_concurrency_recovery.sql',import.meta.url),'utf8'));await db.exec(await readFile(new URL('../migrations/20261120093317_sitting_concurrency_recovery.sql',import.meta.url),'utf8'));});
