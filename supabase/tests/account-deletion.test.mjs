@@ -141,7 +141,7 @@ test("suppression de compte : droits, activités, conservation et reprise", asyn
         await db.exec(
           await readFile(
             new URL(
-              "../migrations/20261120143524_account_deletion.sql",
+              "../migrations/20261125085916_account_deletion.sql",
               import.meta.url,
             ),
             "utf8",

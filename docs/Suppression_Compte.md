@@ -1,6 +1,6 @@
 # Suppression personnelle du compte
 
-Ce lot prépare le parcours web/Android/iOS. Il ne déploie aucune fonction, n'applique aucune migration distante et ne supprime aucun compte réel.
+Le parcours web/Android/iOS est activé sur le projet DEV `jemikzqgbpaivlujnfgl` depuis le 25 novembre 2026, après accord explicite. Les contrôles de mise en service n'ont créé aucune demande et n'ont supprimé aucun compte réel. La recette complète sur un compte fictif dédié reste à effectuer.
 
 ## Parcours
 
@@ -24,13 +24,13 @@ Auth est supprimé par `auth.admin.deleteUser(id, true)`, uniquement côté serv
 
 Les objets Storage sont listés par propriétaire ou préfixe UUID, dans tous les buckets, objets orphelins compris. Le worker utilise uniquement l'API Storage pour effacer les octets ; aucun DELETE SQL sur `storage.objects` en production.
 
-## Reprise et déploiement à autoriser
+## Reprise et procédure de déploiement
 
 La demande est unique par compte et rejouable. Un worker traite un compte à la fois, sous bail de cinq minutes avec nonce. Il nettoie les données dans une transaction, efface au plus cinq lots de 100 fichiers par invocation, puis supprime l'identité Auth. Une panne laisse le travail à reprendre après cinq minutes. Un ancien bail ne peut pas finaliser un autre essai. La base refuse aussi un succès s'il reste des fichiers, si le nettoyage n'a pas abouti ou si Auth n'a pas de `deleted_at`.
 
 Ordre de mise en service, après revue et accord explicite :
 
-1. Appliquer `20261120143524_account_deletion.sql`, après le retrait animal.
+1. Appliquer `20261125085916_account_deletion.sql`, après le retrait animal.
 2. Déployer `account-deletion-worker` avec un nouveau secret serveur d'au moins 32 caractères, dans `FURRIX_ACCOUNT_DELETION_WORKER_SECRET` et Vault `furrix_account_deletion_worker`.
 3. Installer le minuteur avec `supabase/operations/enable_account_deletion_scheduler.sql`. Tester son appel à vide et surveiller ses erreurs. Ne pas lancer une suppression réelle pour ce contrôle.
 4. Déployer `account-deletion` (JWT requis). Garder `FURRIX_ACCOUNT_DELETION_ENABLED` absent/false tant que le worker et son minuteur ne sont pas contrôlés ; activer à true ensuite.
@@ -40,11 +40,27 @@ Ordre de mise en service, après revue et accord explicite :
 
 Contrôle distant en lecture seule : ni `account_deletions`, ni `sitter_unavailability`, ni `save_sitter_offer` ne sont encore installés. Seul le worker des notifications figure dans les fonctions Edge déployées. Les deux fonctions de suppression restent à déployer ; cette vérification n'a créé aucune demande.
 
-Pour l'état actuel du dépôt, appliquer d'abord la migration de suppression ci-dessus, puis `20261123100000_sitter_availability.sql`, avant d'activer l'endpoint. La seconde installe la protection de lecture des absences, leur effacement au nettoyage et les règles de garde expirée. Ne pas l'appliquer avant la suppression : certains raccordements sont conditionnels à la présence des fonctions de suppression. Le minuteur des demandes de garde expirées est une opération distincte (`enable_sitting_expiry_cron.sql`).
+Pour l'état actuel du dépôt, appliquer d'abord la migration de suppression ci-dessus, puis `20261125090833_sitter_availability.sql`, avant d'activer l'endpoint. La seconde installe la protection de lecture des absences, leur effacement au nettoyage et les règles de garde expirée. Ne pas l'appliquer avant la suppression : certains raccordements sont conditionnels à la présence des fonctions de suppression. Le minuteur des demandes de garde expirées est une opération distincte (`enable_sitting_expiry_cron.sql`).
 
 Le contrôle `supabase/operations/check_account_deletion_readiness.sql` est en lecture seule : il vérifie les fonctions attendues, la protection et le nettoyage des absences, ainsi que la présence du minuteur et du secret Vault sans exposer sa valeur. Il ne vérifie pas les secrets Edge ni les réponses HTTP ; ces contrôles restent séparés, avec le worker sur une file vide et les demandes désactivées.
 
 Après accusé serveur de suppression, le retour à la connexion utilise une sortie dédiée : les appareils ont déjà été retirés transactionnellement côté serveur. Le nettoyage natif est tenté sans nouvelle RPC authentifiée, car le worker peut avoir effacé l'identité entre-temps. Une réponse de suppression non confirmée ne déclenche pas cette sortie. La déconnexion ordinaire conserve son contrôle strict de retrait des notifications.
+
+### Activation DEV du 25 novembre 2026
+
+- Migrations distantes `20261125085916_account_deletion.sql` puis `20261125090833_sitter_availability.sql` appliquées. Noms locaux alignés sur les versions attribuées par Supabase, sans modification du contenu SQL.
+- Fonctions `account-deletion-worker` et `account-deletion` déployées en version 1. Le worker n'utilise pas le JWT de passerelle et exige son secret dédié ; l'endpoint conserve `verify_jwt=true` et retrouve l'utilisateur auprès d'Auth.
+- Nouveau secret aléatoire de 48 octets installé dans Edge et Vault, distinct du secret des notifications. Les fichiers locaux temporaires de transfert ont été supprimés et aucune valeur n'a été journalisée.
+- Minuteur `furrix-account-deletion` actif chaque minute. Premier passage automatique contrôlé à 09:11 UTC : tâche réussie et réponse HTTP 200 `idle` sur une file vide.
+- Avant activation : réponse 503 `unavailable` avec la clé publique de test. Après `FURRIX_ACCOUNT_DELETION_ENABLED=true` : corps vide refusé en 400 `invalid`, appel sans session refusé en 401 et précontrôle navigateur réussi en 204. Worker sans secret refusé en 401.
+- Permissions contrôlées : les rôles clients ne peuvent ni accepter une demande par RPC privilégiée ni réclamer le worker. Protection restrictive des absences et déclencheur de nettoyage présents.
+- Dernier contrôle de la file après activation : zéro demande, zéro suppression terminée. Aucun compte fictif ou réel n'a été supprimé pour cette mise en service.
+
+Le minuteur d'expiration des demandes de garde n'a pas été activé dans cette opération. Les tests locaux et les contrôles à vide ne remplacent pas la recette Auth et Storage avec un compte dédié.
+
+Après alignement des noms de migrations : contrôle des types et compilation réussis, 325 tests applicatifs et 157 tests SQL réussis. Aucun nouveau contrôle de concurrence n'a été lancé pour ce changement de noms et de documentation ; le contenu des migrations appliquées est inchangé.
+
+Le conseiller de sécurité signale les RPC authentifiées privilégiées (accès intentionnel, contrôlé dans leurs fonctions), ainsi que les points antérieurs sur `touch_updated_at`, `handle_new_user` et la protection des mots de passe compromis. Ces points n'ont pas été modifiés par l'activation ; voir les [conseillers Supabase](https://supabase.com/docs/guides/database/database-linter).
 
 Surveiller les demandes non terminées, `attempts`, `retry_at` et l'état du minuteur. Ne jamais journaliser les mots de passe, les jetons ni les corps des requêtes.
 
