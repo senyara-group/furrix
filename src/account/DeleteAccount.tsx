@@ -31,6 +31,7 @@ const destinations: Record<string, { label: string; href?: string }> = {
     href: "#/animaux-perdus?vue=mine",
   },
   abonnement: { label: "Abonnement à résilier auprès de la boutique" },
+  paiement: { label: "Compte de paiement à clôturer avec l’équipe" },
   signalements: { label: "Signalements à traiter avec l’équipe" },
   moderation: { label: "Dossier à traiter avec l’équipe" },
 };

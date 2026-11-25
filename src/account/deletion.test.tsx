@@ -44,10 +44,11 @@ it("affiche les activités, y compris celles du prestataire, sans permettre la c
   vi.spyOn(service, "deletionChecks").mockResolvedValue({
     owner: "moi",
     requested: false,
-    blockers: [{ section: "garde", total: 2 }],
+    blockers: [{ section: "garde", total: 2 }, { section: "paiement", total: 1 }],
   });
   mount();
   await screen.findByText("Gardes à traiter : 2");
+  expect(screen.getByText("Compte de paiement à clôturer avec l’équipe : 1")).toBeTruthy();
   expect(screen.queryByLabelText("Ton mot de passe actuel")).toBeNull();
   expect(
     (

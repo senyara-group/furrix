@@ -93,3 +93,7 @@ verify_jwt = true
 
 [functions.account-deletion-worker]
 verify_jwt = false
+
+# Gardien : JWT vérifié à nouveau auprès d'Auth ; uniquement Furrix DEV, désactivé par défaut côté serveur.
+[functions.sitter-stripe-onboarding]
+verify_jwt = true
