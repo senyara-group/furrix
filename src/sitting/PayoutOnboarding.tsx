@@ -14,13 +14,13 @@ const badge: Record<PayoutStatus, { status: Status; label: string }> = {
 const explain: Record<PayoutStatus, string> = {
   not_started: 'Pour recevoir le paiement de tes gardes, Stripe, notre prestataire de paiement, doit vérifier ton identité et ton compte bancaire. Tu les saisis directement chez Stripe : Furrix ne les voit pas.',
   incomplete: 'Des informations manquent encore chez Stripe. Reprends l’inscription là où tu l’as laissée.',
-  pending: 'Stripe vérifie tes informations. Cela peut prendre un peu de temps, et Stripe peut te demander un complément.',
+  pending: 'Stripe vérifie tes informations. Rien n’est à faire pour l’instant : si Stripe a besoin d’un complément, l’inscription repassera « À compléter ».',
   ready: 'Stripe a activé les paiements et les versements sur ton compte.',
 };
 const startLabel: Partial<Record<PayoutStatus, string>> = {
   not_started: 'Commencer l’inscription Stripe',
   incomplete: 'Reprendre l’inscription Stripe',
-  pending: 'Compléter chez Stripe',
+  // « pending » : rien n'est attendu du gardien, donc aucune action proposée (seulement « Actualiser »).
 };
 const problemText: Record<PayoutProblem | 'browser', { tone: 'info' | 'warn' | 'err'; title: string; text: string; retry: boolean }> = {
   unavailable: { tone: 'info', title: 'Inscription aux versements pas encore disponible', text: 'Le service n’est pas ouvert pour le moment ou ne répond pas. Réessaie plus tard : ce que tu as déjà renseigné chez Stripe est conservé.', retry: true },
@@ -32,6 +32,25 @@ const problemText: Record<PayoutProblem | 'browser', { tone: 'info' | 'warn' | '
   browser: { tone: 'err', title: 'La page Stripe n’a pas pu s’ouvrir', text: 'Réessaie : un nouveau lien sera préparé.', retry: true },
 };
 const problemOf = (e: unknown): PayoutProblem => e instanceof PayoutError ? e.problem : 'unavailable';
+
+/**
+ * Relectures automatiques après un retour de Stripe (délais en ms, cumulés ≈ 41 s), tant que
+ * l'inscription n'est pas « Complète ». Stripe active les capacités de façon asynchrone.
+ * Au-delà, le bouton « Actualiser » prend le relais.
+ */
+export const AUTO_REFRESH_DELAYS = [3000, 6000, 12000, 20000] as const;
+/** Web : marque de départ vers Stripe (horodatage seul, jamais le lien), lue au retour sur le profil. */
+export const STRIPE_RETURN_KEY = 'furrix:stripe-onboarding-return';
+const RETURN_WINDOW_MS = 30 * 60_000;
+/** Consomme la marque de départ : vrai si la page est ouverte au retour d'un passage récent chez Stripe. */
+function consumeWebReturn(): boolean {
+  try {
+    const raw = sessionStorage.getItem(STRIPE_RETURN_KEY);
+    sessionStorage.removeItem(STRIPE_RETURN_KEY);
+    const at = Number(raw);
+    return !!raw && Number.isFinite(at) && Date.now() - at >= 0 && Date.now() - at < RETURN_WINDOW_MS;
+  } catch { return false; }
+}
 
 /**
  * Versements du gardien : état réel de l'inscription Stripe et action pour la commencer ou la reprendre.
@@ -47,20 +66,38 @@ export function PayoutOnboarding({ client, unsaved = false }: {
   const [checking, setChecking] = useState(true);
   const [starting, setStarting] = useState(false);
   const [problem, setProblem] = useState<PayoutProblem | 'browser' | null>(null);
-  /** Vrai après la fermeture du navigateur Stripe, jusqu'à la relecture suivante. */
-  const [returned, setReturned] = useState(false);
+  /** Vrai au retour de Stripe (navigateur sécurisé fermé, ou page web rouverte par Stripe). */
+  const [returned, setReturned] = useState(() => !Capacitor.isNativePlatform() && consumeWebReturn());
+  /** Incrémenté à la fin de chaque lecture : sert à planifier la relecture automatique suivante. */
+  const [reads, setReads] = useState(0);
+  const autoCount = useRef(0);
+  /** Une seule lecture à la fois : ni la minuterie ni « Actualiser » ne lancent de requête concurrente. */
+  const inFlight = useRef(false);
   const alive = useRef(true);
   const stopListening = useRef<() => void>(() => {});
   // Remis à vrai au montage : React (StrictMode, remontage) peut démonter puis remonter le même composant.
   useEffect(() => { alive.current = true; return () => { alive.current = false; stopListening.current(); }; }, []);
 
-  const refresh = useCallback(async () => {
-    setChecking(true); setProblem(null);
+  /** `quiet` : relecture automatique, sans masquer l'état affiché. */
+  const refresh = useCallback(async (quiet = false) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    if (!quiet) setChecking(true);
+    setProblem(null);
     try { const next = await payoutStatus(client); if (alive.current) setStatus(next); }
     catch (e) { if (alive.current) setProblem(problemOf(e)); }
-    finally { if (alive.current) setChecking(false); }
+    finally {
+      inFlight.current = false;
+      if (alive.current) { setChecking(false); setReads((r) => r + 1); }
+    }
   }, [client]);
   useEffect(() => { void refresh(); }, [refresh]);
+  // Relecture automatique limitée après un retour de Stripe ; arrêtée au démontage, sur erreur ou dès « Complète ».
+  useEffect(() => {
+    if (!returned || problem || !status || status === 'ready' || autoCount.current >= AUTO_REFRESH_DELAYS.length) return;
+    const timer = window.setTimeout(() => { autoCount.current += 1; void refresh(true); }, AUTO_REFRESH_DELAYS[autoCount.current]);
+    return () => window.clearTimeout(timer);
+  }, [returned, problem, status, reads, refresh]);
   // Web : retour arrière depuis Stripe avec une page restaurée du cache. L'état est relu, jamais supposé.
   useEffect(() => {
     const restored = (e: PageTransitionEvent) => { if (e.persisted) { setStarting(false); void refresh(); } };
@@ -69,7 +106,7 @@ export function PayoutOnboarding({ client, unsaved = false }: {
   }, [refresh]);
 
   const start = async () => {
-    setStarting(true); setProblem(null); setReturned(false);
+    setStarting(true); setProblem(null); setReturned(false); autoCount.current = 0;
     let url: string | undefined;
     try {
       const result = await startPayout(client);
@@ -83,8 +120,11 @@ export function PayoutOnboarding({ client, unsaved = false }: {
     if (!url) { setStarting(false); return; }
     try {
       stopListening.current();
+      // Web : la page est remplacée par Stripe ; la marque permet de relire l'état au retour.
+      if (!Capacitor.isNativePlatform()) { try { sessionStorage.setItem(STRIPE_RETURN_KEY, String(Date.now())); } catch { /* sans stockage : Actualiser */ } }
       stopListening.current = await openSecureBrowser(url, () => {
         if (!alive.current) return;
+        autoCount.current = 0;
         setReturned(true);
         void refresh();
       });
@@ -115,8 +155,10 @@ export function PayoutOnboarding({ client, unsaved = false }: {
       ? <Button variant="out" size="sm" icon="retry" onClick={() => { void refresh(); }}>{p.retry ? 'Réessayer' : 'Actualiser'}</Button> : undefined}>{p.text}</Alert> : null}
     {status && !checking ? <Row>
       {label && !(problem && !problemText[problem].retry) ? <Button variant="ink" icon="arrowRight" loading={starting} disabled={blocked} onClick={() => { void start(); }}>{label}</Button> : null}
-      {status === 'pending' || status === 'ready' ? <Button variant="quiet" size="sm" icon="retry" onClick={() => { void refresh(); }}>Actualiser</Button> : null}
+      {status !== 'not_started' ? <Button variant="quiet" size="sm" icon="retry" onClick={() => { void refresh(); }}>Actualiser</Button> : null}
     </Row> : null}
+    {returned && status && status !== 'ready' && !checking && !problem ? <p className="fx-hint" role="status">
+      {autoCount.current < AUTO_REFRESH_DELAYS.length ? 'Nouvelle vérification automatique dans quelques secondes.' : 'Stripe peut mettre quelques minutes à confirmer : utilise « Actualiser ».'}</p> : null}
     {blocked && label ? <p className="fx-hint">Enregistre d’abord tes modifications : la page Stripe s’ouvre à la place de celle-ci.</p> : null}
     {label && !blocked ? <Text variant="body-sm">{native ? 'Stripe s’ouvre dans un navigateur sécurisé. Quand tu as terminé ou veux reprendre plus tard, ferme-le pour revenir ici.' : 'Stripe s’ouvre à la place de cette page, puis te ramène sur ton profil de gardien.'}</Text> : null}
     <Note>Le paiement des gardes n’est pas encore ouvert dans Furrix : la commission et les conditions de versement restent à définir.</Note>
