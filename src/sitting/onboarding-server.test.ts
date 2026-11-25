@@ -27,7 +27,7 @@ function setup() {
     status: vi.fn(async () => ({
       charges: false,
       payouts: false,
-      submitted: false,
+      reviewing: false,
     })),
     link: vi.fn(async () => "https://connect.stripe.com/setup/test"),
   };
@@ -74,7 +74,7 @@ describe("Inscription Stripe côté serveur", () => {
     provider.status.mockResolvedValue({
       charges: true,
       payouts: false,
-      submitted: true,
+      reviewing: true,
     });
     expect(await (await run(req({ action: "status" }))).json()).toEqual({
       status: "pending",
@@ -122,6 +122,38 @@ describe("Adaptateur Stripe de test", () => {
     send.mockResolvedValue(Response.json({ id: "acct_other" }));
     await expect(stripeOnboarding("sk_test_fake", send).verifyPlatform())
       .rejects.toThrow("wrong_sandbox");
+  });
+  it("lit l’état par les capacités Accounts v2, sans supposer une capacité absente active", async () => {
+    const account = (card?: string, payouts?: string, livemode = false) =>
+      Response.json({
+        id: "acct_v2",
+        livemode,
+        configuration: {
+          merchant: {
+            capabilities: {
+              ...(card ? { card_payments: { status: card } } : {}),
+              ...(payouts ? { stripe_balance: { payouts: { status: payouts } } } : {}),
+            },
+          },
+        },
+      });
+    const send = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(account("active", "active"))
+      .mockResolvedValueOnce(account("active"))
+      .mockResolvedValueOnce(account("pending", "restricted"))
+      .mockResolvedValueOnce(account("restricted", "restricted"))
+      .mockResolvedValueOnce(account("active", "active", true));
+    const stripe = stripeOnboarding("sk_test_fake", send);
+    expect(await stripe.status("acct_v2")).toEqual({ charges: true, payouts: true, reviewing: false });
+    expect(await stripe.status("acct_v2")).toEqual({ charges: true, payouts: false, reviewing: false });
+    expect(await stripe.status("acct_v2")).toEqual({ charges: false, payouts: false, reviewing: true });
+    expect(await stripe.status("acct_v2")).toEqual({ charges: false, payouts: false, reviewing: false });
+    await expect(stripe.status("acct_v2")).rejects.toThrow("test_account_required");
+    expect(String(send.mock.calls[0]![0])).toBe(
+      "https://api.stripe.com/v2/core/accounts/acct_v2?include[0]=configuration.merchant",
+    );
+    expect(send.mock.calls[0]![1]!.method).toBe("GET");
+    expect(send.mock.calls[0]![1]!.headers).toMatchObject({ "Stripe-Version": "2026-11-18.endive" });
   });
   it("fige le périmètre, la clé d’idempotence et les URLs de retour serveur", async () => {
     const send = vi.fn<typeof fetch>().mockResolvedValueOnce(

@@ -117,6 +117,30 @@ describe('Inscription Stripe : profil gardien', () => {
     expect(document.body.innerHTML).not.toContain('stripe.com');
   });
 
+  it('mobile : fermer puis rouvrir Stripe laisse le bouton disponible et relit l’état à chaque retour', async () => {
+    native.value = true;
+    const { client, invoke } = fakeClient(
+      { data: { status: 'incomplete' } },
+      { data: { status: 'incomplete', url: LINK } },
+      { data: { status: 'incomplete' } },
+      { data: { status: 'incomplete', url: LINK } },
+      { data: { status: 'incomplete' } },
+    );
+    render(<PayoutOnboarding client={client} />);
+    for (let round = 1; round <= 2; round++) {
+      const button = await screen.findByRole('button', { name: 'Reprendre l’inscription Stripe' });
+      expect(button.getAttribute('aria-busy')).toBeNull();
+      fireEvent.click(button);
+      await waitFor(() => expect(browser.open).toHaveBeenCalledTimes(round));
+      // Le navigateur est ouvert : le bouton n'est pas resté en attente.
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Reprendre l’inscription Stripe' }).getAttribute('aria-busy')).toBeNull());
+      browser.closed!();
+      expect(await screen.findByText('Inscription pas encore terminée')).toBeTruthy();
+    }
+    const actions = invoke.mock.calls.map((c) => (c as unknown as [string, { body: { action: string } }])[1].body.action);
+    expect(actions).toEqual(['status', 'start', 'status', 'start', 'status']);
+  });
+
   it('confirme seulement quand Stripe a activé paiements et versements', async () => {
     native.value = true;
     const { client } = fakeClient({ data: { status: 'not_started' } }, { data: { status: 'incomplete', url: LINK } }, { data: { status: 'ready' } });
