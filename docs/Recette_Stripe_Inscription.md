@@ -11,7 +11,7 @@ Constaté via le connecteur Supabase, sans écriture.
 - PostgreSQL 17.11, état `ACTIVE_HEALTHY`.
 - 30 migrations enregistrées, la dernière étant `20261125090833_sitter_availability`.
 - **Non appliquées** :
-  - `20261125105925_sitter_stripe_onboarding` (ce lot) ;
+  - `20261125105925_sitter_stripe_onboarding` (ce lot ; appliquée depuis sur DEV sous `20261125135930`, fichier renommé) ;
   - `20261125120000_professional_messages` (autre lot, sans lien : elle ne touche ni `account_deletion_blockers` ni les tables Stripe).
 - **Écart d'historique antérieur** : `unified_notifications` est enregistrée en `20261120103721` sur DEV, mais le fichier local porte `20261120100904`. Le contenu est identique : même MD5 après retrait des blancs et points-virgules (`6bbbd7ad…`). Même contrôle concordant pour `account_deletion` et `sitter_availability`.
   - **Conséquence : ne pas utiliser `supabase db push`.** Il tenterait de rejouer `unified_notifications`.
@@ -68,7 +68,7 @@ Le choix « tableau de bord Express » et le choix « frais prélevés par Strip
 
 Ordre strict, sans `db push` :
 
-1. **Migration** : appliquer **uniquement** `supabase/migrations/20261125105925_sitter_stripe_onboarding.sql`, inchangée. Passer par l'outil `apply_migration` du connecteur avec le nom `sitter_stripe_onboarding`, ou par `psql` sur le service privé `furrix-dev`.
+1. **Migration** : appliquer **uniquement** `supabase/migrations/20261125135930_sitter_stripe_onboarding.sql` (ex-`20261125105925`), inchangée. Passer par l'outil `apply_migration` du connecteur avec le nom `sitter_stripe_onboarding`, ou par `psql` sur le service privé `furrix-dev`.
    - Vérifier ensuite que l'historique contient la nouvelle version.
    - Exécuter `supabase/checks/sitter-stripe-onboarding-postflight.sql`, en lecture seule : il doit renvoyer `liaisons = 0`.
 2. **Secrets de la fonction** :

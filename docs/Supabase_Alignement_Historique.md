@@ -38,3 +38,14 @@ Résultat après renommage : suite sécurité **17/17**, suite inspection **8/8*
 Quand un accès en lecture seule sera disponible, vérifier sur la cible DEV les trois couples version/nom, l'identité du projet et le SQL enregistré face aux fichiers approuvés. Examiner aussi toute entrée supplémentaire ou ancienne version courte. Effectuer cette lecture sans `db push`, rejeu ou `migration repair` ; si le CLI ne peut pas garantir une inspection sans écriture, utiliser le connecteur SQL avec une transaction READ ONLY.
 
 Aucun push Git, fusion, réparation distante, migration, seed, déploiement de fonction ou changement d'interface n'est inclus. L'application réelle, les parcours Auth/Storage et l'exécution cron conservent leurs limites précédentes.
+
+## Inscription Stripe des gardiens (25 novembre 2026)
+
+Migration appliquée sur DEV `jemikzqgbpaivlujnfgl` par l'outil `apply_migration` du connecteur Supabase, sans `db push`, après accord explicite. Supabase a enregistré la version **`20261125135930`** sous le nom `sitter_stripe_onboarding`.
+
+- `20261125105925_sitter_stripe_onboarding.sql` devient `20261125135930_sitter_stripe_onboarding.sql` : simple renommage Git, sans aucune ligne SQL modifiée. SHA-256 du blob Git avant et après : `db40d34a612d5e29330025f1ef9ddca3cc609ca0aa819fecc1954ea704458e15`.
+- Le contenu enregistré dans `supabase_migrations.schema_migrations` correspond au fichier : MD5 `165d5949…` identique de part et d'autre, après retrait des blancs et des points-virgules.
+- Contrôle `supabase/checks/sitter-stripe-onboarding-postflight.sql` exécuté sur DEV juste après : aucune exception ; `liaisons = 0`, `comptes_relies = 0`, `baux_actifs = 0`.
+- Les deux tests SQL et le commentaire du contrôle pointent vers le nouveau nom. Dans l'ordre local, la migration se place désormais après `20261125120000_professional_messages`, toujours non appliquée sur DEV. Les deux migrations sont indépendantes.
+
+Reste ouvert, hors de ce lot : l'écart `unified_notifications`. DEV porte la version `20261120103721`, le fichier local `20261120100904`, avec un contenu identique.
