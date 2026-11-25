@@ -36,6 +36,16 @@ Ordre de mise en service, après revue et accord explicite :
 4. Déployer `account-deletion` (JWT requis). Garder `FURRIX_ACCOUNT_DELETION_ENABLED` absent/false tant que le worker et son minuteur ne sont pas contrôlés ; activer à true ensuite.
 5. Recetter avec des comptes fictifs dédiés, des photos réelles de test et plusieurs appareils ; vérifier les anciens jetons, les historiques de l'autre participant et la reconnexion refusée.
 
+### Préparation du 25 novembre 2026
+
+Contrôle distant en lecture seule : ni `account_deletions`, ni `sitter_unavailability`, ni `save_sitter_offer` ne sont encore installés. Seul le worker des notifications figure dans les fonctions Edge déployées. Les deux fonctions de suppression restent à déployer ; cette vérification n'a créé aucune demande.
+
+Pour l'état actuel du dépôt, appliquer d'abord la migration de suppression ci-dessus, puis `20261123100000_sitter_availability.sql`, avant d'activer l'endpoint. La seconde installe la protection de lecture des absences, leur effacement au nettoyage et les règles de garde expirée. Ne pas l'appliquer avant la suppression : certains raccordements sont conditionnels à la présence des fonctions de suppression. Le minuteur des demandes de garde expirées est une opération distincte (`enable_sitting_expiry_cron.sql`).
+
+Le contrôle `supabase/operations/check_account_deletion_readiness.sql` est en lecture seule : il vérifie les fonctions attendues, la protection et le nettoyage des absences, ainsi que la présence du minuteur et du secret Vault sans exposer sa valeur. Il ne vérifie pas les secrets Edge ni les réponses HTTP ; ces contrôles restent séparés, avec le worker sur une file vide et les demandes désactivées.
+
+Après accusé serveur de suppression, le retour à la connexion utilise une sortie dédiée : les appareils ont déjà été retirés transactionnellement côté serveur. Le nettoyage natif est tenté sans nouvelle RPC authentifiée, car le worker peut avoir effacé l'identité entre-temps. Une réponse de suppression non confirmée ne déclenche pas cette sortie. La déconnexion ordinaire conserve son contrôle strict de retrait des notifications.
+
 Surveiller les demandes non terminées, `attempts`, `retry_at` et l'état du minuteur. Ne jamais journaliser les mots de passe, les jetons ni les corps des requêtes.
 
 Retour arrière de schéma : `supabase/operations/rollback_account_deletion.sql`, seulement si aucune demande n'existe. Dès qu'une demande est enregistrée, désactiver les nouvelles demandes si nécessaire mais laisser aboutir les nettoyages ; les effacements réalisés ne se restaurent pas automatiquement.

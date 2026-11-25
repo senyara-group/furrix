@@ -27,7 +27,7 @@ vi.mock("@capacitor/push-notifications", () => ({
     },
   },
 }));
-import { AndroidPush, pushTarget } from "./androidPush";
+import { AndroidPush, pushTarget, clearAndroidPushAfterDeletion } from "./androidPush";
 const owner = "11111111-1111-4111-8111-111111111111";
 const rpc = vi.fn(),
   getSession = vi.fn(),
@@ -166,12 +166,19 @@ it('attend une inscription en vol avant de fermer la session et interdit une nou
  const action=vi.fn().mockResolvedValue(true),closed=runtime.signOut(action);await enabled;
  await runtime.enable();expect(mocks.register).toHaveBeenCalledOnce();expect(action).not.toHaveBeenCalled();
  confirm({error:null});await closed;
- expect(action).toHaveBeenCalledOnce();expect(rpc.mock.calls.at(-1)).toEqual(['remove_android_push',{p_device:owner,p_owner:owner}]);
- expect(mocks.removeAllDeliveredNotifications.mock.invocationCallOrder[0]).toBeLessThan(action.mock.invocationCallOrder[0]);runtime.stop();
+ expect(action).toHaveBeenCalledOnce();expect(rpc.mock.calls[rpc.mock.calls.length-1]).toEqual(['remove_android_push',{p_device:owner,p_owner:owner}]);
+ expect(mocks.removeAllDeliveredNotifications.mock.invocationCallOrder[0]!).toBeLessThan(action.mock.invocationCallOrder[0]!);runtime.stop();
 });
 it('le compte suivant ne réactive pas les notifications du compte précédent',async()=>{
  mocks.getItem.mockResolvedValue(owner);rpc.mockResolvedValue({data:false,error:null});
  const next='22222222-2222-4222-8222-222222222222';getSession.mockResolvedValue({data:{session:{user:{id:next}}},error:null});
  const runtime=new AndroidPush(client,next,phase);await runtime.start();
  expect(mocks.unregister).toHaveBeenCalled();expect(mocks.register).not.toHaveBeenCalled();expect(phase).toHaveBeenLastCalledWith('off');runtime.stop();
+});
+it('après suppression acceptée, nettoie Android sans exiger une nouvelle requête authentifiée',async()=>{
+ mocks.unregister.mockRejectedValueOnce(Error('hors ligne'));
+ await expect(clearAndroidPushAfterDeletion()).resolves.toBeUndefined();
+ expect(mocks.unregister).toHaveBeenCalledOnce();
+ expect(mocks.removeAllDeliveredNotifications).toHaveBeenCalledOnce();
+ expect(rpc).not.toHaveBeenCalled();
 });

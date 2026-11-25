@@ -11,9 +11,10 @@ import DeleteAccount from './DeleteAccount';
 import { CityInput } from '../places/CityInput';
 
 /** Profil partagé web/mobile et préférences d’alertes existantes, sans activation automatique. */
-export default function AccountArea({ client, owner, email, profile, onSaved, onSignOut }: {
+export default function AccountArea({ client, owner, email, profile, onSaved, onSignOut, onDeletionSignOut }: {
   client: FurrixClient; owner: string; email?: string; profile: AccountOverview['profile'];
   onSaved: (profile: SavedProfile) => void; onSignOut: () => Promise<boolean>;
+  onDeletionSignOut?: () => Promise<boolean>;
 }) {
   const [draft, setDraft] = useState({ name: profile.name ?? '', city: profile.city ?? '' });
   const [deleting, setDeleting] = useState(false);
@@ -39,7 +40,7 @@ export default function AccountArea({ client, owner, email, profile, onSaved, on
     catch (cause) { if (alive.current) setSignOutError(cause instanceof AppError ? cause.message : 'La déconnexion n’a pas abouti. Réessaie.'); }
     finally { signingOut.current = false; if (alive.current) setLeaving(false); }
   };
-  if (deleting) return <DeleteAccount client={client} onCancel={() => setDeleting(false)} onSignOut={onSignOut} />;
+  if (deleting) return <DeleteAccount client={client} onCancel={() => setDeleting(false)} onSignOut={onDeletionSignOut ?? onSignOut} />;
   return <FurrixScope><section className="app-page app-account">
     <p className="app-eyebrow">Ton espace personnel</p><h1>Mon compte</h1>
     <p>Ton profil est commun au web et à tes applications mobiles.</p>

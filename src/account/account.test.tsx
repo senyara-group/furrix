@@ -7,6 +7,7 @@ import * as overviewService from '../app/accountOverview';
 import { useAccountOverview } from '../app/useAccountOverview';
 import { createFakeSupabase } from '../test/fakeSupabase';
 import { AppError } from '../services/errors';
+import * as deletion from './deletion';
 
 const owner='owner-a';
 const saved={id:owner,name:'Alice',city:'Lille'};
@@ -80,6 +81,14 @@ it('explique pourquoi le retrait des notifications empêche la déconnexion',asy
  fireEvent.click(screen.getByRole('button',{name:'Déconnecter cet appareil'}));
  await screen.findByText(message);
  expect((screen.getByRole('button',{name:'Déconnecter cet appareil'}) as HTMLButtonElement).disabled).toBe(false);
+});
+it('après suppression acceptée, utilise la sortie dédiée même si l’identité serveur a disparu',async()=>{
+ vi.spyOn(deletion,'deletionChecks').mockResolvedValue({owner,requested:true,blockers:[]});
+ const ordinary=vi.fn().mockRejectedValue(Error('identité supprimée')),afterDeletion=vi.fn().mockResolvedValue(true);
+ render(<AccountArea client={createFakeSupabase().client} owner={owner} profile={{name:'Alice',city:'Lille'}} onSaved={vi.fn()} onSignOut={ordinary} onDeletionSignOut={afterDeletion}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Préparer la suppression de mon compte'}));
+ fireEvent.click(await screen.findByRole('button',{name:'Revenir à la connexion'}));
+ await waitFor(()=>expect(afterDeletion).toHaveBeenCalledOnce());expect(ordinary).not.toHaveBeenCalled();
 });
 
 it('un secteur non chargé ne passe pas pour désactivé et peut être rechargé',async()=>{

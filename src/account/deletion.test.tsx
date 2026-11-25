@@ -10,6 +10,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import DeleteAccount from "./DeleteAccount";
 import * as service from "./deletion";
 import { createFakeSupabase } from "../test/fakeSupabase";
+import * as push from '../push/androidPush';
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -84,6 +85,7 @@ it("exige la confirmation et attend l’accusé serveur avant la déconnexion, s
   expect(sessionStorage.getItem(service.deletionNoticeKey)).toBe("1");
 });
 it("une réponse perdue ne ferme pas la session et le mot de passe est effacé", async () => {
+  const clearPush=vi.spyOn(push,'clearAndroidPushAfterDeletion').mockResolvedValue(undefined);
   vi.spyOn(service, "deletionChecks").mockResolvedValue({
     owner: "moi",
     requested: false,
@@ -106,6 +108,7 @@ it("une réponse perdue ne ferme pas la session et le mot de passe est effacé",
     ).toBe(""),
   );
   expect(onSignOut).not.toHaveBeenCalled();
+  expect(clearPush).not.toHaveBeenCalled();
 });
 it("une vérification échouée ne permet pas la suppression et une demande déjà acceptée ne repart pas", async () => {
   const checks = vi
