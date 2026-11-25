@@ -119,3 +119,12 @@ Fenêtre ouverte sur `https://furrix.fr` avec un gardien de test aux données fi
 Ce changement d'architecture serait à décider séparément.
 
 **Délai** : la réservation date du 25/11 à 14:32 UTC. Sans compte relié avant le **26/11 vers 13:32 UTC**, elle passe en rapprochement manuel et ne déclenche aucune nouvelle création automatique.
+
+### Deuxième essai du 25 novembre : compte créé, lien refusé
+
+- **Après le correctif `display_name`** (PR #57, fonction redéployée en version 5), `POST /v2/core/accounts` réussit. Un compte de test est créé et relié au gardien de test : `liaisons = 1`, `comptes_relies = 1`, aucun doublon après deux essais.
+- **Lecture de l'état** : `GET /v2/core/accounts/{id}?include[0]=configuration.merchant` fonctionne. La carte affiche « À compléter » (`incomplete`).
+- **Création du lien refusée**, requête `req_v2TqXKNUM85sQD88Q`, 15:08:24 UTC : `POST /v2/core/account_links` renvoie **400 `invalid_fields`**, car `use_case.account_onboarding.configurations` est un champ inconnu (« Unknown field »).
+- **Correctif (branche `fix/stripe-account-link-configurations`)** : le champ est retiré.
+  - Le corps envoyé se limite à `type`, `collection_options.fields = eventually_due`, `return_url` et `refresh_url`, et le test fige exactement ce contenu.
+  - Le lien ne porte pas de clé d'idempotence Furrix : un nouvel essai crée simplement un nouveau lien pour le même compte.

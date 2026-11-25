@@ -186,8 +186,14 @@ describe("Adaptateur Stripe de test", () => {
     for (const field of ["display_name", "contact_email", "contact_phone"]) expect(body).not.toHaveProperty(field);
     expect(body.identity).toEqual({ country: "fr" });
     const link = JSON.parse(String(send.mock.calls[2]![1]!.body));
-    expect(link.use_case.account_onboarding.return_url).toBe(
-      "https://furrix.fr/#/garde?vue=profil",
-    );
+    // Corps accepté par Stripe : « configurations » est refusé (400 invalid_fields, champ inconnu).
+    expect(link.use_case).toEqual({
+      type: "account_onboarding",
+      account_onboarding: {
+        collection_options: { fields: "eventually_due" },
+        return_url: "https://furrix.fr/#/garde?vue=profil",
+        refresh_url: "https://furrix.fr/#/garde?vue=profil",
+      },
+    });
   });
 });

@@ -92,7 +92,8 @@ export function stripeOnboarding(
         use_case: {
           type: "account_onboarding",
           account_onboarding: {
-            configurations: ["merchant"],
+            // Pas de « configurations » : champ inconnu en requête (400 invalid_fields, recette DEV du
+            // 25/11/2026). Stripe déduit les exigences de la configuration marchand du compte.
             collection_options: { fields: "eventually_due" },
             return_url: RETURN_URL,
             refresh_url: RETURN_URL,
