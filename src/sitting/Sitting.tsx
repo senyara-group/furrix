@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import {
-  ActionBar, Alert, Button, Card, CheckList, Icon, ChatThread, DetailLayout, Field, Input, Log, LogItem, MessageBubble, Note, OptionGroup, PageHeader,
+  ActionBar, Alert, Button, Card, CheckList, Icon, ChatThread, DetailLayout, Field, Log, LogItem, MessageBubble, Note, OptionGroup, PageHeader,
   Recap, RecapRow, Row, Separator, Stack, StatusBadge, Steps, SystemMessage, Text, Textarea, Who, type StepState,
 } from '../design-system';
 import type { FurrixClient } from '../services/supabaseClient';
@@ -34,7 +34,8 @@ function Payout({ s }: { s: MySitting }) {
   return <Card calm><Stack gap={3}><Text variant="kicker">Ce que tu recevras</Text><Recap>
     <RecapRow label={`${units(s.service, s.units)} × ${price(s.unit_price_cents)} (ton tarif)`} value={money(s.units * s.unit_price_cents)} />
     <RecapRow label="Commission Furrix" value="à définir" open />
-    <RecapRow label="Versement prévu" value={`${money(s.units * s.unit_price_cents)} − commission`} total />
+    <RecapRow label="Frais de paiement Stripe" value="à définir" open />
+    <RecapRow label="Versement prévu après frais" value="à définir" total />
   </Recap></Stack></Card>;
 }
 
@@ -193,34 +194,18 @@ export function SittingView({ client, s, onChange }: { client: FurrixClient; s: 
   </section>;
 }
 
-/** Paiement (design seul) : aucun prestataire n'est branché ; aucun numéro de carte n'est saisi, enregistré ni envoyé. */
+/** Préparation du paiement hébergé : aucun appel Stripe ni saisie de carte dans l'application. */
 function PaymentPanel({ s }: { s: MySitting }) {
   const total = money(s.units * s.unit_price_cents);
   return <Card className="gd-pay"><Stack gap={5}>
     <div className="gd-pay__head"><Text variant="h2">Paiement</Text><span className="gd-pay__lock"><Icon name="info" size={16} />Bientôt disponible</span></div>
     <Recap>
       <RecapRow label={`${serviceLabel[s.service]} · ${units(s.service, s.units)} × ${price(s.unit_price_cents)}`} value={total} />
-      <RecapRow label="Frais de service Furrix" value="à définir" open />
-      <RecapRow label="À payer maintenant" value={`${total} + frais`} total />
+      <RecapRow label="Montant de la garde" value={total} total />
     </Recap>
-    <Stack gap={2}><Text variant="label" as="p">Moyen de paiement</Text>
-      <OptionGroup aria-label="Moyen de paiement" value="carte" onChange={() => {}} options={[{ value: 'carte', label: 'Carte bancaire' }, { value: 'autre', label: 'Autres moyens (bientôt)', disabled: true }]} /></Stack>
-    <div className="gd-paycard" aria-hidden="true">
-      <Icon name="card" size={26} />
-      <span className="gd-paycard__num fx-num">•••• •••• •••• ••••</span>
-      <span className="gd-paycard__row fx-num"><span>Titulaire de la carte</span><span>MM / AA</span></span>
-    </div>
-    <fieldset className="gd-card" disabled aria-describedby="gd-pay-soon">
-      <legend className="fx-vh">Carte bancaire (bientôt disponible)</legend>
-      <Field label="Numéro de carte"><Input className="fx-num" placeholder="1234 1234 1234 1234" inputMode="numeric" maxLength={19} autoComplete="off" /></Field>
-      <div className="gd-card__row">
-        <Field label="Expiration"><Input className="fx-num" placeholder="MM / AA" inputMode="numeric" maxLength={7} autoComplete="off" /></Field>
-        <Field label="Code de sécurité"><Input className="fx-num" placeholder="123" inputMode="numeric" maxLength={4} autoComplete="off" /></Field>
-      </div>
-      <Field label="Nom sur la carte"><Input placeholder="Prénom Nom" maxLength={80} autoComplete="off" /></Field>
-    </fieldset>
-    <Button variant="ink" icon="card" block disabled aria-describedby="gd-pay-soon">Payer {total} + frais</Button>
-    <p id="gd-pay-soon" className="gd-pay__soon">Le paiement en ligne arrive bientôt : rien ne peut être payé ni prélevé pour l’instant, et la garde n’est pas encore réservée. Ce formulaire sera celui du prestataire de paiement retenu ; Furrix ne verra jamais ton numéro de carte.</p>
+    <Text variant="body">Le paiement sera effectué sur une page sécurisée Stripe. Carte bancaire, Apple Pay ou Google Pay seront proposés selon ton appareil et leur disponibilité.</Text>
+    <Button variant="ink" icon="card" block disabled aria-describedby="gd-pay-soon">Paiement bientôt disponible</Button>
+    <p id="gd-pay-soon" className="gd-pay__soon">Rien ne peut être payé ni prélevé pour l’instant. La garde n’est pas encore réservée. Furrix ne te demandera pas de saisir ton numéro de carte dans l’application.</p>
     <Note>Les conditions d’annulation, avec le montant remboursable selon la date, seront affichées ici avant le paiement.</Note>
   </Stack></Card>;
 }
@@ -254,7 +239,7 @@ export function CancelView({ client, s, onChange }: { client: FurrixClient; s: M
     <DetailLayout
       aside={<Card calm><Stack gap={3}><Who initials={name.charAt(0).toUpperCase()} name={name} subtitle={`${units(s.service, s.units)} · ${s.pet_name}`} /><Separator />
         <p className="gd-ln"><b className="fx-num">{period(s.starts_at, s.ends_at)}</b></p><Separator />
-        <Recap><RecapRow label="Payé" value={`${money(s.units * s.unit_price_cents)} + frais`} /><RecapRow label="Remboursé" value="selon conditions" open /></Recap></Stack></Card>}
+        <Recap><RecapRow label="Payé" value={money(s.units * s.unit_price_cents)} /><RecapRow label="Remboursé" value="selon conditions" open /></Recap></Stack></Card>}
       actions={<ActionBar><Button as="a" href={gardeHref({ vue: 'suivi', demande: s.id })} variant="out">Garder la réservation</Button>
         <Button variant="danger" loading={busy} onClick={() => { void confirm(); }}>Confirmer l’annulation</Button></ActionBar>}>
       {error ? <Alert tone="err" title={error} /> : null}

@@ -135,21 +135,22 @@ describe('garde', () => {
     expect(update).toHaveBeenCalledWith(expect.anything(), 'g1', 'accept');
   });
 
-  it('demande acceptée : le formulaire de paiement est sur la page', async () => {
+  it('demande acceptée : le paiement hébergé est annoncé sans saisie de carte', async () => {
     vi.spyOn(service, 'listMySittings').mockResolvedValue([sitting({ status: 'accepted', responded_at: '2026-11-19T11:00:00Z' })]);
     open('#/garde?demande=g1');
     await screen.findByRole('heading', { name: 'Sam a accepté ta demande' });
-    expect(screen.getByLabelText('Numéro de carte')).toBeTruthy();
-    expect((screen.getByRole('button', { name: /^Payer 40,00/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByLabelText('Numéro de carte')).toBeNull();
+    expect((screen.getByRole('button', { name: 'Paiement bientôt disponible' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('paiement : design seul, aucun champ de carte saisissable et rien n’est envoyé', async () => {
     vi.spyOn(service, 'listMySittings').mockResolvedValue([sitting({ status: 'accepted', responded_at: '2026-11-19T11:00:00Z' })]);
     const fake = open('#/garde?vue=paiement&demande=g1');
     await screen.findByRole('heading', { name: 'Payer pour confirmer' });
-    expect((screen.getByRole('button', { name: /^Payer 40,00/ }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByLabelText('Numéro de carte') as HTMLInputElement).closest('fieldset')!.disabled).toBe(true);
-    expect(screen.getByText(/Le paiement en ligne arrive bientôt/)).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Paiement bientôt disponible' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByLabelText('Numéro de carte')).toBeNull();
+    expect(screen.getByText(/page sécurisée Stripe/)).toBeTruthy();
+    expect(screen.queryByText(/\+ frais/)).toBeNull();
     expect(fake.raw.rpc).not.toHaveBeenCalled();
   });
 
