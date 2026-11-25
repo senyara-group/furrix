@@ -16,6 +16,15 @@ export type PushPhase =
   | "error";
 export const androidPushSupported = () =>
   Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
+/** Après accusé de suppression uniquement : le serveur a déjà retiré tous les appareils.
+ * Le retrait natif est tenté sans exiger une identité Auth que le worker peut avoir supprimée. */
+export async function clearAndroidPushAfterDeletion(): Promise<void> {
+  if (!androidPushSupported()) return;
+  await Promise.allSettled([
+    PushNotifications.unregister(),
+    PushNotifications.removeAllDeliveredNotifications(),
+  ]);
+}
 const storageKey = "furrix.push.device";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function pushTarget(data: unknown) {

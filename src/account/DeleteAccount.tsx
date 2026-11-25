@@ -12,6 +12,7 @@ import {
   Stack,
 } from "../design-system";
 import type { FurrixClient } from "../services/supabaseClient";
+import { clearAndroidPushAfterDeletion } from '../push/androidPush';
 import {
   deletionChecks,
   rememberDeletion,
@@ -67,6 +68,8 @@ export default function DeleteAccount({
     setBusy(true);
     rememberDeletion();
     try {
+      await clearAndroidPushAfterDeletion();
+      if (!alive.current) return;
       if (!(await onSignOut()) && alive.current)
         setError(
           "La demande est enregistrée. Ferme ta session sur cet appareil avec le bouton ci-dessous.",
