@@ -200,6 +200,29 @@ Règles pendant la fenêtre :
 
 ### Journal de recette
 
+Fenêtre du 25 novembre 2026 (heures UTC). Web sur `https://furrix.fr` et en local, un seul gardien de test aux données fictives. Fonction en version 5 jusqu'à 15:08, puis en version 8 (identique à `main` `cf00529`).
+
 | Date / heure | Étape | Plateforme | Résultat | `acct_…` de test | Code Stripe éventuel |
 |---|---|---|---|---|---|
-| | | | | | |
+| 14:31 | Ouverture | Web | `status` → `200 not_started`, `liaisons = 0` | — | — |
+| 14:32 | E1 clé et sandbox | furrix.fr | OK : réservation créée après `verifyPlatform` | — | — |
+| 14:32 | E2 création | furrix.fr | **Échec** : 503, `sans_compte = 1`. Fenêtre fermée. | aucun créé | `req_v2iaos7C9yEPzyR8Z` : 400 `account_token_required` (`display_name`). Corrigé par la PR #57. |
+| 15:06 | E2 création, nouvel essai | furrix.fr | OK : compte créé et relié (clé `furrix-sitter-v2-…`), `comptes_relies = 1` | `acct_1Ufhm1…` | — |
+| 15:06–15:08 | E3 lien | furrix.fr et local | **Échec** : deux 503, compte inchangé. Fenêtre fermée. | `acct_1Ufhm1…` | `req_v2TqXKNUM85sQD88Q` : 400 `invalid_fields` (`configurations` inconnu). Corrigé par la PR #58. |
+| 15:20 | E3 lien, nouvel essai | furrix.fr | OK : Stripe s'ouvre, en français, en mode test | `acct_1Ufhm1…` | — |
+| 15:23 | R3 inscription interrompue | furrix.fr | OK : retour sur le profil, statut relu `incomplete` (« À compléter »), aucun lien recréé | `acct_1Ufhm1…` | — |
+| 15:26 | R4 lien déjà utilisé et R2 reprise | furrix.fr | OK : l'ancien lien renvoie au profil ; « Reprendre » prépare un nouveau lien pour le même compte ; `comptes_distincts = 1` | `acct_1Ufhm1…` | — |
+| 15:34 | R5 statut relu | furrix.fr | OK : après l'inscription de test, `ready` (« Complète »), mais seulement après rechargement manuel (voir suivis) | `acct_1Ufhm1…` | — |
+| 15:37 | R7 suppression | furrix.fr | OK : « Compte de paiement à clôturer avec l'équipe : 1 », bouton de suppression désactivé | `acct_1Ufhm1…` | — |
+| 15:40 | R6 fermeture | — | OK : session de test → `503 unavailable` (`no-store`), sans authentification → 401 ; `liaisons = 1`, `baux_actifs = 0` | — | — |
+
+Contrôles en lecture seule pendant la fenêtre : compteurs de `sitter_stripe_accounts` après chaque étape et journaux `function_edge_logs`. Aucun lien `connect.stripe.com` ni aucune clé n'est consigné ici.
+
+### Suivis issus de la recette
+
+1. **Fin d'inscription** : au retour, Stripe n'avait pas encore activé les capacités. Elles n'étaient pas non plus `pending`, d'où « À compléter » jusqu'au rechargement. Piste : lire `requirements` (`include[1]=requirements`) et afficher « Vérification en cours » quand rien n'est attendu du gardien. Autre piste : relire l'état une fois de plus quelques secondes après le retour.
+2. **Marque Stripe** : l'inscription affiche « Furrix DEV », la marque du sandbox. À vérifier sur le compte de production avant l'ouverture réelle.
+3. **Diagnostic** : la fonction ne journalise volontairement aucune erreur Stripe ; chaque échec a été diagnostiqué depuis les journaux Stripe. Envisager un journal serveur limité au code d'erreur et à l'identifiant de requête Stripe, sans corps ni URL.
+4. **Mobile** : Android et iOS ne sont pas couverts par cette fenêtre. Il faut une version de recette pointant sur DEV et un essai sur appareil (navigateur sécurisé, retour manuel).
+5. **Compte de test conservé** : il reste relié au gardien de test et bloque sa suppression. La clôture Stripe n'est pas encore raccordée.
+6. **Clé sandbox** : à conserver ou à supprimer entre deux fenêtres, au choix du titulaire.
