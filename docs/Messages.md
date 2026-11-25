@@ -18,6 +18,8 @@ La branche reprend aussi le commit de traçabilité de l’activation push DEV :
 
 Filtres « Toutes », « Rencontres », « Garde » et « Services » en tête de la boîte. « Toutes » mélange les trois catégories, de l’échange le plus récent au plus ancien ; chaque ligne indique sa catégorie.
 
+Le tri utilise uniquement la date du dernier message. Les conversations sans échange restent après celles ayant des messages, même si une garde ou un rendez-vous est prévu dans le futur. Trois tests de régression couvrent les catégories Garde, Services et Rencontres ; ils échouent sans cette correction.
+
 Chaque ligne montre l’interlocuteur, le statut (proposition, garde ou rendez-vous) et le badge Brouillon s’il y a lieu, une ligne de contexte (« Rencontre · avec Oscar », « Garde · ton gardien · période », « Services · prestation · créneau »), le dernier message ou le brouillon, et la date du dernier échange à droite (heure, « Hier », jour de la semaine ou date). Le design system gagne pour cela une propriété `aside` sur `ResultRow`. Les noms longs tiennent sur deux lignes, le contexte et le dernier message sur une ligne chacun, coupés par des points de suspension (mots sans espace compris).
 
 La recherche couvre les trois catégories (propriétaire et animaux, gardien, établissement et prestation) et ne porte que sur le filtre choisi. Filtre et recherche restent en mémoire de session, comme les brouillons, et sont retrouvés au retour d’une conversation. Les conversations de garde et de services ouvertes depuis Messages portent `depuis=messages` : leur retour (en-tête et barre du téléphone) ramène à Messages au lieu de Mes gardes ou de la demande.

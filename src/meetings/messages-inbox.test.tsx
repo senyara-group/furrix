@@ -33,6 +33,17 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); navigate(''); });
 
 describe('boîte Messages', () => {
+  it.each(['garde', 'services', 'rencontres'] as const)('place une conversation %s sans message après les échanges réels', async (kind) => {
+    const future = '2030-12-01T10:00:00Z';
+    if (kind === 'garde') vi.mocked(sitting.listSittingThreads).mockResolvedValue([{ ...guard, last_at: null, last_text: null,
+      sitting_status: 'pending', starts_at: future, ends_at: '2030-12-02T10:00:00Z' }]);
+    if (kind === 'services') vi.mocked(pro.listProfessionalThreads).mockResolvedValue([{ ...vet, last_at: null, last_text: null, starts_at: future }]);
+    if (kind === 'rencontres') vi.mocked(meetings.listMyMatches).mockResolvedValue([{ ...match, last_at: null, last_text: null, matched_at: future }]);
+    open();
+    await screen.findByRole('link', { name: /^Sam/ });
+    expect(names()).toEqual(kind === 'garde' ? ['Cabinet des Oyats', 'Luna et Élodie', 'Sam']
+      : kind === 'services' ? ['Sam', 'Luna et Élodie', 'Cabinet des Oyats'] : ['Sam', 'Cabinet des Oyats', 'Luna et Élodie']);
+  });
   it('« Toutes » mélange les catégories du plus récent au plus ancien, avec contexte et date', async () => {
     open();
     await screen.findByRole('link', { name: /^Sam/ });

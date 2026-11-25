@@ -166,13 +166,13 @@ function MatchList({ client }: { client: FurrixClient }) {
   const sources: Record<Kind, Source<unknown>> = { rencontres: matches, garde, services };
   const rows: Array<{ kind: Kind; at: string | null; node: ReactNode }> = [
     ...matches.data.filter((m) => find(m.name, m.owner_name, m.my_pet_name))
-      .map((m) => ({ kind: 'rencontres' as const, at: m.last_at ?? m.matched_at, node: <MatchRow key={'r:' + m.match_id} client={client} match={m} /> })),
+      .map((m) => ({ kind: 'rencontres' as const, at: m.last_at, node: <MatchRow key={'r:' + m.match_id} client={client} match={m} /> })),
     ...garde.data.filter((t) => find(t.other_name))
-      .map((t) => ({ kind: 'garde' as const, at: t.last_at ?? t.starts_at, node: <SittingInboxRow key={`g:${t.owner_id}:${t.sitter_id}`} thread={t} /> })),
+      .map((t) => ({ kind: 'garde' as const, at: t.last_at, node: <SittingInboxRow key={`g:${t.owner_id}:${t.sitter_id}`} thread={t} /> })),
     ...services.data.filter((t) => find(t.other_name, t.service_name))
-      .map((t) => ({ kind: 'services' as const, at: t.last_at ?? t.starts_at, node: <ServiceInboxRow key={'s:' + t.appointment_id} thread={t} /> })),
+      .map((t) => ({ kind: 'services' as const, at: t.last_at, node: <ServiceInboxRow key={'s:' + t.appointment_id} thread={t} /> })),
   ];
-  // « Toutes » mélange les trois catégories, de l'échange le plus récent au plus ancien.
+  // Dernier échange réel uniquement ; les conversations sans message restent après les autres.
   const visible = (filter === 'toutes' ? rows : rows.filter((r) => r.kind === filter)).sort((a, b) => timeOf(b.at) - timeOf(a.at));
   const shown: Kind[] = filter === 'toutes' ? KINDS : [filter];
   const failed = shown.filter((k) => sources[k].status === 'error');
