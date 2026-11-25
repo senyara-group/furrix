@@ -1,3 +1,4 @@
+import { StrictMode } from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FurrixClient } from '../services/supabaseClient';
@@ -86,6 +87,13 @@ describe('Inscription Stripe : profil gardien', () => {
     // Aucune création automatique : seule la lecture de l'état a eu lieu.
     expect(invoke).toHaveBeenCalledTimes(1);
     expect(browser.open).not.toHaveBeenCalled();
+  });
+
+  it('sous StrictMode (double montage), quitte la lecture et affiche l’indisponibilité du serveur', async () => {
+    const { client } = fakeClient({ error: httpError(503, { status: 'unavailable' }) });
+    render(<StrictMode><PayoutOnboarding client={client} /></StrictMode>);
+    expect(await screen.findByText('Inscription aux versements pas encore disponible')).toBeTruthy();
+    expect(screen.queryByText(/Lecture de ton inscription/)).toBeNull();
   });
 
   it('web : bloque le départ tant que le profil a des modifications non enregistrées', async () => {
