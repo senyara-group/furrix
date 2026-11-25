@@ -13,6 +13,7 @@ import PetsWorkspace from '../pets/PetsWorkspace';
 import AccountArea from '../account/AccountArea';
 import { AndroidPushProvider, useAndroidPush } from '../push/PushProvider';
 import type { ReactNode } from 'react';
+import { AppError } from '../services/errors';
 // Rencontres et Messages : chargées à part, pour alléger le démarrage de l'app (préchargées juste après).
 const loadRencontres = () => import('../meetings/Rencontres');
 const loadMessages = () => import('../meetings/AfterMatch');
@@ -81,7 +82,7 @@ export function AppShellView({ overview, retry, email, onSignOut, preview = fals
     if (!onSignOut || leaving) return;
     setLeaving(true); setError('');
     try { if (!await onSignOut()) setError('La déconnexion n’a pas abouti. Réessaie.'); }
-    catch { setError('La déconnexion n’a pas abouti. Réessaie.'); }
+    catch (cause) { setError(cause instanceof AppError ? cause.message : 'La déconnexion n’a pas abouti. Réessaie.'); }
     finally { setLeaving(false); }
   };
   const go = (to: string) => { setMenuOpen(false); window.location.hash = `#/${to}`; };
@@ -131,7 +132,7 @@ export function AppShellView({ overview, retry, email, onSignOut, preview = fals
 
 function AppShellContent({ client, user, onSignOut }: { client: FurrixClient; user: User; onSignOut: () => Promise<boolean> }) {
   const push = useAndroidPush();
-  const signOut = async () => { try { await push?.disable(); } catch {} return onSignOut(); };
+  const signOut = () => push ? push.signOut(onSignOut) : onSignOut();
   // Retire les demandes non envoyées de ce compte quand sa session quitte l’application.
   useEffect(()=>()=>{try{const prefix='furrix:garde-draft:'+user.id+':';for(const key of Object.keys(sessionStorage))if(key.startsWith(prefix))sessionStorage.removeItem(key);}catch{}},[user.id]);
   const overview = useAccountOverview(client, user.id);

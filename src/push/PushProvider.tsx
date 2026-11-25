@@ -13,11 +13,13 @@ import {
   type PushPhase,
 } from "./androidPush";
 import { Alert, Button, Card, Note, Stack } from "../design-system";
+import { AppError } from '../services/errors';
 const Context = createContext<{
   supported: boolean;
   phase: PushPhase;
   enable: () => Promise<void>;
   disable: () => Promise<void>;
+  signOut: (action: () => Promise<boolean>) => Promise<boolean>;
 } | null>(null);
 export const useAndroidPush = () => useContext(Context);
 /** Une seule série d’écouteurs par session authentifiée, partagée avec Mon compte. */
@@ -53,6 +55,11 @@ export function AndroidPushProvider({
         },
         disable: async () => {
           await ref.current?.disable();
+        },
+        signOut: async (action) => {
+          if (!supported) return action();
+          if (!ref.current) throw new AppError('network', 'La déconnexion n’est pas confirmée. Réessaie après le chargement des notifications.');
+          return ref.current.signOut(action);
         },
       }}
     >

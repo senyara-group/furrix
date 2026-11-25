@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Alert, Button, Card, Field, FurrixScope, Input, Note, Stack } from '../design-system';
 import type { FurrixClient } from '../services/supabaseClient';
 import type { AccountOverview } from '../app/accountOverview';
-import { toDataError } from '../services/errors';
+import { AppError, toDataError } from '../services/errors';
 import { SectorSettings } from '../lost-pets/LostPetsArea';
 import { saveProfile, type SavedProfile } from './service';
 import './account.css';
@@ -36,7 +36,7 @@ export default function AccountArea({ client, owner, email, profile, onSaved, on
     if (signingOut.current || running.current) return;
     signingOut.current = true; setLeaving(true); setSignOutError('');
     try { if (!await onSignOut() && alive.current) setSignOutError('La déconnexion n’a pas abouti. Réessaie.'); }
-    catch { if (alive.current) setSignOutError('La déconnexion n’a pas abouti. Réessaie.'); }
+    catch (cause) { if (alive.current) setSignOutError(cause instanceof AppError ? cause.message : 'La déconnexion n’a pas abouti. Réessaie.'); }
     finally { signingOut.current = false; if (alive.current) setLeaving(false); }
   };
   if (deleting) return <DeleteAccount client={client} onCancel={() => setDeleting(false)} onSignOut={onSignOut} />;

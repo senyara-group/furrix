@@ -12,6 +12,12 @@ Dans Mon compte, l’activation Android demande explicitement la permission syst
 
 Une notification reçue au premier plan actualise les alertes internes. En arrière-plan, Android affiche un texte générique. Un appui ne fournit que deux UUID ; l’application vérifie que la notification appartient au compte connecté avant d’ouvrir l’alerte. Aucun lien arbitraire reçu n’est ouvert.
 
+### Déconnexion et changement de compte
+
+La fermeture volontaire de session Android attend le retrait serveur de l’appareil et le retrait natif des notifications. Si l’une de ces étapes échoue, notamment sans réseau, la fermeture n’est pas lancée : un message demande de rétablir la connexion puis de réessayer. Ce parcours ne garantit donc pas une déconnexion hors ligne. Aucune ancienne session n’est conservée dans une file de reprise.
+
+Une inscription déjà envoyée est attendue avant le dernier retrait serveur. Les activations sont bloquées pendant la fermeture. Les notifications déjà affichées sont effacées localement ; au changement de compte, une inscription appartenant à l’ancienne session n’est pas réactivée automatiquement. Un envoi déjà accepté par FCM peut néanmoins arriver tardivement : le contenu reste générique et son ouverture revérifie les droits du compte courant.
+
 ## Serveur activé sur DEV
 
 1. Appliquer `20261119150613_android_push_delivery.sql` après les migrations déjà présentes. Elle ajoute deux tables privées, les RPC d’inscription/retrait et une file alimentée seulement par les nouvelles notifications internes. Aucun envoi rétroactif à l’activation.

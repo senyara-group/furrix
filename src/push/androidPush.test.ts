@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   register: vi.fn(),
   unregister: vi.fn(),
   createChannel: vi.fn(),
+  removeAllDeliveredNotifications: vi.fn(),
   remove: vi.fn(),
 }));
 vi.mock("@capacitor/core", () => ({
@@ -42,6 +43,7 @@ beforeEach(() => {
   mocks.register.mockResolvedValue(undefined);
   mocks.unregister.mockResolvedValue(undefined);
   mocks.createChannel.mockResolvedValue(undefined);
+  mocks.removeAllDeliveredNotifications.mockResolvedValue(undefined);
   mocks.remove.mockResolvedValue(undefined);
   rpc.mockResolvedValue({ data: false, error: null });
   getSession.mockResolvedValue({
@@ -136,6 +138,40 @@ it('retire une inscription dont la réponse arrive après la désactivation',asy
  const runtime=new AndroidPush(client,owner,phase);await runtime.start();mocks.getItem.mockResolvedValue(owner);
  let confirm:(v:unknown)=>void=()=>{};rpc.mockImplementation((name:string)=>name==='register_android_push'?new Promise(resolve=>{confirm=resolve;}):Promise.resolve({error:null}));
  const enabled=runtime.enable();await vi.waitFor(()=>expect(mocks.register).toHaveBeenCalled());mocks.listeners.get('registration')!({value:'fake-token-'.repeat(6)});
- await vi.waitFor(()=>expect(rpc).toHaveBeenCalledWith('register_android_push',expect.anything()));await runtime.disable();await enabled;
- confirm({error:null});await vi.waitFor(()=>expect(rpc.mock.calls.filter(c=>c[0]==='remove_android_push')).toHaveLength(2));expect(phase).toHaveBeenLastCalledWith('off');runtime.stop();
+ await vi.waitFor(()=>expect(rpc).toHaveBeenCalledWith('register_android_push',expect.anything()));const disabled=runtime.disable();await enabled;
+ confirm({error:null});await disabled;expect(rpc.mock.calls.filter(c=>c[0]==='remove_android_push')).toHaveLength(2);expect(phase).toHaveBeenLastCalledWith('off');runtime.stop();
+});
+it('ne ferme pas la session si le retrait serveur échoue hors ligne, puis permet de réessayer',async()=>{
+ const runtime=new AndroidPush(client,owner,phase);await runtime.start();mocks.getItem.mockResolvedValue(owner);
+ const action=vi.fn().mockResolvedValue(true);
+ rpc.mockResolvedValue({error:{message:'Failed to fetch'}});
+ await expect(runtime.signOut(action)).rejects.toThrow('Rétablis ta connexion');
+ expect(action).not.toHaveBeenCalled();expect(phase).toHaveBeenLastCalledWith('error');
+ rpc.mockResolvedValue({error:null});
+ await expect(runtime.signOut(action)).resolves.toBe(true);
+ expect(action).toHaveBeenCalledOnce();expect(mocks.removeAllDeliveredNotifications).toHaveBeenCalled();runtime.stop();
+});
+it('ne ferme pas la session si le retrait natif échoue',async()=>{
+ const runtime=new AndroidPush(client,owner,phase);await runtime.start();mocks.getItem.mockResolvedValue(owner);
+ mocks.unregister.mockRejectedValueOnce(Error('indisponible'));const action=vi.fn();
+ await expect(runtime.signOut(action)).rejects.toThrow('La déconnexion n’est pas confirmée');
+ expect(action).not.toHaveBeenCalled();runtime.stop();
+});
+it('attend une inscription en vol avant de fermer la session et interdit une nouvelle activation',async()=>{
+ const runtime=new AndroidPush(client,owner,phase);await runtime.start();mocks.getItem.mockResolvedValue(owner);
+ let confirm:(v:unknown)=>void=()=>{};
+ rpc.mockImplementation((name:string)=>name==='register_android_push'?new Promise(resolve=>{confirm=resolve;}):Promise.resolve({error:null}));
+ const enabled=runtime.enable();await vi.waitFor(()=>expect(mocks.register).toHaveBeenCalled());mocks.listeners.get('registration')!({value:'fake-token-'.repeat(6)});
+ await vi.waitFor(()=>expect(rpc).toHaveBeenCalledWith('register_android_push',expect.anything()));
+ const action=vi.fn().mockResolvedValue(true),closed=runtime.signOut(action);await enabled;
+ await runtime.enable();expect(mocks.register).toHaveBeenCalledOnce();expect(action).not.toHaveBeenCalled();
+ confirm({error:null});await closed;
+ expect(action).toHaveBeenCalledOnce();expect(rpc.mock.calls.at(-1)).toEqual(['remove_android_push',{p_device:owner,p_owner:owner}]);
+ expect(mocks.removeAllDeliveredNotifications.mock.invocationCallOrder[0]).toBeLessThan(action.mock.invocationCallOrder[0]);runtime.stop();
+});
+it('le compte suivant ne réactive pas les notifications du compte précédent',async()=>{
+ mocks.getItem.mockResolvedValue(owner);rpc.mockResolvedValue({data:false,error:null});
+ const next='22222222-2222-4222-8222-222222222222';getSession.mockResolvedValue({data:{session:{user:{id:next}}},error:null});
+ const runtime=new AndroidPush(client,next,phase);await runtime.start();
+ expect(mocks.unregister).toHaveBeenCalled();expect(mocks.register).not.toHaveBeenCalled();expect(phase).toHaveBeenLastCalledWith('off');runtime.stop();
 });
