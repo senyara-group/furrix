@@ -12,7 +12,8 @@ import { useActivePet } from './useActivePet';
 import { approximateLocation, locateTown, LocationError, locationMessage } from './location';
 import { CityInput } from '../places/CityInput';
 import { cityLabel, type City } from '../places/cities';
-import { decide, discoverPets, hasLocation, listNewMatches, markMatchSeen, setLocation } from './service';
+import { decide, discoverPets, hasLocation, listNewMatches, markMatchSeen, myLocation, setLocation } from './service';
+import { hasMapBackground, ResultsMap } from '../maps/ResultsMap';
 import type { DiscoveryFilters, DiscoveryPet } from './types';
 import { usePetPhotoUrl } from './usePetPhotoUrl';
 import { messagesHref } from './links';
@@ -118,12 +119,24 @@ function MapPetCard({ client, pet, open }: { client: FurrixClient; pet: Discover
   return <MapCard photo={{ src: url ?? NO_PHOTO, alt: '' }} name={pet.name} meta={[describe(pet), distance(pet)].filter(Boolean).join(' · ')} onClick={open} />;
 }
 
-/** Vue Carte (maquette) : profils placés autour de toi selon leur distance arrondie. */
-function MapView({ client, pets, located, open, askZone }: { client: FurrixClient; pets: DiscoveryPet[]; located: boolean | null; open: (pet: DiscoveryPet) => void; askZone: () => void }) {
+/**
+ * Vue Carte : fond Mapbox centré sur ta zone, chaque profil dans son secteur (≈ 5 km) ; sans fond de carte
+ * (ou sans secteurs côté serveur), carte illustrative où seule la distance est réelle.
+ */
+function MapView({ client, petId, radius, pets, located, open, askZone }: { client: FurrixClient; petId: string; radius: number; pets: DiscoveryPet[]; located: boolean | null; open: (pet: DiscoveryPet) => void; askZone: () => void }) {
   // Du plus proche au plus loin : l'éloignement sur la carte suit la distance réelle.
   const placed = pets.filter((p) => p.distance_km !== null).sort((a, b) => (a.distance_km ?? 0) - (b.distance_km ?? 0) || a.id.localeCompare(b.id));
   const [selected, setSelected] = useState<string>();
   const current = placed.find((p) => p.id === selected) ?? placed[0];
+  const real = hasMapBackground() && placed.length > 0 && placed.every((p) => typeof p.latitude === 'number' && typeof p.longitude === 'number');
+  // Centre de la carte réelle : sa propre zone (jamais envoyée aux autres).
+  const [zone, setZone] = useState<{ latitude: number; longitude: number } | null>(null);
+  useEffect(() => {
+    if (!real || !located) return;
+    let current = true;
+    void myLocation(client, petId).then((z) => { if (current) setZone(z); }).catch(() => { if (current) setZone(null); });
+    return () => { current = false; };
+  }, [client, petId, located, real]);
   // Étiquettes qui se chevauchent (petits écrans) : mesurées après rendu, puis décalées vers le bas.
   const box = useRef<HTMLElement>(null);
   const shift = useRef<Record<string, number>>({});
@@ -154,11 +167,24 @@ function MapView({ client, pets, located, open, askZone }: { client: FurrixClien
     return () => window.removeEventListener('resize', run);
   }, [layoutKey, located]);
   if (!located) return <EmptyState icon="map" title="Indique ta zone pour voir la carte" action={<Button variant="out" size="sm" icon="pin" onClick={askZone}>Choisir ma zone</Button>}>
-    La carte place les profils autour de toi selon leur distance arrondie. Ta position exacte n’est jamais montrée.
+    La carte montre les profils autour de ta zone, chacun dans son secteur (≈ 5 km). Ta position exacte n’est jamais montrée.
   </EmptyState>;
+  const hidden = pets.length - placed.length;
+  const notes = <Stack gap={3} className="meet-map-notes">
+    {hidden ? <Note>{hidden} profil{hidden > 1 ? 's' : ''} sans zone {hidden > 1 ? 'ne sont' : 'n’est'} pas sur la carte : retrouve-{hidden > 1 ? 'les' : 'le'} dans la liste.</Note> : null}
+    <Note>{real ? 'Chaque profil est placé dans son secteur (≈ 5 km), jamais à sa zone exacte. Ta zone n’est montrée qu’à toi.'
+      : 'Seule la distance est réelle : la direction est illustrative, pour protéger la position de chacun.'}</Note>
+  </Stack>;
+  if (real) return <section aria-label="Carte">
+    <ResultsMap className="meet-map meet-map--real" label="Carte des profils autour de toi" sameSpot="dans le même secteur"
+      points={placed.map((p) => ({ id: p.id, name: p.name, short: distance(p), distanceKm: p.distance_km, position: { latitude: p.latitude!, longitude: p.longitude! } }))}
+      center={zone} radiusKm={radius} status="ready" selected={current?.id ?? null} onSelect={(id) => setSelected(id ?? undefined)}
+      onOpen={(id) => { const p = placed.find((x) => x.id === id); if (p) open(p); }} emptyText="Aucun profil sur la carte."
+      card={(id) => { const p = placed.find((x) => x.id === id); return p ? <MapPetCard client={client} pet={p} open={() => open(p)} /> : null; }} />
+    {notes}
+  </section>;
   const max = Math.max(5, ...placed.map((p) => p.distance_km ?? 0));
   const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-  const hidden = pets.length - placed.length;
   return <section aria-label="Carte" ref={box}>
     <MapFrame size="big" className="meet-map">
       <svg viewBox="0 0 400 520" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
@@ -178,10 +204,7 @@ function MapView({ client, pets, located, open, askZone }: { client: FurrixClien
       <MapNote><Tag>carte illustrative · distances arrondies</Tag></MapNote>
       {current ? <MapPetCard client={client} pet={current} open={() => open(current)} /> : null}
     </MapFrame>
-    <Stack gap={3} className="meet-map-notes">
-      {hidden ? <Note>{hidden} profil{hidden > 1 ? 's' : ''} sans zone {hidden > 1 ? 'ne sont' : 'n’est'} pas sur la carte : retrouve-{hidden > 1 ? 'les' : 'le'} dans la liste.</Note> : null}
-      <Note>Seule la distance est réelle : la direction est illustrative, pour protéger la position de chacun.</Note>
-    </Stack>
+    {notes}
   </section>;
 }
 
@@ -358,7 +381,7 @@ function Discovery({ client, active, pets, select }: { client: FurrixClient; act
       await setLocation(client, active.id, position && { latitude: position.latitude, longitude: position.longitude });
       if (!alive.current) return;
       setLocated(how !== 'remove');
-      setLocMessage({ ok: true, text: how === 'remove' ? 'Zone supprimée.' : `Zone enregistrée${position && 'label' in position ? ` : ${position.label}` : ''}. Seule une distance arrondie est montrée aux autres.` });
+      setLocMessage({ ok: true, text: how === 'remove' ? 'Zone supprimée.' : `Zone enregistrée${position && 'label' in position ? ` : ${position.label}` : ''}. Les autres voient une distance arrondie et un secteur d’environ 5 km, jamais ta zone exacte.` });
       if (how === 'remove') change({ radius: '' }); else if (!filters.radius) change({ radius: '5' });
     } catch (e) {
       if (!alive.current) return;
@@ -393,7 +416,7 @@ function Discovery({ client, active, pets, select }: { client: FurrixClient; act
         <OptionGroup aria-label="Gabarit" value={filters.size} onChange={(size) => change({ size })} options={[{ value: '', label: 'Tous' }, { value: 'petit', label: 'Petit' }, { value: 'moyen', label: 'Moyen' }, { value: 'grand', label: 'Grand' }]} /></Stack>
       <Stack gap={2}><Text variant="label" as="p">Distance</Text>
         <OptionGroup aria-label="Distance" value={filters.radius} onChange={(radius) => change({ radius })} options={[{ value: '', label: 'Sans limite' }, ...['5', '15', '50'].map((km) => ({ value: km, label: `${km} km`, disabled: !located }))]} />
-        <Text variant="body-sm">La distance utilise une zone approximative (environ 1 km), propre à {active.name}. Seule une distance arrondie est montrée aux autres.</Text>
+        <Text variant="body-sm">La distance utilise une zone approximative (environ 1 km), propre à {active.name}. Les autres voient une distance arrondie et un secteur d’environ 5 km sur la carte, jamais ta zone exacte.</Text>
         <Row>
           <Button variant="out" size="sm" icon="pin" loading={locating} onClick={() => { void locate(); }}>{located ? 'Actualiser avec ma position' : 'Utiliser ma position'}</Button>
           {located ? <Button variant="quiet" size="sm" disabled={locating} onClick={() => { void locate('remove'); }}>Supprimer ma zone</Button> : null}
@@ -437,7 +460,7 @@ function Discovery({ client, active, pets, select }: { client: FurrixClient; act
 
     {loading ? <Loading label="Recherche de compagnons…" />
       : loadError ? <Alert tone="err" title="Les profils n’ont pas pu être chargés." actions={<Button variant="out" size="sm" icon="retry" onClick={() => setAttempt((a) => a + 1)}>Réessayer</Button>}>Vérifie ta connexion, puis réessaie.</Alert>
-      : view === 'map' ? (remaining.length || !located ? <MapView client={client} pets={remaining} located={located} open={(pet) => setScreen({ kind: 'fiche', pet, from: 'map' })} askZone={() => setPanel('filters')} /> : empty)
+      : view === 'map' ? (remaining.length || !located ? <MapView client={client} petId={active.id} radius={Number(filters.radius) || 0} pets={remaining} located={located} open={(pet) => setScreen({ kind: 'fiche', pet, from: 'map' })} askZone={() => setPanel('filters')} /> : empty)
       : view === 'list' ? (remaining.length ? <section aria-label="Liste">
           <AnimalGrid>{remaining.map((pet) => <ListCard key={pet.id} client={client} pet={pet} open={() => setScreen({ kind: 'fiche', pet, from: 'list' })} />)}</AnimalGrid>
           <Note className="meet-list-note">Mêmes règles que les cartes : depuis une fiche, j’aime ou passer. La conversation et la proposition de rencontre viennent après un match.</Note>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert, Button, Card, ChipGroup, EmptyState, Field, Input, ListHeader, Loading, MapFrame, MapMarker, MapMe, MapNote, Note, OptionGroup,
-  PageHeader, ResultList, ResultRow, Row, SearchLayout, Stack, Tag, Text, WhenBar,
+  Alert, Button, Card, ChipGroup, EmptyState, Field, Input, ListHeader, Loading, Note, OptionGroup,
+  PageHeader, ResultList, ResultRow, Row, SearchLayout, Segmented, Stack, Tag, Text, useBreakpoint, WhenBar,
 } from '../design-system';
 import type { PetRow } from '../types/database';
 import type { FurrixClient } from '../services/supabaseClient';
@@ -13,6 +13,7 @@ import { searchSitters } from './service';
 import { usePetPhotoUrl } from '../meetings/usePetPhotoUrl';
 import { countUnits, initial, kindLabel, nameOf, price, SERVICES, serviceLabel, shortPeriod, unitLabel, units } from './format';
 import { gardeHref } from './links';
+import { hasMapBackground, ResultsMap, type MapPoint } from '../maps/ResultsMap';
 import type { SitterKind, SitterResult, SittingService } from './types';
 
 /** Critères de recherche, gardés dans l'onglet (jamais envoyés ailleurs qu'à la recherche). */
@@ -38,19 +39,12 @@ export function useCriteria(pets: PetRow[]) {
 }
 export const isoOf = (local: string) => new Date(local).toISOString();
 
-/** Repères de la carte illustrative : distance réelle (arrondie), direction arbitraire mais stable. */
-function spot(id: string, km: number | null, radius: number) {
-  let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  const angle = (h % 360) * Math.PI / 180;
-  const r = Math.min(1, (km ?? radius / 2) / radius) * 36 + 6;
-  const clamp = (v: number) => Math.max(12, Math.min(84, v));
-  return { x: clamp(50 + r * Math.cos(angle)), y: clamp(48 + r * Math.sin(angle) * 0.8) };
-}
-
-function SitterRow({ client, sitter, service, onOpen }: { client: FurrixClient; sitter: SitterResult; service: SittingService; onOpen: () => void }) {
+/** Ligne de résultat ; `hot` / `onHot` la synchronisent avec le repère de la carte. */
+function SitterRow({ client, sitter, service, onOpen, hot, onHot }: { client: FurrixClient; sitter: SitterResult; service: SittingService; onOpen: () => void; hot: boolean; onHot: () => void }) {
   const cents = sitter.price_cents ?? sitter.services.find((s) => s.service === service)?.price_cents;
   const url = usePetPhotoUrl(client, sitter.photo);
-  return <li><ResultRow onClick={onOpen} photo={url ? { src: url, alt: '' } : undefined} initials={url ? undefined : initial(sitter.name)} name={nameOf(sitter.name)}
+  return <li><ResultRow onClick={onOpen} data-id={sitter.sitter_id} aria-current={hot ? 'true' : undefined} className={hot ? 'gd-row--hot' : undefined}
+    onMouseEnter={onHot} onFocus={onHot} photo={url ? { src: url, alt: '' } : undefined} initials={url ? undefined : initial(sitter.name)} name={nameOf(sitter.name)}
     tag={<Tag kind={sitter.kind === 'professionnel' ? 'pro' : undefined}>{kindLabel[sitter.kind]}</Tag>}
     meta={[serviceLabel[service], sitter.city, sitter.distance_km !== null ? `≈ ${sitter.distance_km} km` : null].filter(Boolean).join(' · ')}
     price={cents ? { value: price(cents), unit: `/ ${unitLabel[service][0]}` } : undefined} /></li>;
@@ -154,6 +148,9 @@ export function SearchView({ client, pets, criteria, setCriteria, onOpen }: {
   const [hot, setHot] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(noFilters);
   const [filtering, setFiltering] = useState(false);
+  const { isPhone } = useBreakpoint();
+  /** Téléphone : liste ou carte (ordinateur : les deux côte à côte). */
+  const [mode, setMode] = useState<'liste' | 'carte'>('liste');
   const ready = !!criteria.place && future(criteria.starts) && !!criteria.ends;
   const query = useMemo(() => ready ? { latitude: criteria.place!.latitude, longitude: criteria.place!.longitude, radius: criteria.radius, service: criteria.service,
     starts: isoOf(criteria.starts), ends: isoOf(criteria.ends), species: pet?.species } : null,
@@ -187,13 +184,18 @@ export function SearchView({ client, pets, criteria, setCriteria, onOpen }: {
     : !future(criteria.starts) ? { icon: 'calendar' as const, title: 'Tes dates sont passées', action: 'Choisir de nouvelles dates', text: 'Choisis un début de garde à venir pour voir les gardiens disponibles.' }
     : { icon: 'calendar' as const, title: 'Il manque la fin de la garde', action: 'Choisir la fin', text: 'Indique quand tu récupères ton animal pour voir les gardiens disponibles.' };
   const active = activeFilters(filters);
-  const map = <MapFrame className="gd-map" aria-label="Carte illustrative des gardiens">
-    <MapMe x={50} y={48} />
-    {results.map((s) => { const p = spot(s.sitter_id, s.distance_km, criteria.radius); return <MapMarker key={s.sitter_id} x={p.x} y={p.y} hot={hot === s.sitter_id}
-      aria-label={`${nameOf(s.name)}, ${s.price_cents ? price(s.price_cents) : ''}`} onMouseEnter={() => setHot(s.sitter_id)} onFocus={() => setHot(s.sitter_id)} onClick={() => onOpen(s)}>
-      {nameOf(s.name)}{s.price_cents ? ` · ${price(s.price_cents)}` : ''}</MapMarker>; })}
-    <MapNote>Carte illustrative : seule la distance est réelle, arrondie.</MapNote>
-  </MapFrame>;
+  const points: MapPoint[] = results.map((s) => ({
+    id: s.sitter_id,
+    name: nameOf(s.name),
+    short: s.price_cents ? price(s.price_cents) : s.distance_km !== null ? `≈ ${s.distance_km} km` : undefined,
+    detail: [kindLabel[s.kind], s.city, s.distance_km !== null ? `≈ ${s.distance_km} km` : null].filter(Boolean).join(' · '),
+    distanceKm: s.distance_km,
+    position: typeof s.latitude === 'number' && typeof s.longitude === 'number' ? { latitude: s.latitude, longitude: s.longitude } : null,
+  }));
+  const map = <ResultsMap className="gd-map" label={`Carte des gardiens près de ${criteria.place?.label.split(' · ')[0] ?? 'toi'}`}
+    points={points} center={criteria.place} radiusKm={criteria.radius} status="ready" selected={hot} onSelect={setHot}
+    onOpen={(id) => { const s = results.find((r) => r.sitter_id === id); if (s) onOpen(s); }}
+    emptyText="Aucun gardien avec ces filtres." sameSpot="dans le même secteur" />;
   return <section aria-label="Recherche">
     {head}
     <div className="gd-qbar">
@@ -214,15 +216,20 @@ export function SearchView({ client, pets, criteria, setCriteria, onOpen }: {
         </Row>}>
           Personne ne propose encore « {serviceLabel[criteria.service].toLowerCase()} » dans un rayon de {criteria.radius} km pour ces dates.
         </EmptyState>
-      : <div ref={list}><SearchLayout map={map} results={<>
+      : <div ref={list}>{isPhone ? <Segmented fill aria-label="Affichage des résultats" className="gd-mode" value={mode} onChange={setMode}
+          options={[{ value: 'liste', label: 'Liste', icon: 'cards' }, { value: 'carte', label: 'Carte', icon: 'map' }]} /> : null}
+        <SearchLayout className={isPhone ? `gd-layout gd-layout--${mode}` : 'gd-layout'} map={map} results={<>
           <ListHeader title={`${results.length} gardien${results.length > 1 ? 's' : ''} disponible${results.length > 1 ? 's' : ''}`}
             action={<Button variant={active ? 'ink' : 'out'} size="sm" icon="sliders" aria-expanded={filtering} onClick={() => setFiltering((f) => !f)}>{active ? `Filtres (${active})` : 'Filtres'}</Button>} />
           {filtering ? <FilterPanel filters={filters} onChange={setFilters} onClose={() => setFiltering(false)} /> : null}
-          {results.length ? <ResultList>{results.map((s) => <SitterRow key={s.sitter_id} client={client} sitter={s} service={criteria.service} onOpen={() => onOpen(s)} />)}</ResultList>
+          {results.length ? <ResultList>{results.map((s) => <SitterRow key={s.sitter_id} client={client} sitter={s} service={criteria.service} onOpen={() => onOpen(s)}
+            hot={hot === s.sitter_id} onHot={() => setHot(s.sitter_id)} />)}</ResultList>
             : <EmptyState icon="sliders" title="Aucun gardien avec ces filtres" action={<Button variant="out" size="sm" onClick={() => setFilters(noFilters)}>Retirer les filtres</Button>}>
                 {state.data.length} gardien{state.data.length > 1 ? 's sont disponibles' : ' est disponible'} à ces dates sans filtre.
               </EmptyState>}
-          <Note className="gd-note">Tarifs fixés par chaque gardien. Le paiement en ligne n’est pas encore disponible.</Note>
+          <Note className="gd-note">Tarifs fixés par chaque gardien. Le paiement en ligne n’est pas encore disponible. {hasMapBackground()
+            ? 'Sur la carte, chaque gardien est placé dans son secteur (≈ 5 km), jamais à son adresse.'
+            : 'Carte schématique : seule la distance est réelle, arrondie.'}</Note>
         </>} /></div>}
   </section>;
 }

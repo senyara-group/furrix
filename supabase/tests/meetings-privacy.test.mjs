@@ -6,7 +6,9 @@ const A = '10000000-0000-0000-0000-00000000000a', B = '10000000-0000-0000-0000-0
 const PA = '20000000-0000-0000-0000-00000000000a', PB = '20000000-0000-0000-0000-00000000000b', PC = '20000000-0000-0000-0000-00000000000c';
 const PUBLIC_COLUMNS = ['id', 'owner_id', 'name', 'species', 'breed', 'age', 'gender', 'purpose', 'city', 'bio', 'photos', 'owner_name', 'distance_km',
   // Profil de rencontre déclaré par le propriétaire (migration meeting_profile).
-  'size', 'meeting_goals', 'temperament', 'good_with', 'usual_outings', 'behaviour_traits'];
+  'size', 'meeting_goals', 'temperament', 'good_with', 'usual_outings', 'behaviour_traits',
+  // Secteur de la carte (zone arrondie à 0,05°), null sans zone de rencontre.
+  'latitude', 'longitude'];
 
 test('confidentialité des profils : lecture directe, conversations et révocation', async (t) => {
   const db = await meetingsFixture();
@@ -53,6 +55,7 @@ test('confidentialité des profils : lecture directe, conversations et révocati
       assert.deepEqual(luna.photos, [`${B}/${PB}/1.jpg`]);
       assert.equal(luna.owner_name, 'Bea');
       assert.equal(luna.distance_km, null, 'pas de distance sans localisation de rencontre, même si pets.lat est renseigné');
+      assert.equal(luna.latitude, null, 'pas de secteur sans localisation de rencontre');
       assert.ok(!JSON.stringify(rows).includes('bœuf') && !JSON.stringify(rows).includes('50.64'));
     });
 

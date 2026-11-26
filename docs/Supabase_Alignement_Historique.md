@@ -57,3 +57,11 @@ Migration appliquée sur DEV `jemikzqgbpaivlujnfgl` par l'outil `apply_migration
 - Avant application : le corps de `search_professionals` sur DEV avait le même MD5 (`ddf6c668…`) que celui de `20261119171727_professional_directory.sql` : aucune version intermédiaire écrasée.
 - Après application : la fonction renvoie aussi `latitude` et `longitude` ; exécution toujours refusée à `anon`, accordée à `authenticated`.
 - Retour arrière : `supabase/operations/rollback_professional_map_position.sql` (testé localement dans `supabase/tests/professionals.test.mjs`).
+
+## Secteurs de carte Garde et Rencontres (26 novembre 2026)
+
+Migration appliquée sur DEV `jemikzqgbpaivlujnfgl` par `apply_migration`, sans `db push`. Supabase a enregistré la version **`20261126134843`** sous le nom `map_sectors` ; le fichier local porte ce numéro.
+
+- Avant application : `search_sitters` et `discover_pets` sur DEV identiques aux dernières versions du dépôt (MD5 `dae0a184…` et `d08613c2…`, après normalisation des fins de ligne).
+- Après application : les deux fonctions renvoient aussi `latitude` et `longitude` (secteur arrondi à 0,05°) ; exécution refusée à `anon`, accordée à `authenticated`.
+- Retour arrière : `supabase/operations/rollback_map_sectors.sql`, avant celui du retrait d'animal (testé dans `supabase/tests/pet-retirement.test.mjs`).

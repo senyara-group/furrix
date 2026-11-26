@@ -13,6 +13,7 @@ export interface MapboxLayerProps {
   points: MapPoint[];
   /** Centre de la recherche (ville ou position approximative) : repère « toi » et cercle du rayon. */
   center: Position | null;
+  /** Rayon de recherche ; 0 = sans limite (pas de cercle, cadrage sur les résultats). */
   radiusKm: number;
   /** Faux pendant le chargement ou en erreur : aucun repère. */
   showPoints: boolean;
@@ -22,6 +23,8 @@ export interface MapboxLayerProps {
   onFail: () => void;
   /** Ordinateur : la molette fait défiler la page, Ctrl + molette zoome. */
   cooperative: boolean;
+  /** « au même endroit » ou « dans le même secteur » (voir ResultsMap). */
+  sameSpot: string;
 }
 
 const reduced = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
@@ -32,7 +35,7 @@ const lngLat = (p: Position): [number, number] => [p.longitude, p.latitude];
  * (jamais en arrière-plan, ni derrière l'onglet « Liste » du téléphone), puis elle est gardée :
  * filtres, rayon et sélection ne font que déplacer le cadrage et mettre à jour les repères.
  */
-export function MapboxLayer({ token, points, center, radiusKm, showPoints, selected, onSelect, onFail, cooperative }: MapboxLayerProps) {
+export function MapboxLayer({ token, points, center, radiusKm, showPoints, selected, onSelect, onFail, cooperative, sameSpot }: MapboxLayerProps) {
   const slot = useRef<HTMLDivElement>(null);
   const [pooled, setPooled] = useState<PooledMap | null>(null);
   const [styleReady, setStyleReady] = useState(false);
@@ -105,17 +108,30 @@ export function MapboxLayer({ token, points, center, radiusKm, showPoints, selec
   }, [pooled]);
 
   // Cercle du rayon et cadrage : seulement quand la recherche change (pas à chaque sélection, ni au retour d'une fiche).
+  // Sans rayon (0), cadrage sur le centre et les résultats, refait seulement si les positions changent.
   const lat = center?.latitude, lng = center?.longitude;
+  const spread = radiusKm > 0 ? '' : [...new Set(points.flatMap((p) => p.position ? [`${p.position.latitude},${p.position.longitude}`] : []))].sort().join(';');
   useEffect(() => {
-    if (!pooled || !styleReady || lat === undefined || lng === undefined) return;
-    const c = { latitude: lat, longitude: lng };
-    (pooled.map.getSource('app-radius') as GeoJSONSource | undefined)?.setData(circle(c, radiusKm));
-    const key = `${lat},${lng},${radiusKm}`;
-    if (pooled.framed !== key) {
-      pooled.map.fitBounds(radiusBounds(c, radiusKm), { padding: 24, duration: pooled.framed === null || reduced() ? 0 : 500 });
-      pooled.framed = key;
+    if (!pooled || !styleReady) return;
+    const source = pooled.map.getSource('app-radius') as GeoJSONSource | undefined;
+    const key = `${lat},${lng},${radiusKm},${spread}`;
+    if (radiusKm > 0 && lat !== undefined && lng !== undefined) {
+      const c = { latitude: lat, longitude: lng };
+      source?.setData(circle(c, radiusKm));
+      if (pooled.framed !== key) {
+        pooled.map.fitBounds(radiusBounds(c, radiusKm), { padding: 24, duration: pooled.framed === null || reduced() ? 0 : 500 });
+        pooled.framed = key;
+      }
+      return;
     }
-  }, [pooled, styleReady, lat, lng, radiusKm]);
+    source?.setData({ type: 'FeatureCollection', features: [] });
+    const spots = [...(lat !== undefined && lng !== undefined ? [[lng, lat]] : []), ...spread.split(';').filter(Boolean).map((s) => s.split(',').reverse().map(Number))];
+    if (!spots.length || pooled.framed === key) return;
+    const lngs = spots.map((s) => s[0]!), lats = spots.map((s) => s[1]!);
+    pooled.map.fitBounds([[Math.min(...lngs) - 0.03, Math.min(...lats) - 0.03], [Math.max(...lngs) + 0.03, Math.max(...lats) + 0.03]],
+      { padding: { top: 60, bottom: 60, left: 80, right: 80 }, maxZoom: 12, duration: pooled.framed === null || reduced() ? 0 : 500 });
+    pooled.framed = key;
+  }, [pooled, styleReady, lat, lng, radiusKm, spread]);
 
   // Repère du centre de recherche.
   const meEl = useRef<HTMLSpanElement | null>(null);
@@ -194,16 +210,16 @@ export function MapboxLayer({ token, points, center, radiusKm, showPoints, selec
       let label: string, text: string, onClick: () => void;
       if (c.groups.length > 1) {
         // Plusieurs communes trop proches à ce niveau de zoom.
-        label = chosen ? `${chosen.name}, et ${n - 1} autre${n > 2 ? 's' : ''} activité${n > 2 ? 's' : ''} proche${n > 2 ? 's' : ''} : zoomer pour les séparer`
-          : `${n} activités proches : zoomer pour les séparer`;
-        text = chosen ? `${chosen.name} · +${n - 1}` : `${n} activités proches`;
+        label = chosen ? `${chosen.name}, et ${n - 1} autre${n > 2 ? 's' : ''} résultat${n > 2 ? 's' : ''} proche${n > 2 ? 's' : ''} : zoomer pour les séparer`
+          : `${n} résultats proches : zoomer pour les séparer`;
+        text = chosen ? `${chosen.name} · +${n - 1}` : `${n} proches`;
         onClick = () => zoomTo(c.groups.map((g) => g.position));
       } else {
         label = n === 1 ? `${lead.name}${short}`
-          : chosen ? `${chosen.name}, et ${n - 1} autre${n > 2 ? 's' : ''} au même endroit${short}`
-          : `${n} activités au même endroit${short}`;
+          : chosen ? `${chosen.name}, et ${n - 1} autre${n > 2 ? 's' : ''} ${sameSpot}${short}`
+          : `${n} résultats ${sameSpot}${short}`;
         text = n === 1 ? `${lead.name}${lead.short ? ` · ${lead.short}` : ''}`
-          : chosen ? `${chosen.name} · +${n - 1}` : `${n} activités${lead.short ? ` · ${lead.short}` : ''}`;
+          : chosen ? `${chosen.name} · +${n - 1}` : `${n} résultats${lead.short ? ` · ${lead.short}` : ''}`;
         onClick = () => {
           if (!chosen) onSelect(members[0]!.id);
           else if (n === 1) onSelect(null);

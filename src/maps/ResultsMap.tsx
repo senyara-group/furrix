@@ -29,6 +29,7 @@ export interface ResultsMapProps {
   points: MapPoint[];
   /** Centre de la recherche (ville choisie ou position approximative). */
   center?: { latitude: number; longitude: number } | null;
+  /** Rayon de recherche en km ; 0 = sans limite. */
   radiusKm: number;
   status: MapStatus;
   /** Repère sélectionné, partagé avec la liste. */
@@ -38,6 +39,13 @@ export interface ResultsMapProps {
   onOpen: (id: string) => void;
   /** Message quand la recherche ne renvoie rien. */
   emptyText: string;
+  /**
+   * Ce que partagent des résultats placés au même point : « au même endroit » (commune d'un professionnel)
+   * ou « dans le même secteur » (particuliers, position arrondie à ≈ 5 km).
+   */
+  sameSpot?: string;
+  /** Mini-fiche personnalisée (photo à charger, etc.) ; sinon `MapCard` à partir du point. */
+  card?: (id: string) => ReactNode;
   className?: string;
 }
 
@@ -50,7 +58,7 @@ export const hasMapBackground = () => mapboxToken() !== null;
  * sinon (pas de jeton, jeton refusé, WebGL absent, serveur sans positions) vue schématique :
  * distance réelle arrondie, direction arbitraire mais stable. Sélection, mini-fiche et états sont communs.
  */
-export function ResultsMap({ label, points, center = null, radiusKm, status, selected, onSelect, onOpen, emptyText, className }: ResultsMapProps) {
+export function ResultsMap({ label, points, center = null, radiusKm, status, selected, onSelect, onOpen, emptyText, sameSpot = 'au même endroit', card, className }: ResultsMapProps) {
   const { isPhone } = useBreakpoint();
   const token = mapboxToken();
   const [failed, setFailed] = useState(false);
@@ -64,17 +72,18 @@ export function ResultsMap({ label, points, center = null, radiusKm, status, sel
   const overlay = status === 'loading' ? 'Recherche en cours…'
     : status === 'error' ? 'Résultats indisponibles : réessaie depuis la liste.'
     : points.length === 0 ? emptyText : null;
-  const spots = real ? {} : placeSchematic(points, radiusKm);
+  const scale = radiusKm > 0 ? radiusKm : Math.max(5, ...points.map((p) => p.distanceKm ?? 0));
+  const spots = real ? {} : placeSchematic(points, scale);
   return <MapFrame size="big" role="region" aria-label={label} aria-busy={status === 'loading'}
     className={['app-map', real && 'app-map--real', status !== 'ready' && 'app-map--dim', className].filter(Boolean).join(' ')}
     onClick={(e) => { if (!real && e.target === e.currentTarget) onSelect(null); }}>
     {real ? <MapboxLayer token={token} points={points} center={center} radiusKm={radiusKm} showPoints={status === 'ready'}
-      selected={selected} onSelect={onSelect} onFail={() => setFailed(true)} cooperative={!isPhone} />
+      selected={selected} onSelect={onSelect} onFail={() => setFailed(true)} cooperative={!isPhone} sameSpot={sameSpot} />
       : <>
         <svg className="app-map__radius" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           <ellipse cx="50" cy="48" rx="42" ry="33.6" vectorEffect="non-scaling-stroke" />
         </svg>
-        <span className="app-map__scale" aria-hidden="true">{radiusKm} km</span>
+        <span className="app-map__scale" aria-hidden="true">{scale} km</span>
         <MapMe x={50} y={48} />
         {status === 'ready' && points.map((p) => {
           const spot = spots[p.id]!;
@@ -87,15 +96,15 @@ export function ResultsMap({ label, points, center = null, radiusKm, status, sel
       </>}
     {overlay && <p className="app-map__state" role="status">{overlay}</p>}
     {status === 'ready' && current && <div className="app-map__sheet">
-      {siblings.length > 1 && <div className="app-map__group" role="group" aria-label="Activités au même endroit">
-        <IconButton icon="chevronLeft" label="Activité précédente" size={18}
+      {siblings.length > 1 && <div className="app-map__group" role="group" aria-label={`Résultats ${sameSpot}`}>
+        <IconButton icon="chevronLeft" label="Résultat précédent" size={18}
           onClick={() => onSelect(siblings[(index - 1 + siblings.length) % siblings.length]!.id)} />
-        <span aria-live="polite">{index + 1} / {siblings.length} au même endroit</span>
-        <IconButton icon="chevronLeft" label="Activité suivante" size={18} className="app-map__next"
+        <span aria-live="polite">{index + 1} / {siblings.length} {sameSpot}</span>
+        <IconButton icon="chevronLeft" label="Résultat suivant" size={18} className="app-map__next"
           onClick={() => onSelect(siblings[(index + 1) % siblings.length]!.id)} />
       </div>}
-      <MapCard photo={current.photo} initials={current.name.charAt(0).toUpperCase()} name={current.name}
-        tag={current.tag} meta={current.detail} onClick={() => onOpen(current.id)} />
+      {card ? card(current.id) : <MapCard photo={current.photo} initials={current.name.charAt(0).toUpperCase()} name={current.name}
+        tag={current.tag} meta={current.detail} onClick={() => onOpen(current.id)} />}
     </div>}
   </MapFrame>;
 }
