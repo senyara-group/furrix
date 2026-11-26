@@ -132,7 +132,7 @@ Familles : **Actions** `Button`, `IconButton`, `SendButton`, `BackLink` · **Sé
   la confirmation et revient en cas d'échec ; `onPendingChange` sert à désactiver `SwipeActions`.
 - **Messages** : `Composer` limite à 2 000 caractères (comme la base) et accepte `sending`. Le texte reste
   affiché pendant l'envoi : un nouvel essai réutilise le même identifiant de requête côté écran.
-- `MapFrame` n'est qu'un cadre : le fournisseur de carte (Mapbox) reste à brancher dans `.fx-map__canvas`.
+- `MapFrame` n'est qu'un cadre : le fond Mapbox se branche dans `.fx-map__canvas` via `src/maps/ResultsMap.tsx` (voir `docs/Services_Carte.md`).
 - Tout ce que la maquette marque « Provisoire » ou « fictif » (délais, tarifs, frais) est une
   hypothèse : ne jamais figer ces valeurs dans le code (`RecapRow open` → « à définir »).
 

@@ -1,12 +1,13 @@
-import type { ReactNode } from 'react';
-import { MapCard, MapFrame, MapMarker, MapMe, type PhotoSource } from '../design-system';
+import { useState, type ReactNode } from 'react';
+import { IconButton, MapCard, MapFrame, MapMarker, MapMe, useBreakpoint, type PhotoSource } from '../design-system';
+import { MapboxLayer } from './MapboxLayer';
+import { mapboxToken } from './mapbox';
 import { placeSchematic } from './schematic';
 import './results-map.css';
 
 /**
  * Un résultat à placer sur la carte (établissement, gardien, animal…).
- * `position` : coordonnées autorisées renvoyées par le serveur, si elles existent.
- * Tant qu'aucun fond de carte n'est branché, seul `distanceKm` sert (vue schématique).
+ * `position` : coordonnées autorisées renvoyées par le serveur (jamais plus précises que ce que le serveur publie).
  */
 export type MapPoint = {
   id: string;
@@ -26,6 +27,8 @@ export interface ResultsMapProps {
   /** Nom accessible de la carte (« Carte des services »). */
   label: string;
   points: MapPoint[];
+  /** Centre de la recherche (ville choisie ou position approximative). */
+  center?: { latitude: number; longitude: number } | null;
   radiusKm: number;
   status: MapStatus;
   /** Repère sélectionné, partagé avec la liste. */
@@ -38,36 +41,61 @@ export interface ResultsMapProps {
   className?: string;
 }
 
+/** Vrai si un fond de carte réel est configuré (jeton Mapbox public présent). */
+export const hasMapBackground = () => mapboxToken() !== null;
+
 /**
  * Carte de résultats commune (Services aujourd'hui, Garde et Rencontres ensuite).
- * Rendu actuel : vue schématique dans le cadre du design system — la distance est réelle (arrondie),
- * la direction est arbitraire mais stable. Le fond de carte (fournisseur à brancher) remplacera ce rendu
- * quand les points auront une `position` autorisée ; la sélection, la mini-fiche et les états restent ici.
+ * Fond Mapbox quand un jeton est configuré et que tous les points ont une position autorisée ;
+ * sinon (pas de jeton, jeton refusé, WebGL absent, serveur sans positions) vue schématique :
+ * distance réelle arrondie, direction arbitraire mais stable. Sélection, mini-fiche et états sont communs.
  */
-export function ResultsMap({ label, points, radiusKm, status, selected, onSelect, onOpen, emptyText, className }: ResultsMapProps) {
-  const spots = placeSchematic(points, radiusKm);
+export function ResultsMap({ label, points, center = null, radiusKm, status, selected, onSelect, onOpen, emptyText, className }: ResultsMapProps) {
+  const { isPhone } = useBreakpoint();
+  const token = mapboxToken();
+  const [failed, setFailed] = useState(false);
+  const real = token !== null && !failed && points.every((p) => p.position);
   const current = points.find((p) => p.id === selected) ?? null;
+  // Activités placées au même endroit que la sélection (même commune) : navigation dans la mini-fiche.
+  const siblings = real && current?.position
+    ? points.filter((p) => p.position?.latitude === current.position!.latitude && p.position?.longitude === current.position!.longitude)
+    : [];
+  const index = current ? siblings.indexOf(current) : -1;
   const overlay = status === 'loading' ? 'Recherche en cours…'
     : status === 'error' ? 'Résultats indisponibles : réessaie depuis la liste.'
     : points.length === 0 ? emptyText : null;
+  const spots = real ? {} : placeSchematic(points, radiusKm);
   return <MapFrame size="big" role="region" aria-label={label} aria-busy={status === 'loading'}
-    className={['app-map', status !== 'ready' && 'app-map--dim', className].filter(Boolean).join(' ')}
-    onClick={(e) => { if (e.target === e.currentTarget) onSelect(null); }}>
-    <svg className="app-map__radius" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-      <ellipse cx="50" cy="48" rx="42" ry="33.6" vectorEffect="non-scaling-stroke" />
-    </svg>
-    <span className="app-map__scale" aria-hidden="true">{radiusKm} km</span>
-    <MapMe x={50} y={48} />
-    {status === 'ready' && points.map((p) => {
-      const spot = spots[p.id]!;
-      return <MapMarker key={p.id} x={spot.x} y={spot.y} hot={p.id === selected} aria-pressed={p.id === selected}
-        aria-label={[p.name, p.short].filter(Boolean).join(', ')}
-        onClick={() => onSelect(p.id === selected ? null : p.id)}>
-        {p.name}{p.short ? ` · ${p.short}` : ''}
-      </MapMarker>;
-    })}
+    className={['app-map', real && 'app-map--real', status !== 'ready' && 'app-map--dim', className].filter(Boolean).join(' ')}
+    onClick={(e) => { if (!real && e.target === e.currentTarget) onSelect(null); }}>
+    {real ? <MapboxLayer token={token} points={points} center={center} radiusKm={radiusKm} showPoints={status === 'ready'}
+      selected={selected} onSelect={onSelect} onFail={() => setFailed(true)} cooperative={!isPhone} />
+      : <>
+        <svg className="app-map__radius" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <ellipse cx="50" cy="48" rx="42" ry="33.6" vectorEffect="non-scaling-stroke" />
+        </svg>
+        <span className="app-map__scale" aria-hidden="true">{radiusKm} km</span>
+        <MapMe x={50} y={48} />
+        {status === 'ready' && points.map((p) => {
+          const spot = spots[p.id]!;
+          return <MapMarker key={p.id} x={spot.x} y={spot.y} hot={p.id === selected} aria-pressed={p.id === selected}
+            aria-label={[p.name, p.short].filter(Boolean).join(', ')}
+            onClick={() => onSelect(p.id === selected ? null : p.id)}>
+            {p.name}{p.short ? ` · ${p.short}` : ''}
+          </MapMarker>;
+        })}
+      </>}
     {overlay && <p className="app-map__state" role="status">{overlay}</p>}
-    {status === 'ready' && current && <MapCard photo={current.photo} initials={current.name.charAt(0).toUpperCase()} name={current.name}
-      tag={current.tag} meta={current.detail} onClick={() => onOpen(current.id)} />}
+    {status === 'ready' && current && <div className="app-map__sheet">
+      {siblings.length > 1 && <div className="app-map__group" role="group" aria-label="Activités au même endroit">
+        <IconButton icon="chevronLeft" label="Activité précédente" size={18}
+          onClick={() => onSelect(siblings[(index - 1 + siblings.length) % siblings.length]!.id)} />
+        <span aria-live="polite">{index + 1} / {siblings.length} au même endroit</span>
+        <IconButton icon="chevronLeft" label="Activité suivante" size={18} className="app-map__next"
+          onClick={() => onSelect(siblings[(index + 1) % siblings.length]!.id)} />
+      </div>}
+      <MapCard photo={current.photo} initials={current.name.charAt(0).toUpperCase()} name={current.name}
+        tag={current.tag} meta={current.detail} onClick={() => onOpen(current.id)} />
+    </div>}
   </MapFrame>;
 }

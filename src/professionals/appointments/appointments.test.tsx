@@ -67,7 +67,7 @@ it("conserve la demande après une réponse perdue, rejoue le même identifiant 
     accessibility: "",
     phone: null,
     website: null,
-    distance_km: null,
+    distance_km: null, latitude: 50.63, longitude: 3.06,
     services: [
       { name: "Consultation", unit: "consultation", price_cents: 4500 },
     ],

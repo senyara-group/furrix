@@ -49,3 +49,11 @@ Migration appliquée sur DEV `jemikzqgbpaivlujnfgl` par l'outil `apply_migration
 - Les deux tests SQL et le commentaire du contrôle pointent vers le nouveau nom. Dans l'ordre local, la migration se place désormais après `20261125120000_professional_messages`, toujours non appliquée sur DEV. Les deux migrations sont indépendantes.
 
 Reste ouvert, hors de ce lot : l'écart `unified_notifications`. DEV porte la version `20261120103721`, le fichier local `20261120100904`, avec un contenu identique.
+
+## Position des activités sur la carte Services (26 novembre 2026)
+
+Migration appliquée sur DEV `jemikzqgbpaivlujnfgl` par l'outil `apply_migration` du connecteur Supabase, sans `db push`, après accord explicite. Supabase a enregistré la version **`20261126133706`** sous le nom `professional_map_position` ; le fichier local porte ce numéro.
+
+- Avant application : le corps de `search_professionals` sur DEV avait le même MD5 (`ddf6c668…`) que celui de `20261119171727_professional_directory.sql` : aucune version intermédiaire écrasée.
+- Après application : la fonction renvoie aussi `latitude` et `longitude` ; exécution toujours refusée à `anon`, accordée à `authenticated`.
+- Retour arrière : `supabase/operations/rollback_professional_map_position.sql` (testé localement dans `supabase/tests/professionals.test.mjs`).

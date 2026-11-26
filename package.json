@@ -42,6 +42,7 @@
     "@revenuecat/purchases-capacitor": "14.1.1",
     "@supabase/supabase-js": "2.118.0",
     "lucide-react": "1.74.0",
+    "mapbox-gl": "3.34.2",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
   },
@@ -50,6 +51,7 @@
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react": "^16.0.1",
     "@types/react": "^18.3.12",
+    "@types/react-dom": "18.3.7",
     "@vitejs/plugin-react": "^4.3.0",
     "jsdom": "^25.0.1",
     "typescript": "^5.6.3",

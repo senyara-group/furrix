@@ -11,7 +11,7 @@ import type { Professional } from "./types";
 const owner = "11111111-1111-4111-8111-111111111111";
 const pro = (id: string, name: string, km: number): Professional => ({
   professional_id: id, name, category: "veterinaire", city: "Lille", bio: "Présentation.", species: ["chien"], hours: "", accessibility: "",
-  phone: null, website: null, services: [{ name: "Consultation", unit: "consultation", price_cents: null }], distance_km: km,
+  phone: null, website: null, services: [{ name: "Consultation", unit: "consultation", price_cents: null }], distance_km: km, latitude: 50.63, longitude: 3.06,
 });
 const vet = pro("p1", "Cabinet des Oyats", 2), groomer = pro("p2", "Toilettage du Vieux-Lille", 7);
 const open = () => render(<ProfessionalsArea client={createFakeSupabase().client} owner={owner} />);
