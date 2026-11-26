@@ -20,9 +20,13 @@ import {
   PageHeader,
   ResultList,
   ResultRow,
+  SearchLayout,
+  Segmented,
   Stack,
   StatusBadge,
+  useBreakpoint,
 } from "../design-system";
+import { ResultsMap, type MapPoint } from "../maps/ResultsMap";
 import type { FurrixClient } from "../services/supabaseClient";
 import {
   approximateLocation,
@@ -54,6 +58,8 @@ type Search = {
   radius: number;
   category: Category | "";
 };
+/** Affichage des résultats, gardé au retour d'une fiche : liste ou carte (téléphone) et repère sélectionné. */
+type Display = { mode: "liste" | "carte"; selected: string | null };
 const speciesLabel: Record<string, string> = {
   chien: "Chiens",
   chat: "Chats",
@@ -245,11 +251,17 @@ function Directory({
   client,
   search,
   onSearch,
+  display,
+  onDisplay,
 }: {
   client: FurrixClient;
   search: Search;
   onSearch: Dispatch<SetStateAction<Search>>;
+  display: Display;
+  onDisplay: Dispatch<SetStateAction<Display>>;
 }) {
+  const { isPhone } = useBreakpoint();
+  const rows = useRef<HTMLDivElement>(null);
   const [town, setTown] = useState(search.label),
     [locating, setLocating] = useState(false),
     [locationError, setLocationError] = useState("");
@@ -294,6 +306,18 @@ function Directory({
       current = false;
     };
   }, [client, search, attempt]);
+  // Un repère sélectionné qui n'est plus dans les résultats (nouvelle recherche) est oublié.
+  useEffect(() => {
+    if (status === "ready" && display.selected && !results.some((p) => p.professional_id === display.selected))
+      onDisplay((d) => ({ ...d, selected: null }));
+  }, [status, results, display.selected, onDisplay]);
+  const points: MapPoint[] = results.map((p) => ({
+    id: p.professional_id,
+    name: p.name,
+    short: p.distance_km === null ? undefined : `≈ ${p.distance_km} km`,
+    detail: [categories[p.category], p.city, p.distance_km === null ? null : `≈ ${p.distance_km} km`].filter(Boolean).join(" · "),
+    distanceKm: p.distance_km,
+  }));
   const locate = async (gps = false) => {
     if (locating) return;
     const version = ++request.current;
@@ -414,86 +438,135 @@ function Directory({
           Choisis une ville ou utilise ta position pour voir les activités
           proches.
         </Note>
-      ) : status === "loading" ? (
-        <Loading label="Recherche des professionnels…" />
-      ) : status === "error" ? (
-        <Alert
-          tone="err"
-          title="Les professionnels n’ont pas pu être chargés."
-          actions={
-            <Button variant="out" onClick={() => setAttempt((a) => a + 1)}>
-              Réessayer
-            </Button>
-          }
-        >
-          Ta ville, la catégorie et le rayon sont conservés.
-        </Alert>
       ) : (
-        <>
-          <h2 className="app-pro-results">
-            {results.length} activité{results.length > 1 ? "s" : ""} près de{" "}
-            {search.label}
+        <section aria-label="Résultats" className="app-pro-found">
+          <h2 className="app-pro-results" aria-live="polite">
+            {status === "ready"
+              ? `${results.length} activité${results.length > 1 ? "s" : ""} près de ${search.label}`
+              : status === "loading"
+                ? `Recherche près de ${search.label}…`
+                : `Activités près de ${search.label}`}
           </h2>
-          {results.length ? (
-            <>
-              <ResultList>
-                {results.map((p) => (
-                  <ResultRow
-                    key={p.professional_id}
-                    as="a"
-                    href={professionalHref(p.professional_id)}
-                    initials={p.name[0]?.toUpperCase()}
-                    name={p.name}
-                    tag={
-                      <StatusBadge status="wait">Activité déclarée</StatusBadge>
-                    }
-                    meta={[
-                      categories[p.category],
-                      p.city,
-                      p.distance_km === null ? null : `≈ ${p.distance_km} km`,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  />
-                ))}
-              </ResultList>
-              {results.length === 50 && (
-                <Note>
-                  Les 50 activités les plus proches sont affichées. Affine la
-                  catégorie ou le rayon.
-                </Note>
-              )}
-            </>
-          ) : (
-            <EmptyState
-              icon="search"
-              title="Aucune activité dans ce secteur"
-              action={
-                search.radius < 50 ? (
-                  <Button
-                    variant="out"
-                    onClick={() =>
-                      onSearch({
-                        ...search,
-                        radius: search.radius < 25 ? 25 : 50,
-                      })
-                    }
-                  >
-                    Élargir la recherche
-                  </Button>
-                ) : undefined
+          {status === "error" && (
+            <Alert
+              tone="err"
+              title="Les professionnels n’ont pas pu être chargés."
+              actions={
+                <Button variant="out" onClick={() => setAttempt((a) => a + 1)}>
+                  Réessayer
+                </Button>
               }
             >
-              Essaie une autre catégorie, une commune voisine ou un rayon plus
-              large.
-            </EmptyState>
+              Ta ville, la catégorie et le rayon sont conservés.
+            </Alert>
           )}
+          {isPhone && (
+            <Segmented
+              fill
+              aria-label="Affichage des résultats"
+              className="app-pro-mode"
+              value={display.mode}
+              onChange={(mode) => onDisplay((d) => ({ ...d, mode }))}
+              options={[
+                { value: "liste", label: "Liste", icon: "cards" },
+                { value: "carte", label: "Carte", icon: "map" },
+              ]}
+            />
+          )}
+          <SearchLayout
+            className={isPhone ? `app-pro-layout app-pro-layout--${display.mode}` : "app-pro-layout"}
+            map={
+              <ResultsMap
+                label={`Carte des activités près de ${search.label}`}
+                points={points}
+                radiusKm={search.radius}
+                status={status}
+                selected={display.selected}
+                onSelect={(id) => {
+                  onDisplay((d) => ({ ...d, selected: id }));
+                  if (id && !isPhone)
+                    Array.from(rows.current?.querySelectorAll<HTMLElement>("[data-id]") ?? [])
+                      .find((row) => row.dataset.id === id)
+                      ?.scrollIntoView?.({ block: "nearest" });
+                }}
+                onOpen={(id) => {
+                  window.location.hash = professionalHref(id);
+                }}
+                emptyText={`Aucune activité à moins de ${search.radius} km.`}
+              />
+            }
+            results={
+              status === "loading" ? (
+                <Loading label="Recherche des professionnels…" />
+              ) : status === "error" ? null : results.length ? (
+                <div ref={rows}>
+                  <ResultList>
+                    {results.map((p) => (
+                      <li key={p.professional_id}>
+                        <ResultRow
+                          as="a"
+                          href={professionalHref(p.professional_id)}
+                          data-id={p.professional_id}
+                          aria-current={display.selected === p.professional_id ? "true" : undefined}
+                          className={display.selected === p.professional_id ? "app-pro-row app-pro-row--hot" : "app-pro-row"}
+                          onMouseEnter={() => onDisplay((d) => ({ ...d, selected: p.professional_id }))}
+                          onFocus={() => onDisplay((d) => ({ ...d, selected: p.professional_id }))}
+                          initials={p.name[0]?.toUpperCase()}
+                          name={p.name}
+                          tag={
+                            <StatusBadge status="wait">Activité déclarée</StatusBadge>
+                          }
+                          meta={[
+                            categories[p.category],
+                            p.city,
+                            p.distance_km === null ? null : `≈ ${p.distance_km} km`,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        />
+                      </li>
+                    ))}
+                  </ResultList>
+                  {results.length === 50 && (
+                    <Note>
+                      Les 50 activités les plus proches sont affichées. Affine la
+                      catégorie ou le rayon.
+                    </Note>
+                  )}
+                </div>
+              ) : (
+                <EmptyState
+                  icon="search"
+                  title="Aucune activité dans ce secteur"
+                  action={
+                    search.radius < 50 ? (
+                      <Button
+                        variant="out"
+                        onClick={() =>
+                          onSearch({
+                            ...search,
+                            radius: search.radius < 25 ? 25 : 50,
+                          })
+                        }
+                      >
+                        Élargir la recherche
+                      </Button>
+                    ) : undefined
+                  }
+                >
+                  Essaie une autre catégorie, une commune voisine ou un rayon plus
+                  large.
+                </EmptyState>
+              )
+            }
+          />
           <Note>
             Activités déclarées par leurs titulaires, sans badge de
-            vérification. La position des établissements et les distances sont
-            approximatives.
+            vérification. Carte schématique : seule la distance est réelle,
+            arrondie ; la direction des repères est indicative et la position
+            des établissements n’est pas publiée.
           </Note>
-        </>
+        </section>
       )}
     </>
   );
@@ -516,7 +589,8 @@ export default function ProfessionalsArea({
       label: "",
       radius: 10,
       category: "",
-    });
+    }),
+    [display, setDisplay] = useState<Display>({ mode: "liste", selected: null });
   useEffect(() => {
     const changed = () => setParams(read());
     window.addEventListener("hashchange", changed);
@@ -534,7 +608,7 @@ export default function ProfessionalsArea({
         ) : id ? (
           <ProfessionalDetail key={id} client={client} id={id} owner={owner} />
         ) : (
-          <Directory client={client} search={search} onSearch={setSearch} />
+          <Directory client={client} search={search} onSearch={setSearch} display={display} onDisplay={setDisplay} />
         )}
       </Page>
     </FurrixScope>

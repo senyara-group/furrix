@@ -109,3 +109,21 @@
 .app-pro-root .fx-composer {
   margin-top: var(--fx-space-5);
 }
+
+/* Résultats : liste et carte côte à côte sur ordinateur ; une des deux, au choix, sur téléphone. */
+.app-pro-mode {
+  margin-bottom: var(--fx-space-4);
+}
+.app-pro-layout--liste .fx-search__map,
+.app-pro-layout--carte > div:first-child {
+  display: none;
+}
+.app-pro-row--hot {
+  background: var(--fx-color-surface-row-hover);
+}
+@media (min-width: 900px) {
+  .app-pro-layout .fx-search__map {
+    position: sticky;
+    top: var(--fx-space-6);
+  }
+}

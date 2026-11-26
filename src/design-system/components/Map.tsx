@@ -50,7 +50,9 @@ export function MapNote({ children }: { children: ReactNode }) {
 }
 
 export interface MapCardProps {
-  photo: PhotoSource;
+  /** Photo, ou à défaut `initials` (activité sans photo). */
+  photo?: PhotoSource;
+  initials?: string;
   name: ReactNode;
   tag?: ReactNode;
   meta?: ReactNode;
@@ -59,10 +61,10 @@ export interface MapCardProps {
 }
 
 /** Mini-fiche flottante en bas de la grande carte. */
-export function MapCard({ photo, name, tag, meta, linkLabel = 'Voir la fiche', onClick }: MapCardProps) {
+export function MapCard({ photo, initials, name, tag, meta, linkLabel = 'Voir la fiche', onClick }: MapCardProps) {
   return (
     <button type="button" className="fx-mapcard" onClick={onClick}>
-      <img src={photo.src} alt={photo.alt ?? ''} />
+      {photo ? <img src={photo.src} alt={photo.alt ?? ''} /> : <span className="fx-mono fx-mapcard__mono" aria-hidden="true">{initials}</span>}
       <span className="fx-mapcard__body">
         <span className="fx-res__name">{name}</span>
         {tag}
