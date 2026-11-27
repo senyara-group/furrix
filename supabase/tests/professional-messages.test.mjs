@@ -99,7 +99,7 @@ test("messagerie Services : participants seulement, rejeu, historique après ann
     await t.test("retour arrière puis réapplication", async () => {
       await db.exec(await readFile(new URL("../operations/rollback_professional_messages.sql", import.meta.url), "utf8"));
       assert.equal((await db.query("select to_regclass('public.professional_messages') t")).rows[0].t, null);
-      await db.exec(await readFile(new URL("../migrations/20261125120000_professional_messages.sql", import.meta.url), "utf8"));
+      await db.exec(await readFile(new URL("../migrations/20261127103148_professional_messages.sql", import.meta.url), "utf8"));
       assert.equal((await db.query("select count(*)::int n from professional_messages")).rows[0].n, 0);
     });
   } finally {

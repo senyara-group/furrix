@@ -50,6 +50,14 @@ Migration appliquée sur DEV `jemikzqgbpaivlujnfgl` par l'outil `apply_migration
 
 Reste ouvert, hors de ce lot : l'écart `unified_notifications`. DEV porte la version `20261120103721`, le fichier local `20261120100904`, avec un contenu identique.
 
+## Messagerie Services (27 novembre 2026)
+
+Lors de l'essai avec deux comptes bêta, l'écran de conversation était livré mais ni `professional_messages`, ni `send_professional_message`, ni `list_professional_threads` n'existaient sur DEV. La migration manquante a été appliquée seule via le connecteur, sans `db push`, après vérification des dépendances et réussite des 8 tests SQL ciblés.
+
+- Version enregistrée : **`20261127103148`**, nom `professional_messages`. Le fichier initial `20261125120000_professional_messages.sql` est renommé sans modification du SQL ; la référence de son test de réapplication est mise à jour.
+- Après application : RLS activée ; SELECT accordé à `authenticated`, refusé à `anon` ; aucune écriture directe accordée à `authenticated` ; envoi par RPC réservé aux comptes authentifiés. Les cinq fonctions privilégiées gardent `search_path=""`.
+- Aucun message n'avait été enregistré lors des tentatives en échec. Le rendez-vous de test reste confirmé. Aucun changement Stripe ni aucune autre migration appliquée.
+
 ## Position des activités sur la carte Services (26 novembre 2026)
 
 Migration appliquée sur DEV `jemikzqgbpaivlujnfgl` par l'outil `apply_migration` du connecteur Supabase, sans `db push`, après accord explicite. Supabase a enregistré la version **`20261126133706`** sous le nom `professional_map_position` ; le fichier local porte ce numéro.
