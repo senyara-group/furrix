@@ -1,5 +1,18 @@
 # Paiement des gardes — préparation du 25 novembre 2026
 
+## Diagnostic serveur — lot du 27 novembre 2026
+
+L'adaptateur de l'inscription peut transmettre un événement `stripe_onboarding_error` au journal serveur. L'entrée de la fonction le sérialise en JSON avec `console.error`. Aucun déploiement ni appel Stripe réel n'est effectué par ce lot.
+
+- Champs conservés : opération (`platform`, `create_account`, `read_account`, `create_link`), statut HTTP, code pris dans une liste fermée et identifiant `Request-Id` au format `req_…` uniquement.
+- Échecs couverts : réponses HTTP en erreur, clé de test absente ou invalide, coupure réseau et réponse JSON illisible. Les codes Stripe non reconnus deviennent `stripe_error` : utiliser `request_id` dans les journaux Stripe pour le détail. Les rejets métier locaux (par exemple mauvais sandbox malgré une réponse HTTP réussie) ne sont pas couverts par ce diagnostic.
+- Jamais journalisés : clé, jeton de session, compte gardien, clé d'idempotence, corps de requête ou réponse, message d'erreur libre, paramètre ou URL (dont les liens d'inscription). Les succès ne produisent pas d'événement.
+- Une erreur du journal ne modifie pas la réponse générique au client ni la libération du bail. Le fonctionnement de création, l'idempotence et les interrupteurs ne changent pas.
+
+Après fusion, redéployer les quatre fichiers de `sitter-stripe-onboarding` (dont `diagnostics.ts`) avec `verify_jwt: true`, interrupteur coupé. Aucun changement SQL ni nouvelle variable n'est nécessaire. Le comportement réel dans les journaux Supabase restera à vérifier lors d'une fenêtre de test autorisée.
+
+Références : [Request IDs Stripe](https://docs.stripe.com/api/request_ids), [erreurs Stripe](https://docs.stripe.com/api/errors), [journaux des fonctions Supabase](https://supabase.com/docs/guides/functions/logging).
+
 ## Choix validés
 
 Le gardien vend et encaisse la prestation ; Furrix retient une commission sur son tarif. Aucun supplément propriétaire n'a été décidé. Le pourcentage reste à définir : aucune valeur par défaut, même zéro, ne doit être utilisée lors de l'activation.
