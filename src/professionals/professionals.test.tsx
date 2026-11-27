@@ -26,6 +26,8 @@ const professional: Professional = {
   website: "https://example.org/",
   services: [{ name: "Consultation", unit: "consultation", price_cents: 4500 }],
   distance_km: 2,
+  latitude: 50.63,
+  longitude: 3.06,
 };
 beforeEach(() => {
   window.history.replaceState(null, "", "/#/services");

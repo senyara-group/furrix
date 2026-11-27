@@ -1,0 +1,124 @@
+/* Carte de résultats commune : ce que le cadre fx-map n'a pas (rayon, échelle, états). */
+.app-map {
+  isolation: isolate;
+}
+.app-map__radius {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.app-map__radius ellipse {
+  fill: var(--fx-color-surface-white);
+  fill-opacity: .35;
+  stroke: var(--fx-color-ink);
+  stroke-opacity: .25;
+  stroke-width: 1.5;
+  stroke-dasharray: 6 6;
+}
+.app-map__scale {
+  position: absolute;
+  left: 50%;
+  top: calc(48% - 33.6%);
+  transform: translate(-50%, -50%);
+  padding: 2px var(--fx-space-2);
+  border-radius: var(--fx-radius-pill);
+  background: var(--fx-color-surface-white);
+  font: 600 12px var(--fx-font-body);
+  color: var(--fx-color-ink-muted);
+}
+.app-map .fx-marker {
+  min-height: var(--fx-size-touch);
+}
+.app-map .fx-marker--hot {
+  z-index: 2;
+}
+.app-map--dim .fx-map__me,
+.app-map--dim .app-map__radius {
+  opacity: .5;
+}
+.app-map__state {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 3;
+  transform: translate(-50%, -50%);
+  max-width: calc(100% - var(--fx-space-8));
+  margin: 0;
+  padding: var(--fx-space-3) var(--fx-space-4);
+  border-radius: var(--fx-radius-2xl);
+  background: var(--fx-color-surface-white);
+  box-shadow: var(--fx-shadow-marker);
+  font: 600 15px/1.35 var(--fx-font-body);
+  color: var(--fx-color-ink);
+  text-align: center;
+}
+.app-map__sheet {
+  position: absolute;
+  left: var(--fx-space-4);
+  right: var(--fx-space-4);
+  bottom: calc(var(--fx-space-4) + var(--fx-safe-bottom, 0px));
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--fx-space-2);
+}
+.app-map__sheet .fx-mapcard {
+  position: static;
+}
+/* Activités au même endroit (même commune) : précédente / suivante. */
+.app-map__group {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--fx-space-1);
+  padding: 2px;
+  border-radius: var(--fx-radius-pill);
+  background: var(--fx-color-surface-white);
+  box-shadow: var(--fx-shadow-marker);
+  font: 600 13px var(--fx-font-body);
+  color: var(--fx-color-ink);
+}
+.app-map__next svg {
+  transform: scaleX(-1);
+}
+
+/* ───────── Fond Mapbox ───────── */
+.app-map__slot,
+.app-map__slot > .app-map__gl.mapboxgl-map {
+  /* Plus précis que la feuille Mapbox (.mapboxgl-map { position: relative }) : la carte remplit le cadre. */
+  position: absolute;
+  inset: 0;
+}
+/* Le logo et les crédits Mapbox (obligatoires) restent visibles sous la mini-fiche. */
+.app-map--real .app-map__sheet {
+  bottom: calc(var(--fx-space-8) + var(--fx-safe-bottom, 0px));
+}
+/* Repères posés par Mapbox : le point d'ancrage n'a pas de taille, le repère est centré dessus. */
+.app-map__pin-anchor {
+  width: 0;
+  height: 0;
+}
+.app-map .app-map__pin {
+  max-width: 170px;
+}
+.app-map .app-map__pin.fx-marker--hot,
+.app-map .app-map__pin:hover,
+.app-map .app-map__pin:focus-visible {
+  max-width: 280px;
+}
+.app-map--real .fx-map__me {
+  z-index: 0;
+}
+.app-map--real .mapboxgl-ctrl-group button {
+  width: var(--fx-size-touch);
+  height: var(--fx-size-touch);
+}
+/* Téléphone : la carte tient dans l'écran, sous les filtres. */
+@media (max-width: 899.98px) {
+  .app-map.fx-map--big {
+    height: min(560px, 62vh);
+  }
+}

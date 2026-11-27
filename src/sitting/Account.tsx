@@ -195,7 +195,7 @@ export function SitterProfileForm({ client, userId }: { client: FurrixClient; us
   return <section aria-label="Mon profil de gardien">
     <PageHeader back={{ label: 'Faire garder', onClick: () => { window.location.hash = gardeHref(); } }} title={exists ? 'Mon profil de gardien' : 'Proposer des gardes'}
       status={exists ? <StatusBadge status={form.active ? 'ok' : 'stop'}>{form.active ? 'Visible' : 'En pause'}</StatusBadge> : undefined}
-      subtitle="Les propriétaires voient ton prénom, ta ville, une distance arrondie, ta présentation et tes tarifs. Jamais ton adresse." showTitleOnPhone />
+      subtitle="Les propriétaires voient ton prénom, ta ville, une distance arrondie, ton secteur sur la carte (≈ 5 km), ta présentation et tes tarifs. Jamais ton adresse." showTitleOnPhone />
     <DetailLayout
       aside={<Card calm><Stack gap={3}><Text variant="kicker">Bon à savoir</Text>
         <Text variant="body-sm">Tu restes libre d’accepter ou de refuser chaque demande, sans justification.</Text>

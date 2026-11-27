@@ -34,12 +34,22 @@
 .gd-note {
   margin-top: var(--fx-space-4);
 }
-.gd-map .fx-marker {
-  white-space: nowrap;
+/* Résultats : liste et carte côte à côte sur ordinateur ; l'une ou l'autre, au choix, sur téléphone. */
+.gd-mode {
+  margin-bottom: var(--fx-space-4);
 }
-.gd-map .fx-marker:hover,
-.gd-map .fx-marker--hot {
-  z-index: 2;
+.gd-layout--liste .fx-search__map,
+.gd-layout--carte > div:first-child {
+  display: none;
+}
+.gd-row--hot {
+  background: var(--fx-color-surface-row-hover);
+}
+@media (min-width: 900px) {
+  .gd-layout .fx-search__map {
+    position: sticky;
+    top: var(--fx-space-6);
+  }
 }
 
 /* Lignes d'information des cartes latérales. */
@@ -281,9 +291,6 @@
   }
   .gd-absence-add {
     grid-template-columns: 1fr 1fr auto;
-  }
-  .gd-map .fx-map__note {
-    display: block;
   }
 }
 

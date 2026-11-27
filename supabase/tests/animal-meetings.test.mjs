@@ -23,7 +23,9 @@ test('rencontres : autorisation, rejouabilité, découverte et messages',async t
   await as(B,'select set_pet_meeting_location($1,50.64,3.06)',[PB]);
   assert.equal(Number((await as(A,'select latitude from pet_meeting_locations'))[0].latitude),50.63);
   assert.equal((await as(A,'select * from pet_meeting_locations')).length,1);
-  assert.equal((await as(A,'select * from discover_pets($1,p_radius=>25)',[PA])).length,1);
+  const [near]=await as(A,'select * from discover_pets($1,p_radius=>25)',[PA]);assert.equal(near.id,PB);
+  // Secteur de la carte : zone 50,64 / 3,06 arrondie à 0,05°, jamais la zone enregistrée.
+  assert.equal(Number(near.latitude),50.65);assert.equal(Number(near.longitude),3.05);
   await assert.rejects(as(A,'select set_pet_meeting_location($1,50,3)',[PB]));
   await as(A,'select set_pet_meeting_location($1)',[PA]);
   assert.equal((await as(A,'select * from pet_meeting_locations')).length,0);

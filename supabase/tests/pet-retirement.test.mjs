@@ -306,6 +306,10 @@ test("retrait d’animal : profil masqué, activités protégées, historique co
           [A],
         );
         await assert.rejects(retire(), /Accès bêta requis/);
+        // Ordre inverse des migrations : d'abord les secteurs de carte (même fonction discover_pets).
+        await db.exec(
+          await readFile(new URL("../operations/rollback_map_sectors.sql", import.meta.url), "utf8"),
+        );
         await db.exec(
           await readFile(
             new URL(
@@ -328,6 +332,9 @@ test("retrait d’animal : profil masqué, activités protégées, historique co
             ),
             "utf8",
           ),
+        );
+        await db.exec(
+          await readFile(new URL("../migrations/20261126134843_map_sectors.sql", import.meta.url), "utf8"),
         );
         assert.equal(
           (await db.query("select ended_at from matches where id=$1", [match]))

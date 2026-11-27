@@ -37,7 +37,7 @@ test('garde : profil, recherche, demande, accord, conversation, nouvelles, annul
  await t.test('recherche : distance arrondie, formule et espèce, sans soi-même ni hors rayon',async()=>{
   const [found]=await search(A);
   assert.equal(found.sitter_id,S);assert.equal(found.name,'Sam');assert.equal(found.price_cents,2000);assert.equal(found.distance_km,4);
-  assert.equal(found.services.length,2);assert.equal('latitude' in found,false);
+  assert.equal(found.services.length,2);assert.equal(Number(found.latitude),50.65);assert.equal(Number(found.longitude),3);
   assert.equal((await search(A,{service:'promenade'})).length,0);
   assert.equal((await search(A,{species:'chat'})).length,0);
   assert.equal((await search(A,{lat:48.85,lng:2.35})).length,0);

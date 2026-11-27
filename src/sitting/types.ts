@@ -6,7 +6,7 @@ type SittingStatus = 'pending' | 'withdrawn' | 'declined' | 'expired' | 'accepte
 export type SittingReportCategory = 'sante' | 'non_conforme' | 'comportement' | 'paiement';
 export type ServicePrice = { service: SittingService; price_cents: number };
 
-/** Gardien trouvé par la recherche (ou fiche) : jamais de position exacte, seulement une distance arrondie. */
+/** Gardien trouvé par la recherche (ou fiche) : jamais de position exacte : distance arrondie et secteur (≈ 5 km). */
 export type SitterResult = {
   sitter_id: string; name: string | null; kind: SitterKind; city: string; bio: string; distance_km: number | null;
   species: string[]; max_weight_kg: number | null; outdoor: SitterOutdoor; services: ServicePrice[]; price_cents: number | null; busy: boolean;
@@ -14,6 +14,8 @@ export type SitterResult = {
   weekdays: number[]; capacity: number;
   /** Photo choisie par le gardien (stockage privé, lue avec la session). */
   photo: string | null;
+  /** Secteur de la carte : zone du gardien arrondie à 0,05° (≈ 5 km), jamais son adresse. */
+  latitude?: number | null; longitude?: number | null;
 };
 /** Mon profil de gardien, tel qu'enregistré. */
 export type SitterProfile = {

@@ -23,6 +23,12 @@ export async function hasLocation(client: FurrixClient, petId: string) {
   const { data, error } = await client.from('pet_meeting_locations').select('pet_id').eq('pet_id', petId).maybeSingle();
   if (error) throw toDataError(error); return !!data;
 }
+/** Zone de rencontre de son propre animal (lisible par son seul propriétaire) : centre de sa carte. */
+export async function myLocation(client: FurrixClient, petId: string): Promise<{ latitude: number; longitude: number } | null> {
+  const { data, error } = await client.from('pet_meeting_locations').select('latitude, longitude').eq('pet_id', petId).maybeSingle();
+  if (error) throw toDataError(error);
+  return data ? { latitude: Number(data.latitude), longitude: Number(data.longitude) } : null;
+}
 export async function setLocation(client: FurrixClient, petId: string, location?: { latitude: number; longitude: number }) {
   const { error } = await client.rpc('set_pet_meeting_location', { p_pet: petId, ...(location ? { p_lat: Math.round(location.latitude * 100) / 100, p_lng: Math.round(location.longitude * 100) / 100 } : {}) });
   if (error) throw toDataError(error);

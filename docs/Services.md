@@ -28,7 +28,7 @@ Retour arrière : `supabase/operations/rollback_professional_directory.sql`. Il 
 
 Les rendez-vous, disponibilités réservables, contre-propositions, messagerie professionnelle, accès d’une équipe à un établissement, vérifications professionnelles et paiements ne sont pas dans ce premier lot. Aucun créneau de démonstration, professionnel fictif ou tarif fictif n’est injecté dans la base. La fiche propose seulement les coordonnées professionnelles fournies par son titulaire et indique qu’aucun rendez-vous n’est réservé dans Furrix.
 
-La carte du prototype n’est pas reproduite sous une apparence géographique trompeuse : ce lot utilise une liste et une recherche de secteur réelle. Un fournisseur cartographique éventuel reste une décision distincte.
+La carte du prototype n’est pas reproduite sous une apparence géographique trompeuse : ce lot utilise une liste et une recherche de secteur réelle. Un fournisseur cartographique éventuel reste une décision distincte. Mise à jour : la carte schématique des résultats et son fonctionnement sont décrits dans [Services_Carte.md](Services_Carte.md).
 
 ## Validation locale
 

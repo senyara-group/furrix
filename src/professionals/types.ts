@@ -22,10 +22,13 @@ export type Professional = {
   website: string | null;
   services: ProfessionalService[];
   distance_km: number | null;
+  /** Position autorisée : centre de la commune déclarée, arrondi à 0,01° (environ 1 km). */
+  latitude: number;
+  longitude: number;
 };
 export type OwnProfessional = Omit<
   Professional,
-  "professional_id" | "distance_km"
+  "professional_id" | "distance_km" | "latitude" | "longitude"
 > & {
   user_id: string;
   latitude: number;

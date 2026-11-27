@@ -5,6 +5,8 @@ export type DiscoveryPet = {
   /** Profil de rencontre déclaré par le propriétaire (migration meeting_profile). */
   size?: string | null; meeting_goals?: string[]; temperament?: string | null; good_with?: string | null;
   usual_outings?: string | null; behaviour_traits?: string[];
+  /** Secteur de la carte : zone de rencontre arrondie à 0,05° (≈ 5 km), null sans zone. */
+  latitude?: number | null; longitude?: number | null;
 };
 export type PetMatch = { match_id: string; pet_id: string; name: string; owner_name: string | null; created_at: string };
 export type NewPetMatch = PetMatch & { photo: string | null };
