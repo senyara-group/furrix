@@ -12,7 +12,7 @@ Constaté via le connecteur Supabase, sans écriture.
 - 30 migrations enregistrées, la dernière étant `20261125090833_sitter_availability`.
 - **Non appliquées** :
   - `20261125105925_sitter_stripe_onboarding` (ce lot ; appliquée depuis sur DEV sous `20261125135930`, fichier renommé) ;
-  - `20261125120000_professional_messages` (autre lot, sans lien : elle ne touche ni `account_deletion_blockers` ni les tables Stripe).
+  - `20261127103148_professional_messages` (appliquée le 27 novembre, ancien numéro local `20261125120000` ; autre lot, sans lien : elle ne touche ni `account_deletion_blockers` ni les tables Stripe).
 - **Écart d'historique antérieur** : `unified_notifications` est enregistrée en `20261120103721` sur DEV, mais le fichier local porte `20261120100904`. Le contenu est identique : même MD5 après retrait des blancs et points-virgules (`6bbbd7ad…`). Même contrôle concordant pour `account_deletion` et `sitter_availability`.
   - **Conséquence : ne pas utiliser `supabase db push`.** Il tenterait de rejouer `unified_notifications`.
   - Le renommage du fichier relève d'un lot d'alignement séparé ; aucune migration appliquée n'est modifiée ici.
