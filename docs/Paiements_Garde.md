@@ -33,6 +33,24 @@ Ce module n'est pas encore appelé par une fonction déployable : il ne remplace
 
 ## Raccordement restant
 
+### Adaptateur Checkout de test (27 novembre 2026)
+
+`supabase/functions/_shared/sitting-checkout.ts` prépare la création d'une session hébergée en paiement direct sur le compte connecté du gardien. Ce module n'est appelé par aucune route ou interface ; aucun paiement n'est ouvert par ce lot.
+
+- Il exige une ouverture explicite, une clé `sk_test_…` et la plateforme Furrix DEV. La vérification de la plateforme se fait sans l'en-tête `Stripe-Account` ; seule la création de session porte cet en-tête, avec le compte du gardien.
+- Le contrat d'entrée est une tentative **à persister dans une future table privée** : UUID, compte connecté, tarif et unités figés, commission explicitement configurée, début et fin de la fenêtre de paiement. Le module ne fournit pas ces contrôles d'accès ni cette persistance. Ne jamais exposer son entrée telle quelle à un client.
+- La commission est recalculée en centimes par le calcul serveur existant. Aucune commission ni durée commerciale par défaut ; les valeurs des tests sont fictives. Le délai est borné par les limites techniques Stripe (30 minutes à 24 heures), et ne dépasse pas le début de la garde.
+- L'identifiant de tentative détermine la clé `furrix-sitting-checkout-v1-…`. Un nouvel essai reprend exactement le même corps et la même expiration ; il ne prolonge pas le délai. À expiration ou après 23 heures, le module refuse une nouvelle création automatique. **La protection réelle contre les doubles paiements nécessitera encore la persistance et les verrous en base, puis le traitement des événements Stripe.**
+- Une ligne facture le total du tarif convenu, sans supplément propriétaire ; `application_fee_amount` retient la commission. La devise EUR, l'absence de promotion et la désactivation du calcul automatique de taxes et de la conversion adaptative évitent un total variable. Le traitement fiscal commercial reste à définir avant ouverture.
+- Carte demandée uniquement. La disponibilité d'Apple Pay et Google Pay reste à vérifier selon les appareils et la configuration Stripe ; aucun paiement opérateur n'est ajouté par ce module.
+- Réponse contrôlée : session de test, mode paiement, montant, devise, référence de tentative et expiration identiques. Un lien ouvert doit utiliser HTTPS sur `checkout.stripe.com`, sans identifiant ni port. Une session déjà terminée ou expirée est renvoyée sans lien ; son état ne confirme aucune garde.
+- Retours fixés côté serveur vers `#/garde?vue=mes-gardes`, avec `paiement=retour` ou `paiement=interrompu`. Ils ne prouvent pas un paiement et l'interface ne traite pas encore ces indicateurs.
+- Aucun nom de propriétaire, e-mail, nom d'animal ou texte libre transmis dans les paramètres préparés. Aucun appel Stripe réel, aucune migration et aucun déploiement effectués.
+
+Les prochains lots restent : réservation privée sous verrou, fonction authentifiée, événements Connect signés et dédupliqués, confirmation atomique de garde, annulation/remboursement et ouverture du navigateur sur les trois plateformes. Tester le contrat avec Stripe avant toute activation.
+
+Références : [paiements directs avec Checkout](https://docs.stripe.com/connect/direct-charges?platform=web&ui=stripe-hosted), [création de session](https://docs.stripe.com/api/checkout/sessions/create), [idempotence Stripe](https://docs.stripe.com/api/idempotent_requests).
+
 1. Créer et relier les comptes gardiens via Accounts v2, avec responsabilités et capacités vérifiées ; reprendre l'inscription interrompue sans créer de doublon. Vérifier les exigences de Stripe pour les gardiens particuliers avant les paiements réels.
 2. Ajouter les tables privées et fonctions serveur de paiement. Lire le tarif figé sur la demande en base, sous les mêmes verrous de paire et de calendrier que les gardes. Revérifier identité, accès bêta, compte gardien, capacité et dates. Le client ne fournit ni prix, ni commission, ni compte destinataire.
 3. Créer Checkout sur le compte connecté avec une clé d'idempotence persistée. Une réponse réseau perdue doit retrouver la même session. Réserver une durée de paiement explicite et coordonner l'expiration avec retrait/refus/annulation.
