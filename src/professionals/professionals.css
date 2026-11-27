@@ -127,3 +127,67 @@
     top: var(--fx-space-6);
   }
 }
+/* Demandes reçues par l'établissement */
+.app-req__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fx-space-2);
+}
+.app-req__title {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.app-req__facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--fx-space-3);
+  margin: 0;
+}
+.app-req__facts dt {
+  font-size: 0.875rem;
+  color: var(--fx-color-ink-muted);
+}
+.app-req__facts dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.app-req__message {
+  margin: 0;
+  padding: var(--fx-space-3);
+  border-left: 3px solid var(--fx-color-line-field);
+  background: var(--fx-color-surface-sand);
+  border-radius: var(--fx-radius-sm);
+}
+.app-req__message p {
+  margin: var(--fx-space-1) 0 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.app-req__muted,
+.app-req__empty {
+  color: var(--fx-color-ink-muted);
+  margin: 0;
+}
+.app-req__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--fx-space-2);
+  align-items: center;
+}
+.app-req-shortcut {
+  margin-bottom: var(--fx-space-4);
+}
+.app-req-shortcut h2 {
+  margin: 0;
+}
+@media (max-width: 899px) {
+  .app-req__facts {
+    grid-template-columns: 1fr;
+  }
+  .app-req__actions > .fx-btn {
+    flex: 1 1 100%;
+  }
+}

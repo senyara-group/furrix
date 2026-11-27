@@ -51,6 +51,12 @@ export const appointmentHref = (id?: string) =>
   "#/services?vue=rendez-vous" +
   (id ? "&rendezvous=" + encodeURIComponent(id) : "");
 export const slotsHref = "#/services?vue=creneaux";
+/** Demandes reçues par l'établissement, sur un onglet (« à traiter » par défaut). */
+export const receivedHref = (tab?: string) =>
+  "#/services?vue=demandes" + (tab && tab !== "a-traiter" ? "&onglet=" + encodeURIComponent(tab) : "");
+/** Détail d'une demande reçue : le retour ramène à l'onglet d'origine. */
+export const receivedDetailHref = (id: string, tab?: string) =>
+  appointmentHref(id) + "&depuis=demandes" + (tab && tab !== "a-traiter" ? "&onglet=" + encodeURIComponent(tab) : "");
 /** Conversation rattachée à une demande de rendez-vous (participants seulement). */
 export const appointmentChatHref = (id: string, fromMessages = false) =>
   "#/services?vue=conversation&rendezvous=" + encodeURIComponent(id) + (fromMessages ? "&depuis=messages" : "");

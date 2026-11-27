@@ -18,12 +18,14 @@ import { servicePrice } from "../types";
 import AppointmentRequest from "./Request";
 import { AppointmentChat } from "./Chat";
 import { SlotManager } from "./Slots";
+import { ReceivedRequests, type ReceivedTab } from "./Received";
 import { listAppointments, listSlots, updateAppointment } from "./service";
 import {
   appointmentChatHref,
   appointmentHref,
   canWrite,
   labels,
+  receivedHref,
   slotLabel,
   slotsHref,
   timezone,
@@ -308,6 +310,11 @@ function AppointmentList({ client }: { client: FurrixClient }) {
   return (
     <Stack gap={4}>
       <div className="app-pro-actions">
+        {remote.data?.some((a) => a.role === "professional") && (
+          <Button as="a" href={receivedHref()} variant="out">
+            Demandes reçues
+          </Button>
+        )}
         <Button as="a" href={slotsHref} variant="out">
           Gérer mes créneaux professionnels
         </Button>
@@ -369,7 +376,25 @@ export default function AppointmentsArea({
     id = params.get("rendezvous"),
     professional = params.get("professionnel") ?? "",
     slot = params.get("creneau") ?? "",
-    fromMessages = params.get("depuis") === "messages";
+    from = params.get("depuis"),
+    fromMessages = from === "messages",
+    fromReceived = from === "demandes",
+    tabParam = params.get("onglet"),
+    tab: ReceivedTab = tabParam === "a-venir" || tabParam === "passees" ? tabParam : "a-traiter";
+  const backTo =
+    view === "conversation" && id
+      ? fromMessages
+        ? { label: "Messages", href: "#/messages" }
+        : fromReceived
+          ? { label: "Demandes reçues", href: receivedHref() }
+          : { label: "Retour à la demande", href: appointmentHref(id) }
+      : view === "rendez-vous" && id
+        ? fromReceived
+          ? { label: "Demandes reçues", href: receivedHref(tab) }
+          : { label: "Mes rendez-vous", href: appointmentHref() }
+        : view === "demandes"
+          ? { label: "Mon activité", href: "#/services?vue=profil" }
+          : { label: "Services", href: "#/services" };
   return (
     <>
       <PageHeader
@@ -380,23 +405,29 @@ export default function AppointmentsArea({
               ? "Demander un rendez-vous"
               : view === "conversation"
                 ? "Conversation"
-                : "Mes rendez-vous"
+                : view === "demandes"
+                  ? "Demandes reçues"
+                  : "Mes rendez-vous"
         }
+        subtitle={view === "demandes" ? "Les rendez-vous que les propriétaires te demandent." : undefined}
         showTitleOnPhone
         back={{
-          label: view === "conversation" && id ? (fromMessages ? "Messages" : "Retour à la demande") : "Services",
+          label: backTo.label,
           onClick: () => {
-            window.location.hash =
-              view === "conversation" && id
-                ? fromMessages ? "#/messages" : appointmentHref(id)
-                : view === "rendez-vous" && id
-                  ? appointmentHref()
-                  : "#/services";
+            window.location.hash = backTo.href;
           },
         }}
       />
       {view === "creneaux" ? (
         <SlotManager client={client} owner={owner} />
+      ) : view === "demandes" ? (
+        <ReceivedRequests
+          client={client}
+          tab={tab}
+          onTab={(next) => {
+            window.location.hash = receivedHref(next);
+          }}
+        />
       ) : view === "demander" ? (
         <AppointmentRequest
           key={professional + ":" + slot}

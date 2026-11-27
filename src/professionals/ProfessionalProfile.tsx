@@ -22,6 +22,7 @@ import {
   type ApproximatePosition,
 } from "../meetings/location";
 import { ownProfessional, saveProfessional } from "./service";
+import { ReceivedShortcut } from "./appointments/Received";
 import { CityInput } from "../places/CityInput";
 import { decimalInput, euroCents, phoneError, phoneInput } from "../validation/numbers";
 import {
@@ -83,7 +84,8 @@ export default function ProfessionalProfile({
     [saved, setSaved] = useState(false),
     [attempt, setAttempt] = useState(0),
     [busy, setBusy] = useState(false),
-    [locating, setLocating] = useState(false);
+    [locating, setLocating] = useState(false),
+    [existing, setExisting] = useState(false);
   const alive = useRef(true),
     operation = useRef(false),
     locVersion = useRef(0);
@@ -94,7 +96,9 @@ export default function ProfessionalProfile({
     setForm(null);
     void ownProfessional(client, owner)
       .then((p) => {
-        if (current) setForm(p ? fromProfile(p) : { ...empty });
+        if (!current) return;
+        setForm(p ? fromProfile(p) : { ...empty });
+        setExisting(p !== null);
       })
       .catch(() => {
         if (current) setError("Ton activité n’a pas pu être chargée.");
@@ -201,7 +205,7 @@ export default function ProfessionalProfile({
         })),
         p_active: form.active,
       });
-      if (alive.current) setSaved(true);
+      if (alive.current) { setSaved(true); setExisting(true); }
     } catch {
       if (alive.current)
         setError(
@@ -229,6 +233,7 @@ export default function ProfessionalProfile({
         Tu veux proposer des gardes ?{" "}
         <a href="#/garde?vue=profil">Ouvrir mon profil de gardien</a>.
       </Note>
+      {form && existing && <ReceivedShortcut client={client} />}
       {!form ? (
         error ? (
           <Alert

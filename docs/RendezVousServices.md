@@ -6,6 +6,25 @@ Depuis Services, « Mes rendez-vous » regroupe les demandes envoyées et reçue
 « Gérer mes créneaux professionnels » ouvre le calendrier du titulaire d’une activité.
 Créer l’activité reste possible depuis le formulaire existant, sans nouveau compte ni rôle administrateur.
 
+### Demandes reçues (côté professionnel)
+
+« Mon activité professionnelle » affiche, dès que l’activité existe, un encart **Demandes reçues** : nombre de demandes à traiter et de rendez-vous à venir, lien vers la liste et vers les créneaux. « Mes rendez-vous » propose aussi ce lien quand le compte a reçu au moins une demande. Adresse : `#/services?vue=demandes` (`&onglet=a-venir` ou `&onglet=passees`).
+
+La page répartit les demandes reçues en trois onglets :
+
+- **À traiter** : demandes `pending` ou `countered` dont le créneau n’a pas commencé, du plus proche au plus lointain ;
+- **À venir** : rendez-vous confirmés pas encore terminés ;
+- **Passées** : refusées, retirées, annulées, terminées, ou demandes restées ouvertes après le début du créneau (« Créneau dépassé », sans action).
+
+Chaque demande montre la prestation, la personne (prénom, sinon « Un membre bêta »), l’animal (seulement s’il est partagé), la date et le message. Actions selon le statut, toutes via `update_professional_appointment` :
+
+- `pending` : **Accepter** (confirme le créneau demandé) ou **Refuser** ;
+- `countered` : **Refuser** seulement (la réponse appartient au propriétaire) ;
+- confirmé à venir : **Annuler le rendez-vous** ;
+- toujours : ouvrir la conversation et voir le détail. Le détail sert aussi à proposer un autre créneau.
+
+Refuser et annuler demandent une confirmation, avec un mot facultatif pour le propriétaire. Une erreur du serveur reste affichée sur la demande concernée. Après chaque action, la liste est rechargée. Chargement, erreur avec « Réessayer », aucune demande reçue et onglet vide ont chacun leur écran. Le retour depuis le détail ou la conversation ramène à l’onglet d’origine.
+
 Le professionnel publie des créneaux réels, avec un début et une durée. Un calendrier unique représente l’activité entière : plusieurs salariés ou ressources ne sont pas gérés dans ce lot. Les heures sont saisies et affichées dans le fuseau de l’appareil ; le serveur stocke des instants avec fuseau. Un créneau peut durer au plus 24 heures. Aucun horaire fictif n’est ajouté.
 
 Le propriétaire choisit un créneau sur la fiche, son animal et une prestation. Le prix indicatif et son unité sont copiés au moment de la demande. Une modification ultérieure de l’annuaire ne modifie pas cette copie. Les prestations portant exactement le même nom dans une activité ne sont pas réservables tant que le titulaire ne les distingue pas.

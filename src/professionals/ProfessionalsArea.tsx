@@ -601,7 +601,7 @@ export default function ProfessionalsArea({
   return (
     <FurrixScope className="app-pro-root">
       <Page>
-        {['rendez-vous', 'creneaux', 'demander', 'conversation'].includes(params.get('vue') ?? '') ? (
+        {['rendez-vous', 'creneaux', 'demander', 'conversation', 'demandes'].includes(params.get('vue') ?? '') ? (
           <AppointmentsArea client={client} owner={owner} params={params} pets={pets} />
         ) : edit ? (
           <ProfessionalProfile key={owner} client={client} owner={owner} />
