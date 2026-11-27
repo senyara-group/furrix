@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { IconButton, MapCard, MapFrame, MapMarker, MapMe, useBreakpoint, type PhotoSource } from '../design-system';
+import { IconButton, MapCard, MapFrame, MapMarker, MapMe, Note, useBreakpoint, type PhotoSource } from '../design-system';
 import { MapboxLayer } from './MapboxLayer';
 import { mapboxToken } from './mapbox';
 import { placeSchematic } from './schematic';
@@ -44,6 +44,8 @@ export interface ResultsMapProps {
    * ou « dans le même secteur » (particuliers, position arrondie à ≈ 5 km).
    */
   sameSpot?: string;
+  /** Explication des positions, affichée uniquement quand le fond géographique fonctionne. */
+  positionNote?: string;
   /** Mini-fiche personnalisée (photo à charger, etc.) ; sinon `MapCard` à partir du point. */
   card?: (id: string) => ReactNode;
   className?: string;
@@ -58,7 +60,7 @@ export const hasMapBackground = () => mapboxToken() !== null;
  * sinon (pas de jeton, jeton refusé, WebGL absent, serveur sans positions) vue schématique :
  * distance réelle arrondie, direction arbitraire mais stable. Sélection, mini-fiche et états sont communs.
  */
-export function ResultsMap({ label, points, center = null, radiusKm, status, selected, onSelect, onOpen, emptyText, sameSpot = 'au même endroit', card, className }: ResultsMapProps) {
+export function ResultsMap({ label, points, center = null, radiusKm, status, selected, onSelect, onOpen, emptyText, sameSpot = 'au même endroit', positionNote, card, className }: ResultsMapProps) {
   const { isPhone } = useBreakpoint();
   const token = mapboxToken();
   const [failed, setFailed] = useState(false);
@@ -74,7 +76,7 @@ export function ResultsMap({ label, points, center = null, radiusKm, status, sel
     : points.length === 0 ? emptyText : null;
   const scale = radiusKm > 0 ? radiusKm : Math.max(5, ...points.map((p) => p.distanceKm ?? 0));
   const spots = real ? {} : placeSchematic(points, scale);
-  return <MapFrame size="big" role="region" aria-label={label} aria-busy={status === 'loading'}
+  return <><MapFrame size="big" role="region" aria-label={label} aria-busy={status === 'loading'}
     className={['app-map', real && 'app-map--real', status !== 'ready' && 'app-map--dim', className].filter(Boolean).join(' ')}
     onClick={(e) => { if (!real && e.target === e.currentTarget) onSelect(null); }}>
     {real ? <MapboxLayer token={token} points={points} center={center} radiusKm={radiusKm} showPoints={status === 'ready'}
@@ -106,5 +108,8 @@ export function ResultsMap({ label, points, center = null, radiusKm, status, sel
       {card ? card(current.id) : <MapCard photo={current.photo} initials={current.name.charAt(0).toUpperCase()} name={current.name}
         tag={current.tag} meta={current.detail} onClick={() => onOpen(current.id)} />}
     </div>}
-  </MapFrame>;
+  </MapFrame>
+    {real ? positionNote && <Note>{positionNote}</Note>
+      : <Note>Carte schématique : seule la distance est réelle, arrondie ; la direction des repères est indicative.</Note>}
+  </>;
 }

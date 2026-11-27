@@ -172,14 +172,14 @@ function MapView({ client, petId, radius, pets, located, open, askZone }: { clie
   const hidden = pets.length - placed.length;
   const notes = <Stack gap={3} className="meet-map-notes">
     {hidden ? <Note>{hidden} profil{hidden > 1 ? 's' : ''} sans zone {hidden > 1 ? 'ne sont' : 'n’est'} pas sur la carte : retrouve-{hidden > 1 ? 'les' : 'le'} dans la liste.</Note> : null}
-    <Note>{real ? 'Chaque profil est placé dans son secteur (≈ 5 km), jamais à sa zone exacte. Ta zone n’est montrée qu’à toi.'
-      : 'Seule la distance est réelle : la direction est illustrative, pour protéger la position de chacun.'}</Note>
+    {!real && <Note>Seule la distance est réelle : la direction est illustrative, pour protéger la position de chacun.</Note>}
   </Stack>;
   if (real) return <section aria-label="Carte">
     <ResultsMap className="meet-map meet-map--real" label="Carte des profils autour de toi" sameSpot="dans le même secteur"
       points={placed.map((p) => ({ id: p.id, name: p.name, short: distance(p), distanceKm: p.distance_km, position: { latitude: p.latitude!, longitude: p.longitude! } }))}
       center={zone} radiusKm={radius} status="ready" selected={current?.id ?? null} onSelect={(id) => setSelected(id ?? undefined)}
       onOpen={(id) => { const p = placed.find((x) => x.id === id); if (p) open(p); }} emptyText="Aucun profil sur la carte."
+      positionNote="Chaque profil est placé dans son secteur (≈ 5 km), jamais à sa zone exacte. Ta zone n’est montrée qu’à toi."
       card={(id) => { const p = placed.find((x) => x.id === id); return p ? <MapPetCard client={client} pet={p} open={() => open(p)} /> : null; }} />
     {notes}
   </section>;

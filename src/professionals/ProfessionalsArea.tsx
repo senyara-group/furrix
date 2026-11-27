@@ -26,7 +26,7 @@ import {
   StatusBadge,
   useBreakpoint,
 } from "../design-system";
-import { hasMapBackground, ResultsMap, type MapPoint } from "../maps/ResultsMap";
+import { ResultsMap, type MapPoint } from "../maps/ResultsMap";
 import type { FurrixClient } from "../services/supabaseClient";
 import {
   approximateLocation,
@@ -495,6 +495,7 @@ function Directory({
                   window.location.hash = professionalHref(id);
                 }}
                 emptyText={`Aucune activité à moins de ${search.radius} km.`}
+                positionNote="Sur la carte, chaque activité est placée au centre de sa commune, pas à son adresse."
               />
             }
             results={
@@ -563,9 +564,7 @@ function Directory({
             }
           />
           <Note>
-            {hasMapBackground()
-              ? "Activités déclarées par leurs titulaires, sans badge de vérification. Sur la carte, chaque activité est placée au centre de sa commune, pas à son adresse."
-              : "Activités déclarées par leurs titulaires, sans badge de vérification. Carte schématique : seule la distance est réelle, arrondie ; la direction des repères est indicative et la position des établissements n’est pas publiée."}
+            Activités déclarées par leurs titulaires, sans badge de vérification.
           </Note>
         </section>
       )}

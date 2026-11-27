@@ -5,6 +5,7 @@ import ProfessionalsArea from '../professionals/ProfessionalsArea';
 import * as service from '../professionals/service';
 import * as location from '../meetings/location';
 import type { Professional } from '../professionals/types';
+import { ResultsMap } from './ResultsMap';
 
 // Fausse bibliothèque Mapbox : compte les cartes créées et place les repères dans le conteneur.
 const gl = vi.hoisted(() => {
@@ -151,6 +152,8 @@ describe('carte Mapbox de l’annuaire', () => {
     act(() => gl.state.maps[gl.state.maps.length - 1]!.fire('error', { error: Object.assign(new Error('Unauthorized'), { status: 401 }) }));
     expect(await within(map()).findByRole('button', { name: /^Cabinet des Oyats, ≈/ })).toBeTruthy();
     expect(within(map()).queryByRole('button', { name: /^2 résultats/ })).toBeNull();
+    expect(screen.queryByText(/chaque activité est placée au centre de sa commune/)).toBeNull();
+    expect(screen.getByText(/Carte schématique.*direction des repères est indicative/)).toBeTruthy();
   });
 
   it('serveur sans positions (migration pas encore appliquée) : vue schématique, sans Mapbox', async () => {
@@ -161,6 +164,25 @@ describe('carte Mapbox de l’annuaire', () => {
     showMap();
     expect(within(map()).getByRole('button', { name: /^Cabinet des Oyats, ≈/ })).toBeTruthy();
     expect(created()).toBe(before);
+    expect(screen.queryByText(/chaque activité est placée au centre de sa commune/)).toBeNull();
+    expect(screen.getByText(/Carte schématique.*direction des repères est indicative/)).toBeTruthy();
+  });
+});
+
+describe('explication du mode réellement affiché', () => {
+  it.each([
+    'Sur la carte, chaque activité est placée au centre de sa commune, pas à son adresse.',
+    'Sur la carte, chaque gardien est placé dans son secteur (≈ 5 km), jamais à son adresse.',
+    'Chaque profil est placé dans son secteur (≈ 5 km), jamais à sa zone exacte. Ta zone n’est montrée qu’à toi.',
+  ])('remplace l’explication géographique après un refus : %s', async (positionNote) => {
+    render(<ResultsMap label="Carte de test" points={[{ id: 'test', name: 'Résultat', distanceKm: 3, position: { latitude: 50.63, longitude: 3.06 } }]}
+      radiusKm={10} status="ready" selected={null} onSelect={vi.fn()} onOpen={vi.fn()} emptyText="Aucun résultat" positionNote={positionNote} />);
+    showMap();
+    await within(screen.getByRole('region', { name: 'Carte de test' })).findByRole('button', { name: 'Résultat' });
+    expect(screen.getByText(positionNote)).toBeTruthy();
+    act(() => gl.state.maps[gl.state.maps.length - 1]!.fire('error', { error: Object.assign(new Error('Forbidden'), { status: 403 }) }));
+    expect(screen.queryByText(positionNote)).toBeNull();
+    expect(screen.getByText(/Carte schématique.*direction des repères est indicative/)).toBeTruthy();
   });
 });
 

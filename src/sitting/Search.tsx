@@ -13,7 +13,7 @@ import { searchSitters } from './service';
 import { usePetPhotoUrl } from '../meetings/usePetPhotoUrl';
 import { countUnits, initial, kindLabel, nameOf, price, SERVICES, serviceLabel, shortPeriod, unitLabel, units } from './format';
 import { gardeHref } from './links';
-import { hasMapBackground, ResultsMap, type MapPoint } from '../maps/ResultsMap';
+import { ResultsMap, type MapPoint } from '../maps/ResultsMap';
 import type { SitterKind, SitterResult, SittingService } from './types';
 
 /** Critères de recherche, gardés dans l'onglet (jamais envoyés ailleurs qu'à la recherche). */
@@ -195,7 +195,8 @@ export function SearchView({ client, pets, criteria, setCriteria, onOpen }: {
   const map = <ResultsMap className="gd-map" label={`Carte des gardiens près de ${criteria.place?.label.split(' · ')[0] ?? 'toi'}`}
     points={points} center={criteria.place} radiusKm={criteria.radius} status="ready" selected={hot} onSelect={setHot}
     onOpen={(id) => { const s = results.find((r) => r.sitter_id === id); if (s) onOpen(s); }}
-    emptyText="Aucun gardien avec ces filtres." sameSpot="dans le même secteur" />;
+    emptyText="Aucun gardien avec ces filtres." sameSpot="dans le même secteur"
+    positionNote="Sur la carte, chaque gardien est placé dans son secteur (≈ 5 km), jamais à son adresse." />;
   return <section aria-label="Recherche">
     {head}
     <div className="gd-qbar">
@@ -227,9 +228,7 @@ export function SearchView({ client, pets, criteria, setCriteria, onOpen }: {
             : <EmptyState icon="sliders" title="Aucun gardien avec ces filtres" action={<Button variant="out" size="sm" onClick={() => setFilters(noFilters)}>Retirer les filtres</Button>}>
                 {state.data.length} gardien{state.data.length > 1 ? 's sont disponibles' : ' est disponible'} à ces dates sans filtre.
               </EmptyState>}
-          <Note className="gd-note">Tarifs fixés par chaque gardien. Le paiement en ligne n’est pas encore disponible. {hasMapBackground()
-            ? 'Sur la carte, chaque gardien est placé dans son secteur (≈ 5 km), jamais à son adresse.'
-            : 'Carte schématique : seule la distance est réelle, arrondie.'}</Note>
+          <Note className="gd-note">Tarifs fixés par chaque gardien. Le paiement en ligne n’est pas encore disponible.</Note>
         </>} /></div>}
   </section>;
 }

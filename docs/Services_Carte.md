@@ -24,6 +24,7 @@ La recherche Services affiche ses résultats en liste **et** sur une carte. Sur 
 - **Cadrage** : le cercle du rayon est dessiné autour de la ville ou de la position, et la carte s'y ajuste à chaque nouvelle recherche seulement (pas au retour d'une fiche, pour garder le zoom de la personne).
 - **Gestes** : sur ordinateur, la molette fait défiler la page (Ctrl + molette pour zoomer) ; sur téléphone, la carte se manipule directement. Rotation et inclinaison désactivées, boutons de zoom de 44 px, textes Mapbox en français. Logo et crédits Mapbox (obligatoires) restent visibles sous la mini-fiche.
 - **Repli** : sans jeton, jeton refusé (401/403), bibliothèque impossible à charger ou résultats sans position, la carte schématique du lot précédent reprend automatiquement.
+- **Information du mode affiché** : Services, Garde et Rencontres affichent l'explication des positions uniquement avec le fond géographique. En cas de repli, `ResultsMap` la remplace par un avertissement indiquant que les directions sont schématiques, y compris si un jeton est configuré.
 - **Confidentialité** : Mapbox reçoit les demandes de tuiles de la zone affichée (donc la ville cherchée, à l'échelle de la carte) et ses statistiques de chargement ; jamais la position GPS précise, qui reste arrondie à ≈ 1 km avant toute recherche.
 
 ## Garde et Rencontres (26 novembre 2026)
