@@ -51,7 +51,11 @@ const handler = onboardingHandler(
       if (error) throw Error("release");
     },
   },
-  stripeOnboarding(Deno.env.get("STRIPE_FURRIX_TEST_SECRET_KEY") ?? ""),
+  stripeOnboarding(
+    Deno.env.get("STRIPE_FURRIX_TEST_SECRET_KEY") ?? "",
+    fetch,
+    (event) => console.error(JSON.stringify(event)),
+  ),
   Deno.env.get("FURRIX_STRIPE_ONBOARDING_ENABLED") === "true",
 );
 Deno.serve(handler);

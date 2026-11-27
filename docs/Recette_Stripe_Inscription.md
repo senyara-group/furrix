@@ -159,7 +159,7 @@ Dans le sandbox `acct_1UfdgzLRlPFxqD3K` uniquement :
 
 1. Questionnaire Connect validé et accès à Accounts v2.
 2. Options d'inscription hébergée : France, français, marque Furrix.
-3. Savoir ouvrir **Développeurs → Journaux** (ou Workbench). La fonction ne journalise volontairement ni réponse ni erreur Stripe. Un échec n'est visible côté Furrix que sous la forme générique « pas encore disponible » ; son code exact se lit dans ces journaux.
+3. Savoir ouvrir **Développeurs → Journaux** (ou Workbench). La réponse côté client reste générique (« pas encore disponible »). Le lot de diagnostic du 27 novembre, une fois déployé, permet de retrouver la requête Stripe depuis son `request_id` dans les journaux Supabase ; les codes non reconnus y sont remplacés par `stripe_error`. Le code et le message complets restent à consulter chez Stripe. Aucun corps ni lien n'est journalisé par ce lot.
 
 ### Ouverture (par le titulaire, après accord)
 
@@ -222,7 +222,7 @@ Contrôles en lecture seule pendant la fenêtre : compteurs de `sitter_stripe_ac
 
 1. **Fin d'inscription** : au retour, Stripe n'avait pas encore activé les capacités. Elles n'étaient pas non plus `pending`, d'où « À compléter » jusqu'au rechargement. Piste : lire `requirements` (`include[1]=requirements`) et afficher « Vérification en cours » quand rien n'est attendu du gardien. Autre piste : relire l'état une fois de plus quelques secondes après le retour.
 2. **Marque Stripe** : l'inscription affiche « Furrix DEV », la marque du sandbox. À vérifier sur le compte de production avant l'ouverture réelle.
-3. **Diagnostic** : la fonction ne journalise volontairement aucune erreur Stripe ; chaque échec a été diagnostiqué depuis les journaux Stripe. Envisager un journal serveur limité au code d'erreur et à l'identifiant de requête Stripe, sans corps ni URL.
+3. **Diagnostic lors de cette recette** : la fonction ne journalisait aucune erreur Stripe ; chaque échec a été diagnostiqué depuis les journaux Stripe. Le lot du 27 novembre prépare un journal serveur limité (voir Paiements_Garde.md), sans corps ni URL. Il reste à déployer séparément après fusion.
 4. **Mobile** : Android et iOS ne sont pas couverts par cette fenêtre. Il faut une version de recette pointant sur DEV et un essai sur appareil (navigateur sécurisé, retour manuel).
 5. **Compte de test conservé** : il reste relié au gardien de test et bloque sa suppression. La clôture Stripe n'est pas encore raccordée.
 6. **Clé sandbox** : à conserver ou à supprimer entre deux fenêtres, au choix du titulaire.

@@ -1,4 +1,10 @@
 import type { OnboardingProvider } from "./core.ts";
+import {
+  reportStripeError,
+  type StripeDiagnostic,
+  stripeErrorCode,
+  type StripeOperation,
+} from "./diagnostics.ts";
 export const FURRIX_STRIPE_SANDBOX = "acct_1UfdgzLRlPFxqD3K";
 const API_VERSION = "2026-11-18.endive";
 const RETURN_URL = "https://furrix.fr/#/garde?vue=profil";
@@ -51,28 +57,53 @@ export function awaitingStripeOnly(
   }
   return true;
 }
-/** Adaptateur de test exclusivement : aucun secret ni réponse Stripe n'est journalisé. */
+/** Adaptateur de test exclusivement : diagnostics limités, aucun secret ni réponse brute journalisé. */
 export function stripeOnboarding(
   secret: string,
   transport: typeof fetch = fetch,
+  report: (event: StripeDiagnostic) => void = () => {},
 ): OnboardingProvider {
-  const call = async (path: string, body?: object, key?: string) => {
+  const call = async (
+    operation: StripeOperation,
+    path: string,
+    body?: object,
+    key?: string,
+  ) => {
     if (!/^sk_test_[A-Za-z0-9]+$/.test(secret)) {
+      reportStripeError(report, operation, "test_key_required");
       throw Error("test_key_required");
     }
-    const response = await transport("https://api.stripe.com" + path, {
-      method: body ? "POST" : "GET",
-      headers: {
-        Authorization: "Bearer " + secret,
-        "Stripe-Version": API_VERSION,
-        ...(body ? { "Content-Type": "application/json" } : {}),
-        ...(key ? { "Idempotency-Key": key } : {}),
-      },
-      ...(body ? { body: JSON.stringify(body) } : {}),
-      signal: AbortSignal.timeout(15000),
-    });
-    if (!response.ok) throw Error("stripe_unavailable");
-    return await response.json();
+    let response: Response;
+    try {
+      response = await transport("https://api.stripe.com" + path, {
+        method: body ? "POST" : "GET",
+        headers: {
+          Authorization: "Bearer " + secret,
+          "Stripe-Version": API_VERSION,
+          ...(body ? { "Content-Type": "application/json" } : {}),
+          ...(key ? { "Idempotency-Key": key } : {}),
+        },
+        ...(body ? { body: JSON.stringify(body) } : {}),
+        signal: AbortSignal.timeout(15000),
+      });
+    } catch {
+      reportStripeError(report, operation, "network_error");
+      throw Error("stripe_unavailable");
+    }
+    if (!response.ok) {
+      let body: unknown;
+      try {
+        body = await response.json();
+      } catch { /* Réponse illisible, aucun contenu journalisé. */ }
+      reportStripeError(report, operation, stripeErrorCode(body), response);
+      throw Error("stripe_unavailable");
+    }
+    try {
+      return await response.json();
+    } catch {
+      reportStripeError(report, operation, "invalid_response", response);
+      throw Error("stripe_unavailable");
+    }
   };
   const accountId = (id: unknown) => {
     if (typeof id !== "string" || !/^acct_[A-Za-z0-9]+$/.test(id)) {
@@ -82,11 +113,11 @@ export function stripeOnboarding(
   };
   return {
     async verifyPlatform() {
-      const account = await call("/v1/account");
+      const account = await call("platform", "/v1/account");
       if (account.id !== FURRIX_STRIPE_SANDBOX) throw Error("wrong_sandbox");
     },
     async create(key) {
-      const account = await call("/v2/core/accounts", {
+      const account = await call("create_account", "/v2/core/accounts", {
         // Plateforme française : display_name, contact_* et identity (sauf identity.country) exigent un
         // jeton de compte (account_token_required, recette DEV du 25/11/2026). Aucune de ces données
         // n'est envoyée : le gardien les saisit dans l'inscription hébergée par Stripe.
@@ -114,6 +145,7 @@ export function stripeOnboarding(
       // Compte créé avec Accounts v2 : Stripe recommande de suivre l'inscription par le statut des
       // capacités v2. Les champs v1 (charges_enabled…) ne sont pas documentés pour ces comptes.
       const result = await call(
+        "read_account",
         "/v2/core/accounts/" + accountId(account) +
           "?include[0]=configuration.merchant&include[1]=requirements",
       );
@@ -130,7 +162,7 @@ export function stripeOnboarding(
       };
     },
     async link(account) {
-      const link = await call("/v2/core/account_links", {
+      const link = await call("create_link", "/v2/core/account_links", {
         account: accountId(account),
         use_case: {
           type: "account_onboarding",
