@@ -35,7 +35,7 @@ Ce module n'est pas encore appelé par une fonction déployable : il ne remplace
 
 ### Adaptateur Checkout de test (27 novembre 2026)
 
-`supabase/functions/_shared/sitting-checkout.ts` prépare la création d'une session hébergée en paiement direct sur le compte connecté du gardien. Ce module n'est appelé par aucune route ou interface ; aucun paiement n'est ouvert par ce lot.
+`supabase/functions/_shared/sitting-checkout.ts` prépare la création d'une session hébergée en paiement direct sur le compte connecté du gardien. Il est désormais raccordé au point d'entrée serveur décrit ci-dessous, qui reste verrouillé ; aucune interface ne le sollicite et aucun paiement n'est ouvert.
 
 - Il exige une ouverture explicite, une clé `sk_test_…` et la plateforme Furrix DEV. La vérification de la plateforme se fait sans l'en-tête `Stripe-Account` ; seule la création de session porte cet en-tête, avec le compte du gardien.
 - Le contrat d'entrée est une tentative **à persister dans une future table privée** : UUID, compte connecté, tarif et unités figés, commission explicitement configurée, début et fin de la fenêtre de paiement. Le module ne fournit pas ces contrôles d'accès ni cette persistance. Ne jamais exposer son entrée telle quelle à un client.
@@ -47,11 +47,11 @@ Ce module n'est pas encore appelé par une fonction déployable : il ne remplace
 - Retours fixés côté serveur vers `#/garde?vue=mes-gardes`, avec `paiement=retour` ou `paiement=interrompu`. Ils ne prouvent pas un paiement et l'interface ne traite pas encore ces indicateurs.
 - Aucun nom de propriétaire, e-mail, nom d'animal ou texte libre transmis dans les paramètres préparés. Aucun appel Stripe réel, aucune migration et aucun déploiement effectués.
 
-Le registre ci-dessous prépare la réservation privée sous verrou. Son raccordement à une fonction authentifiée, les événements Connect signés et dédupliqués, la confirmation atomique de garde, l'annulation/remboursement et l'ouverture du navigateur sur les trois plateformes restent à réaliser. Tester le contrat avec Stripe avant toute activation.
+Le registre ci-dessous prépare la réservation privée sous verrou. Son raccordement serveur est décrit dans la section suivante. Les événements Connect signés et dédupliqués, la confirmation atomique de garde, l'annulation/remboursement et l'ouverture du navigateur sur les trois plateformes restent à réaliser. Tester le contrat avec Stripe avant toute activation.
 
 ### Registre privé des tentatives (27 novembre 2026)
 
-Migration préparée : `20261127121333_sitting_payment_attempts.sql`. **Non appliquée à DEV.** Elle ajoute un socle serveur, sans route appelante et sans activation de Checkout.
+Migration préparée : `20261127121333_sitting_payment_attempts.sql`. **Non appliquée à DEV.** Elle ajoute un socle serveur, raccordé dans le code au point d'entrée ci-dessous mais sans déploiement ni activation de Checkout.
 
 - Une seule tentative par demande, y compris après expiration ou résultat incertain. Aucun remplacement automatique : il faudra un rapprochement explicite avec Stripe avant toute nouvelle tentative. La clé d'idempotence reste dérivée de son UUID par l'adaptateur.
 - `prepare_sitting_checkout` est réservée au rôle serveur. Le futur point d'entrée doit authentifier le propriétaire, extraire son identifiant et son `session_id` du jeton vérifié, contrôler l'interrupteur, puis fournir la commission et la durée issues de la configuration serveur. Aucun de ces paramètres sensibles ne doit venir du corps client.
@@ -66,6 +66,24 @@ Migration préparée : `20261127121333_sitting_payment_attempts.sql`. **Non appl
 Pour une future application sur DEV : revue de la migration seule, puis contrôle des privilèges, RLS et fonctions ; toujours aucun `db push` en raison de l'écart d'historique déjà consigné. Ce lot ne requiert ni déploiement Edge ni nouvelle APK.
 
 Validation locale de ce lot : 183 tests SQL réussis (dont 11 pour ce registre), 29 tests de concurrence PostgreSQL réussis (dont 3 nouveaux scénarios), 454 tests applicatifs réussis, contrôle TypeScript et compilation web réussis. Aucun appel au service de paiement ni modification distante.
+
+### Point d'entrée serveur Checkout (27 novembre 2026)
+
+`supabase/functions/sitting-checkout/index.ts` raccorde le registre et l'adaptateur de test. La fonction n'est pas déployée ; aucune nouvelle migration n'est ajoutée par ce raccordement.
+
+- Contrat client : `POST {"request_id":"UUID de la demande"}`, avec un jeton Bearer. Tout champ supplémentaire (prix, compte, commission, URL…) est refusé. Le corps est limité à 1 024 octets pendant la lecture du flux, même sans `Content-Length` fiable.
+- Le jeton est vérifié auprès de Supabase Auth par `getUser(token)` **avant** toute extraction de ses déclarations. Son `sub` doit correspondre à l'utilisateur vérifié, son rôle doit être `authenticated` et son `session_id` un UUID. La base vérifie ensuite que cette session existe toujours et appartient au propriétaire. Aucun identifiant fourni dans le corps ne choisit le propriétaire.
+- Le serveur vérifie la plateforme Stripe avant de préparer la tentative, puis appelle `prepare_sitting_checkout` avec l'identité vérifiée et la configuration commerciale du serveur. Il relit les capacités du compte gardien (`card_payments` et versements) chez Stripe avant de demander Checkout. Les montants et le compte destinataire restent ceux du registre.
+- L'adaptateur reprend le corps figé et sa clé d'idempotence. Le résultat doit correspondre à la session déjà enregistrée, s'il y en a une. `attach_sitting_checkout` doit réussir avant de remettre un lien au navigateur ; sinon la réponse est indisponible et le prochain essai conserve la tentative. Le bail est libéré dans `finally`, sans supprimer le registre ; une libération échouée laisse son expiration technique jouer.
+- `200 checkout_ready` fournit uniquement le lien temporaire HTTPS vers `checkout.stripe.com`. `409 reconciliation_required` ne fournit aucun lien pour une session terminée ou expirée et **ne signifie jamais « payé »**. Les autres états sont `unauthorized` (401), `invalid` (400), `forbidden` (403), `busy`, `request_unavailable`, `onboarding_required` (409) et `unavailable` (503). Toutes les réponses portent `Cache-Control: no-store`. Les messages bruts de Stripe et de la base ne sont ni renvoyés ni journalisés.
+- Authentification de passerelle conservée : `verify_jwt=true`. Pas de client Stripe côté navigateur, pas de nouveau secret ou de nouvelle dépendance.
+- **Verrou d'ouverture supplémentaire dans le code :** `PAYMENT_LIFECYCLE_READY=false` dans `readiness.ts`. Même avec `FURRIX_STRIPE_CHECKOUT_ENABLED=true`, ce point d'entrée répond 503 avant Auth, la base et Stripe. Ce verrou ne pourra être levé que dans un lot revu raccordant les événements signés, la confirmation, l'annulation et le rapprochement.
+- Configuration future nécessaire, sans valeur par défaut : `FURRIX_SITTING_COMMISSION_BPS` et `FURRIX_SITTING_PAYMENT_WINDOW_SECONDS` ; clé sandbox existante `STRIPE_FURRIX_TEST_SECRET_KEY` et projet Furrix DEV uniquement. La durée doit laisser une marge pour créer la session Stripe avant sa limite technique minimale de 30 minutes. Commission, durée commerciale et règles d'annulation restent à décider avant activation.
+- Aucun appel réel à Stripe, aucune activation, aucune écriture distante, aucun parcours web/mobile ouvert. Le paiement reste à tester de bout en bout après le raccordement complet.
+
+Contrôles de ce raccordement : 491 tests applicatifs réussis, dont 37 nouveaux tests du serveur (interrupteur, identité vérifiée, corps borné, champs refusés, capacités du gardien, enregistrement avant retour, erreurs, reprise et libération du bail), contrôle TypeScript, compilation web, `deno check` et lint de la nouvelle fonction réussis. Le registre SQL est inchangé ; ses tests n'ont pas été relancés pour ce lot.
+
+Référence Auth : [validation serveur par getUser](https://supabase.com/docs/reference/javascript/auth-getuser).
 
 Références : [paiements directs avec Checkout](https://docs.stripe.com/connect/direct-charges?platform=web&ui=stripe-hosted), [création de session](https://docs.stripe.com/api/checkout/sessions/create), [idempotence Stripe](https://docs.stripe.com/api/idempotent_requests).
 
