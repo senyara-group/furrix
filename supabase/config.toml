@@ -97,3 +97,7 @@ verify_jwt = false
 # Gardien : JWT vérifié à nouveau auprès d'Auth ; uniquement Furrix DEV, désactivé par défaut côté serveur.
 [functions.sitter-stripe-onboarding]
 verify_jwt = true
+
+# Checkout de test : verrouillé dans le code tant que le cycle complet n'est pas raccordé.
+[functions.sitting-checkout]
+verify_jwt = true
