@@ -7,6 +7,7 @@ import MessagesArea from '../meetings/AfterMatch';
 import * as service from './service';
 import { AppError } from '../services/errors';
 import * as meetings from '../meetings/service';
+import * as location from '../meetings/location';
 import { countUnits, phaseOf } from './format';
 import type { MySitting, SitterResult, SittingRequest } from './types';
 
@@ -39,6 +40,19 @@ beforeEach(() => { sessionStorage.clear(); vi.spyOn(window, 'scrollTo').mockImpl
 afterEach(() => { cleanup(); vi.restoreAllMocks(); window.history.replaceState(null, '', '/'); });
 
 describe('garde', () => {
+  it('GPS coupé puis activé : indique la position dans le champ et cherche autour', async () => {
+    vi.spyOn(location, 'approximateLocation').mockRejectedValueOnce(new location.LocationError('unavailable')).mockResolvedValueOnce({ latitude: 50.63, longitude: 3.06 });
+    const search = vi.spyOn(service, 'searchSitters').mockResolvedValue([]);
+    open('#/garde');
+    fireEvent.click(await screen.findByRole('button', { name: 'Utiliser ma position' }));
+    await screen.findByText(location.locationMessage.unavailable);
+    fireEvent.click(screen.getByRole('button', { name: 'Utiliser ma position' }));
+    await waitFor(() => expect((screen.getByLabelText('Ville ou code postal') as HTMLInputElement).value).toBe('Autour de ma position'));
+    expect(screen.queryByText(location.locationMessage.unavailable)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Voir les gardiens' }));
+    await waitFor(() => expect(search).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ latitude: 50.63, longitude: 3.06 })));
+  });
+
   it('compte les nuits ou les jours comme la base, et lit la phase dans les dates', () => {
     expect(countUnits('chez_gardien', iso(3, 18), iso(5, 18))).toBe(2);
     expect(countUnits('chez_gardien', iso(3, 9), iso(3, 20))).toBe(1);

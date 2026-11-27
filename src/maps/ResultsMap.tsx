@@ -63,7 +63,7 @@ export const hasMapBackground = () => mapboxToken() !== null;
 export function ResultsMap({ label, points, center = null, radiusKm, status, selected, onSelect, onOpen, emptyText, sameSpot = 'au même endroit', positionNote, card, className }: ResultsMapProps) {
   const { isPhone } = useBreakpoint();
   const token = mapboxToken();
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<'graphics' | 'access' | 'loading' | null>(null);
   const real = token !== null && !failed && points.every((p) => p.position);
   const current = points.find((p) => p.id === selected) ?? null;
   // Activités placées au même endroit que la sélection (même commune) : navigation dans la mini-fiche.
@@ -80,7 +80,7 @@ export function ResultsMap({ label, points, center = null, radiusKm, status, sel
     className={['app-map', real && 'app-map--real', status !== 'ready' && 'app-map--dim', className].filter(Boolean).join(' ')}
     onClick={(e) => { if (!real && e.target === e.currentTarget) onSelect(null); }}>
     {real ? <MapboxLayer token={token} points={points} center={center} radiusKm={radiusKm} showPoints={status === 'ready'}
-      selected={selected} onSelect={onSelect} onFail={() => setFailed(true)} cooperative={!isPhone} sameSpot={sameSpot} />
+      selected={selected} onSelect={onSelect} onFail={setFailed} cooperative={!isPhone} sameSpot={sameSpot} />
       : <>
         <svg className="app-map__radius" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
           <ellipse cx="50" cy="48" rx="42" ry="33.6" vectorEffect="non-scaling-stroke" />
@@ -110,6 +110,11 @@ export function ResultsMap({ label, points, center = null, radiusKm, status, sel
     </div>}
   </MapFrame>
     {real ? positionNote && <Note>{positionNote}</Note>
-      : <Note>Carte schématique : seule la distance est réelle, arrondie ; la direction des repères est indicative.</Note>}
+      : <Note><span role="status">{!token ? 'Le fond de carte n’est pas configuré pour cette version.'
+        : failed === 'graphics' ? 'Le fond de carte n’est pas pris en charge par cet appareil ou ce navigateur.'
+        : failed === 'access' ? 'L’accès au fond de carte a été refusé.'
+        : failed ? 'Le fond de carte n’a pas pu être chargé. Vérifie ta connexion.'
+        : 'Les positions nécessaires au fond de carte sont indisponibles.'} </span>
+        Carte schématique : seule la distance est réelle, arrondie ; la direction des repères est indicative.</Note>}
   </>;
 }

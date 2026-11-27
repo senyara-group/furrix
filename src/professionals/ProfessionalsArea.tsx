@@ -321,6 +321,7 @@ function Directory({
   }));
   const locate = async (gps = false) => {
     if (locating) return;
+    if (!gps && town === "Autour de ma position" && search.position) return;
     const version = ++request.current;
     setLocating(true);
     setLocationError("");
@@ -328,16 +329,15 @@ function Directory({
       const position = gps
         ? await approximateLocation()
         : await locateTown(town, AbortSignal.timeout(15000));
-      if (alive.current && version === request.current)
+      if (alive.current && version === request.current) {
+        const label = gps ? "Autour de ma position" : "label" in position ? String(position.label) : town;
+        if (gps) setTown(label);
         onSearch((current) => ({
           ...current,
           position,
-          label: gps
-            ? "Autour de ma position"
-            : "label" in position
-              ? String(position.label)
-              : town,
+          label,
         }));
+      }
     } catch (e) {
       if (alive.current && version === request.current)
         setLocationError(
@@ -390,7 +390,7 @@ function Directory({
                   }}
                 />
               </Field>
-              <Button type="submit" variant="out" loading={locating}>
+              <Button type="submit" variant="out" loading={locating} disabled={town === "Autour de ma position" && !!search.position}>
                 Trouver la ville
               </Button>
               <Button

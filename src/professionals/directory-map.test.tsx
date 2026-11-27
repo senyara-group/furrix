@@ -36,6 +36,20 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); window.history.replaceState(null, "", "/"); });
 
 describe("carte de l’annuaire Services", () => {
+  it("GPS coupé puis activé : réessaie et affiche le lieu dans le champ", async () => {
+    vi.mocked(location.approximateLocation).mockRejectedValueOnce(new LocationError('unavailable')).mockResolvedValueOnce({ latitude: 50.63, longitude: 3.06 });
+    open();
+    fireEvent.click(screen.getByRole('button', { name: 'Utiliser ma position' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('Vérifie que la localisation est activée');
+    fireEvent.click(screen.getByRole('button', { name: 'Utiliser ma position' }));
+    await waitFor(() => expect((screen.getByLabelText('Ville ou code postal') as HTMLInputElement).value).toBe('Autour de ma position'));
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect((screen.getByRole('button', { name: 'Trouver la ville' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(location.locateTown).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('Ville ou code postal'), { target: { value: 'Lille' } });
+    expect((screen.getByRole('button', { name: 'Trouver la ville' }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it("un repère par résultat, synchronisé avec la liste dans les deux sens", async () => {
     desktop();
     open();

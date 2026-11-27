@@ -42,6 +42,13 @@ Les trois cartes de l'app utilisent désormais `ResultsMap` et le même fond Map
 
 ## Validation
 
+### Retours de localisation (27 novembre 2026)
+
+- Android : `getCurrentPosition` utilise le parcours natif de demande d'autorisation et de résolution des réglages de localisation. Le préappel `requestPermissions`, qui échoue quand les services sont coupés, est évité sur Android. La confirmation reste à la personne ; seule la permission approximative est déclarée. Le dialogue système doit encore être essayé sur appareil.
+- Services et Garde : après réussite du GPS, le champ affiche « Autour de ma position ». Une nouvelle saisie permet de revenir à la recherche par ville. Les messages ne supposent plus Windows ni un champ placé sous le bouton.
+- Le mode schématique précise désormais si le fond est non configuré, refusé, incompatible avec le rendu graphique ou impossible à charger. L'absence de résultat reste indépendante de la disponibilité du fond.
+- Diagnostic web : le fichier `ResultsMap` servi par furrix.fr ne contient ni jeton ni chargement Mapbox au moment du contrôle. Configurer `VITE_MAPBOX_TOKEN_WEB` dans Vercel pour la production puis reconstruire est nécessaire. Le jeton de l'application reste dans `.env.mobile.local`, ignoré par Git.
+
 Lot Garde et Rencontres (26 novembre 2026) : Vitest 399/399 dont 2 scénarios (`src/maps/mapbox-map.test.tsx`) — Garde : gardiens du même secteur réunis, sélection liste ↔ carte, mini-fiche → gardien ; Rencontres : profils par secteur autour de sa zone, profil sans zone signalé, mini-fiche → fiche. Tests SQL 172/172 (secteurs renvoyés, `null` sans zone, retours arrière dans l'ordre). Aperçu navigateur à 375 px avec le vrai jeton : cadrage « Sans limite » sur tous les profils. Non vérifié connecté sur les données DEV ni sur un vrai téléphone.
 
 Lot Mapbox (26 novembre 2026) :
