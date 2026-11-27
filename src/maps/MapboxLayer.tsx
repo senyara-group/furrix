@@ -20,7 +20,7 @@ export interface MapboxLayerProps {
   selected: string | null;
   onSelect: (id: string | null) => void;
   /** Jeton refusé, bibliothèque introuvable ou WebGL absent : la carte schématique prend le relais. */
-  onFail: () => void;
+  onFail: (reason: 'graphics' | 'access' | 'loading') => void;
   /** Ordinateur : la molette fait défiler la page, Ctrl + molette zoome. */
   cooperative: boolean;
   /** « au même endroit » ou « dans le même secteur » (voir ResultsMap). */
@@ -57,10 +57,10 @@ export function MapboxLayer({ token, points, center, radiusKm, showPoints, selec
         try {
           taken = takeMap(lib, token, el, cooperative);
           setPooled(taken);
-        } catch {
-          onFailRef.current();
+        } catch (error) {
+          onFailRef.current(error instanceof Error && /webgl/i.test(error.message) ? 'graphics' : 'loading');
         }
-      }).catch(() => { if (!cancelled) onFailRef.current(); });
+      }).catch(() => { if (!cancelled) onFailRef.current('loading'); });
     };
     const observer = typeof IntersectionObserver === 'undefined' ? null
       : new IntersectionObserver((entries) => { if (entries.some((e) => e.isIntersecting)) start(); });
@@ -93,7 +93,7 @@ export function MapboxLayer({ token, points, center, radiusKm, showPoints, selec
     };
     const error = (e: { error: Error }) => {
       const status = (e.error as Error & { status?: number }).status;
-      if (status === 401 || status === 403) onFailRef.current();
+      if (status === 401 || status === 403) onFailRef.current('access');
     };
     map.on('click', click);
     map.on('error', error);

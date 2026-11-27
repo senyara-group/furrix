@@ -60,10 +60,14 @@ function CriteriaPanel({ pets, criteria, onApply, onClose }: { pets: PetRow[]; c
   useEffect(()=>()=>{locationVersion.current++;},[]);
   const set = (next: Partial<Criteria>) => setDraft((d) => ({ ...d, ...next }));
   const locate = async (how: 'town' | 'device') => {
+    if (how === 'town' && town === 'Autour de ma position' && draft.place) return;
     const version=++locationVersion.current;setLocating(how); setError('');
     try {
       const found = how === 'town' ? await locateTown(town,AbortSignal.timeout(15000)) : { ...(await approximateLocation()), label: 'Autour de ma position' };
-      if(version===locationVersion.current)set({ place: { label: found.label, latitude: found.latitude, longitude: found.longitude } });
+      if(version===locationVersion.current) {
+        if (how === 'device') setTown(found.label);
+        set({ place: { label: found.label, latitude: found.latitude, longitude: found.longitude } });
+      }
     } catch (e) { if(version===locationVersion.current)setError(e instanceof LocationError ? locationMessage[e.reason] : 'Le lieu n’a pas pu être trouvé. Réessaie.'); }
     finally { if(version===locationVersion.current)setLocating(null); }
   };
@@ -89,7 +93,7 @@ function CriteriaPanel({ pets, criteria, onApply, onClose }: { pets: PetRow[]; c
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void locate('town'); } }} />
       </Field>
       <Row className="gd-locate">
-        <Button variant="out" size="sm" icon="search" loading={locating === 'town'} disabled={!!locating || town.trim().length < 2} onClick={() => { void locate('town'); }}>Trouver la ville</Button>
+        <Button variant="out" size="sm" icon="search" loading={locating === 'town'} disabled={!!locating || town.trim().length < 2 || (town === 'Autour de ma position' && !!draft.place)} onClick={() => { void locate('town'); }}>Trouver la ville</Button>
         <Button variant="quiet" size="sm" icon="pin" loading={locating === 'device'} disabled={!!locating} onClick={() => { void locate('device'); }}>Utiliser ma position</Button>
       </Row>
       {error ? <p className="fx-field__error" role="alert">{error}</p> : null}

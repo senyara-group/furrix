@@ -12,7 +12,9 @@ export class LocationError extends Error {
 /** Déclenché seulement par une action explicite, jamais en arrière-plan. Arrondi à environ 1 km. */
 export async function approximateLocation(): Promise<ApproximatePosition> {
   try {
-    if (Capacitor.isNativePlatform()) {
+    // Android : getCurrentPosition demande lui-même l'autorisation approximative et peut
+    // proposer l'activation des services. requestPermissions échoue avant ce dialogue si le GPS est coupé.
+    if (Capacitor.isNativePlatform() && Capacitor.getPlatform() !== 'android') {
       const permissions = await Geolocation.requestPermissions({ permissions: ['coarseLocation'] });
       if (permissions.coarseLocation !== 'granted') throw new LocationError('denied');
     }
@@ -21,9 +23,9 @@ export async function approximateLocation(): Promise<ApproximatePosition> {
   } catch (error) {
     if (error instanceof LocationError) throw error;
     // Erreur du navigateur (GeolocationPositionError) : 1 refus, 2 indisponible, 3 délai dépassé.
-    const code = (error as { code?: number })?.code;
+    const code = (error as { code?: number | string })?.code;
     const text = String((error as { message?: string })?.message ?? '').toLowerCase();
-    throw new LocationError(code === 1 || text.includes('denied') ? 'denied' : code === 3 || text.includes('timeout') ? 'timeout' : 'unavailable');
+    throw new LocationError(code === 1 || code === 'OS-PLUG-GLOC-0003' || text.includes('denied') ? 'denied' : code === 3 || code === 'OS-PLUG-GLOC-0010' || text.includes('timeout') ? 'timeout' : 'unavailable');
   }
 }
 
@@ -48,9 +50,9 @@ export async function locateTown(query: string, signal?: AbortSignal): Promise<A
 }
 
 export const locationMessage: Record<LocationError['reason'], string> = {
-  denied: 'Ton navigateur a refusé la localisation. Autorise-la dans ses réglages, ou indique ta ville ci-dessous.',
-  unavailable: 'Ton appareil ne trouve pas ta position (localisation désactivée dans Windows ou le navigateur). Indique ta ville ci-dessous.',
-  timeout: 'La position met trop de temps à arriver. Réessaie, ou indique ta ville ci-dessous.',
+  denied: 'La localisation n’est pas autorisée. Vérifie les autorisations de l’application ou du navigateur, ou saisis une ville.',
+  unavailable: 'Ton appareil ne trouve pas ta position. Vérifie que la localisation est activée, puis réessaie, ou saisis une ville.',
+  timeout: 'La position met trop de temps à arriver. Réessaie, ou saisis une ville.',
   not_found: 'Ville introuvable. Vérifie l’orthographe ou essaie le code postal.',
   network: 'La recherche de la ville n’a pas abouti. Vérifie ta connexion et réessaie.',
 };
