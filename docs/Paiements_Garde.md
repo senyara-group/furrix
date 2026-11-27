@@ -47,7 +47,25 @@ Ce module n'est pas encore appelé par une fonction déployable : il ne remplace
 - Retours fixés côté serveur vers `#/garde?vue=mes-gardes`, avec `paiement=retour` ou `paiement=interrompu`. Ils ne prouvent pas un paiement et l'interface ne traite pas encore ces indicateurs.
 - Aucun nom de propriétaire, e-mail, nom d'animal ou texte libre transmis dans les paramètres préparés. Aucun appel Stripe réel, aucune migration et aucun déploiement effectués.
 
-Les prochains lots restent : réservation privée sous verrou, fonction authentifiée, événements Connect signés et dédupliqués, confirmation atomique de garde, annulation/remboursement et ouverture du navigateur sur les trois plateformes. Tester le contrat avec Stripe avant toute activation.
+Le registre ci-dessous prépare la réservation privée sous verrou. Son raccordement à une fonction authentifiée, les événements Connect signés et dédupliqués, la confirmation atomique de garde, l'annulation/remboursement et l'ouverture du navigateur sur les trois plateformes restent à réaliser. Tester le contrat avec Stripe avant toute activation.
+
+### Registre privé des tentatives (27 novembre 2026)
+
+Migration préparée : `20261127121333_sitting_payment_attempts.sql`. **Non appliquée à DEV.** Elle ajoute un socle serveur, sans route appelante et sans activation de Checkout.
+
+- Une seule tentative par demande, y compris après expiration ou résultat incertain. Aucun remplacement automatique : il faudra un rapprochement explicite avec Stripe avant toute nouvelle tentative. La clé d'idempotence reste dérivée de son UUID par l'adaptateur.
+- `prepare_sitting_checkout` est réservée au rôle serveur. Le futur point d'entrée doit authentifier le propriétaire, extraire son identifiant et son `session_id` du jeton vérifié, contrôler l'interrupteur, puis fournir la commission et la durée issues de la configuration serveur. Aucun de ces paramètres sensibles ne doit venir du corps client.
+- La base revérifie la session dans `auth.sessions`, l'accès bêta des deux parties, les comptes ouverts, le propriétaire de la demande et de l'animal, les blocages, l'accord du gardien, ses jours, absences et sa capacité. La demande acceptée compte déjà dans sa capacité : elle n'est pas comptée deux fois. Le compte connecté doit appartenir à la liaison Furrix DEV du gardien. Ses capacités Stripe devront encore être relues par la fonction serveur avant de payer.
+- Verrous : paire de comptes, calendrier du gardien, profils pour coordonner la suppression, demande puis tentative. Les tarifs et unités viennent de la demande acceptée, pas de l'offre courante. Total et commission en centimes sont figés avec les secondes Unix de préparation/expiration. Un changement de configuration ne modifie pas une tentative existante.
+- Un bail technique de deux minutes sérialise les préparations. Après une coupure, une reprise conserve le même UUID et le même corps Stripe. La libération exige le jeton du bail concerné ; un ancien appel ne libère pas son remplaçant. Ce bail n'est pas le délai commercial de paiement, qui reste à décider.
+- `attach_sitting_checkout` conserve seulement un identifiant `cs_test_…`, jamais une URL. Le même résultat est rejouable après expiration du bail, un autre identifiant est refusé. Cette écriture n'atteste **pas** un paiement et ne confirme aucune garde.
+- Table protégée par RLS, sans politique client ni accès `anon`/`authenticated`. Le rôle serveur peut la lire ; ses écritures passent par les trois fonctions internes. Aucun secret, nom, message ou lien Stripe n'est stocké dans ce registre.
+- Garde-fou conservateur : toute modification ou suppression d'une demande ayant une tentative est refusée. Cela inclut retrait, refus, expiration automatique et confirmation. La suppression des comptes concernés est également bloquée, avec un motif « paiement » dans Mon compte. **Ce n'est pas encore le parcours d'annulation définitif** : il faudra raccorder expiration Stripe, événements signés, rapprochement et remboursement, puis remplacer ce garde-fou. Ne pas activer les paiements avant ce raccordement.
+- Tests sur une base locale jetable, sans appel Stripe. Trois scénarios supplémentaires sur un vrai PostgreSQL local provoquent une attente de verrou entre deux connexions : double préparation, retrait avant préparation, préparation avant retrait. Ils vérifient les deux ordres possibles sans se fier au seul timing. Les conseillers de la base distante ne sont pas exécutés : la migration n'y est pas appliquée.
+
+Pour une future application sur DEV : revue de la migration seule, puis contrôle des privilèges, RLS et fonctions ; toujours aucun `db push` en raison de l'écart d'historique déjà consigné. Ce lot ne requiert ni déploiement Edge ni nouvelle APK.
+
+Validation locale de ce lot : 183 tests SQL réussis (dont 11 pour ce registre), 29 tests de concurrence PostgreSQL réussis (dont 3 nouveaux scénarios), 454 tests applicatifs réussis, contrôle TypeScript et compilation web réussis. Aucun appel au service de paiement ni modification distante.
 
 Références : [paiements directs avec Checkout](https://docs.stripe.com/connect/direct-charges?platform=web&ui=stripe-hosted), [création de session](https://docs.stripe.com/api/checkout/sessions/create), [idempotence Stripe](https://docs.stripe.com/api/idempotent_requests).
 

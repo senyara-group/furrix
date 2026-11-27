@@ -248,6 +248,34 @@ test('rencontres : concurrence sur plusieurs sessions PostgreSQL', { skip: url ?
     });
     const deletionAccount=async()=>{const u=uuid(),p=uuid();await admin.query('insert into auth.users(id) values($1)',[u]);await admin.query("insert into private_beta_members(user_id,expires_at,accepted_at,notice_version,declared_adult) values($1,null,now(),'2026-11-17',true)",[u]);await admin.query("insert into pets(id,owner_id,name,species) values($1,$2,'Test suppression','chien')",[p,u]);return{u,p};};
     const newGuard=async()=>{const account=await deletionAccount();await caller(target,account.u)("select save_sitter_profile('particulier','Présentation de test suffisamment longue.','Lille',50.63,3.06,array['chien'],null,'sans_jardin',$1::jsonb,true)",[JSON.stringify([{service:'chez_gardien',price_cents:2000}])]);return account;};
+    const checkoutFixture=async()=>{
+      const g=await newGuard(),d=await deletionAccount(),sid=uuid();
+      await admin.query('insert into auth.sessions(id,user_id) values($1,$2)',[sid,d.u]);
+      await admin.query("insert into sitter_stripe_accounts(user_id,platform_id,stripe_account_id) values($1,'acct_1UfdgzLRlPFxqD3K',$2)",[g.u,'acct_'+uuid().replaceAll('-','')]);
+      const [r]=await caller(target,d.u)("select * from create_sitting_request($1,$2,'chez_gardien',$3,$4,null,$5)",[g.u,d.p,start,end,uuid()]);
+      await caller(target,g.u)("select update_sitting_request($1,'accept')",[r.id]);
+      return {g,d,sid,r,args:[r.id,d.u,sid,1000,3600]};
+    };
+    const checkoutSQL='select prepare_sitting_checkout($1,$2,$3,$4,$5) result';
+    await t.test('paiement : deux préparations concurrentes ne créent qu’une tentative et un bail',async()=>{
+      const f=await checkoutFixture();
+      const out=await race(f.d.u,checkoutSQL,f.args,checkoutSQL,f.args,f.d.u,'advisory','service_role','service_role');
+      assert.equal(out.first[0].result.saved.request.owner_id,f.d.u);
+      assert.deepEqual(out.next,{ok:false,code:'55P03'});
+      assert.equal((await admin.query('select count(*)::int n from sitting_payment_attempts where sitting_id=$1',[f.r.id])).rows[0].n,1);
+    });
+    await t.test('paiement : un retrait validé pendant l’attente interdit la préparation',async()=>{
+      const f=await checkoutFixture();
+      const out=await race(f.d.u,"select update_sitting_request($1,'withdraw')",[f.r.id],checkoutSQL,f.args,f.d.u,'advisory','authenticated','service_role');
+      assert.deepEqual(out.next,{ok:false,code:'55000'});
+      assert.equal((await admin.query('select count(*)::int n from sitting_payment_attempts where sitting_id=$1',[f.r.id])).rows[0].n,0);
+    });
+    await t.test('paiement : une préparation validée pendant l’attente interdit le retrait non coordonné',async()=>{
+      const f=await checkoutFixture();
+      const out=await race(f.d.u,checkoutSQL,f.args,"select update_sitting_request($1,'withdraw')",[f.r.id],f.d.u,'advisory','service_role','authenticated');
+      assert.deepEqual(out.next,{ok:false,code:'55000'});
+      assert.equal((await admin.query('select status from sitting_requests where id=$1',[f.r.id])).rows[0].status,'accepted');
+    });
     await t.test('compte : une demande reçue après acceptation attend puis échoue',async()=>{
       const g=await newGuard(),d=await deletionAccount();
       const out=await race(g.u,'select request_account_deletion($1)',[g.u],'select * from create_sitting_request($1,$2,$3,$4,$5,$6,$7)',[g.u,d.p,'chez_gardien',start,end,'Bonjour',uuid()],d.u,'transactionid','service_role');
